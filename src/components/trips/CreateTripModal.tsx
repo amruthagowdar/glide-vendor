@@ -347,7 +347,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   {/* Sub-Option 2: Terminal 1 vs Terminal 2 */}
                   <div>
                     <label className="text-xs font-bold text-slate-700 block mb-2">
-                      2. Select BLR Airport Terminal (Static Location) *
+                      2. Select BLR Airport Terminal *
                     </label>
                     <div className="grid grid-cols-2 gap-3">
                       <button
@@ -466,16 +466,11 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
               {/* Pickup & Drop Inputs */}
               {serviceType === 'RAC' ? (
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Airport Pickup: Pickup is Fixed (Static), Drop is Dynamic */}
+                  {/* Airport Pickup: Pickup is Fixed Airport, Drop is Dynamic */}
                   {airportDirection === 'PICKUP' ? (
                     <>
                       <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="label">Pickup Location</label>
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                            Static BLR Airport
-                          </span>
-                        </div>
+                        <label className="label">Pickup Location</label>
                         <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/90 text-xs font-medium text-slate-800 flex items-start gap-2 shadow-inner">
                           <MapPin className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
                           <span className="leading-tight">{pickup}</span>
@@ -483,65 +478,60 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                       </div>
 
                       <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="label">Drop Location (Dynamic) *</label>
+                        <label className="label">Drop Location *</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="Enter destination address in Bengaluru"
+                            value={drop}
+                            onChange={(e) => setDrop(e.target.value)}
+                            className="input text-xs sm:text-sm pr-9"
+                            required
+                          />
                           <button
                             type="button"
                             onClick={() => {
                               setMapTargetField('drop')
                               setIsMapModalOpen(true)
                             }}
-                            className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-sky-600 hover:text-sky-800 hover:bg-sky-50 transition-colors"
+                            title="Select location on Map"
                           >
-                            <Navigation className="w-3.5 h-3.5" />
-                            <span>Select on Map / GMap</span>
+                            <MapPin className="w-4 h-4" />
                           </button>
                         </div>
-                        <input
-                          type="text"
-                          placeholder="Enter destination address in Bengaluru"
-                          value={drop}
-                          onChange={(e) => setDrop(e.target.value)}
-                          className="input text-xs sm:text-sm"
-                          required
-                        />
                       </div>
                     </>
                   ) : (
-                    /* Airport Drop: Pickup is Dynamic, Drop is Fixed (Static) */
+                    /* Airport Drop: Pickup is Dynamic, Drop is Fixed Airport */
                     <>
                       <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="label">Pickup Location (Dynamic) *</label>
+                        <label className="label">Pickup Location *</label>
+                        <div className="relative">
+                          <input
+                            type="text"
+                            placeholder="Enter pickup address in Bengaluru"
+                            value={pickup}
+                            onChange={(e) => setPickup(e.target.value)}
+                            className="input text-xs sm:text-sm pr-9"
+                            required
+                          />
                           <button
                             type="button"
                             onClick={() => {
                               setMapTargetField('pickup')
                               setIsMapModalOpen(true)
                             }}
-                            className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-sky-600 hover:text-sky-800 hover:bg-sky-50 transition-colors"
+                            title="Select location on Map"
                           >
-                            <Navigation className="w-3.5 h-3.5" />
-                            <span>Select on Map / GMap</span>
+                            <MapPin className="w-4 h-4" />
                           </button>
                         </div>
-                        <input
-                          type="text"
-                          placeholder="Enter pickup address in Bengaluru"
-                          value={pickup}
-                          onChange={(e) => setPickup(e.target.value)}
-                          className="input text-xs sm:text-sm"
-                          required
-                        />
                       </div>
 
                       <div>
-                        <div className="flex items-center justify-between mb-1">
-                          <label className="label">Drop Location</label>
-                          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800">
-                            Static BLR Airport
-                          </span>
-                        </div>
+                        <label className="label">Drop Location</label>
                         <div className="p-3 rounded-xl bg-slate-50 border border-slate-200/90 text-xs font-medium text-slate-800 flex items-start gap-2 shadow-inner">
                           <MapPin className="w-4 h-4 text-emerald-600 flex-shrink-0 mt-0.5" />
                           <span className="leading-tight">{drop}</span>
@@ -554,52 +544,52 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 /* Standard Non-Airport Route Inputs */
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="label">Pickup Location *</label>
+                    <label className="label">Pickup Location *</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Enter pickup address"
+                        value={pickup}
+                        onChange={(e) => setPickup(e.target.value)}
+                        className="input text-xs sm:text-sm pr-9"
+                        required
+                      />
                       <button
                         type="button"
                         onClick={() => {
                           setMapTargetField('pickup')
                           setIsMapModalOpen(true)
                         }}
-                        className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-sky-600 hover:text-sky-800 hover:bg-sky-50 transition-colors"
+                        title="Select location on Map"
                       >
-                        <Navigation className="w-3.5 h-3.5" />
-                        <span>Select on Map / GMap</span>
+                        <MapPin className="w-4 h-4" />
                       </button>
                     </div>
-                    <input
-                      type="text"
-                      placeholder="Enter pickup address"
-                      value={pickup}
-                      onChange={(e) => setPickup(e.target.value)}
-                      className="input text-xs sm:text-sm"
-                      required
-                    />
                   </div>
                   <div>
-                    <div className="flex items-center justify-between mb-1">
-                      <label className="label">Drop Location *</label>
+                    <label className="label">Drop Location *</label>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Enter destination address"
+                        value={drop}
+                        onChange={(e) => setDrop(e.target.value)}
+                        className="input text-xs sm:text-sm pr-9"
+                        required
+                      />
                       <button
                         type="button"
                         onClick={() => {
                           setMapTargetField('drop')
                           setIsMapModalOpen(true)
                         }}
-                        className="text-xs text-blue-600 hover:text-blue-800 font-bold flex items-center gap-1"
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-md text-sky-600 hover:text-sky-800 hover:bg-sky-50 transition-colors"
+                        title="Select location on Map"
                       >
-                        <Navigation className="w-3.5 h-3.5" />
-                        <span>Select on Map / GMap</span>
+                        <MapPin className="w-4 h-4" />
                       </button>
                     </div>
-                    <input
-                      type="text"
-                      placeholder="Enter destination address"
-                      value={drop}
-                      onChange={(e) => setDrop(e.target.value)}
-                      className="input text-xs sm:text-sm"
-                      required
-                    />
                   </div>
                 </div>
               )}
