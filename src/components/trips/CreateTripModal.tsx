@@ -6,10 +6,9 @@ import { ServiceCard } from '../ui/ServiceCard'
 import { LocationMapModal } from './LocationMapModal'
 import { vendorApi } from '../../lib/api'
 import { formatCurrency } from '../../lib/utils'
-import type { ServiceType, Driver, Vehicle, Wallet } from '../../types'
+import type { ServiceType, Wallet } from '../../types'
 import {
   Check,
-  AlertTriangle,
   ArrowRight,
   ArrowLeft,
   Plane,
@@ -33,17 +32,6 @@ const BLR_TERMINALS = {
   T2: 'Kempegowda International Airport - Terminal 2 (T2), Devanahalli, Bengaluru, Karnataka 560300',
 }
 
-const POPULAR_HUBS = [
-  'Manyata Tech Park',
-  'Indiranagar',
-  'Koramangala',
-  'MG Road',
-  'Whitefield ITPL',
-  'Electronic City',
-  'Hebbal',
-  'HSR Layout',
-]
-
 export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   isOpen,
   onClose,
@@ -51,7 +39,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   initialServiceType = 'RAC',
 }) => {
   const queryClient = useQueryClient()
-  const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
+  const [step, setStep] = useState<1 | 2 | 3>(1)
 
   // Step 1: Service
   const [serviceType, setServiceType] = useState<ServiceType>(initialServiceType)
@@ -64,7 +52,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   const [isMapModalOpen, setIsMapModalOpen] = useState(false)
   const [mapTargetField, setMapTargetField] = useState<'pickup' | 'drop'>('drop')
 
-  // Step 2: Passenger & Route
+  // Step 2: Passenger, Route & Fare
   const [passengerName, setPassengerName] = useState('')
   const [passengerPhone, setPassengerPhone] = useState('')
   const [pickup, setPickup] = useState('')
@@ -73,12 +61,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     new Date().toISOString().split('T')[0]
   )
   const [scheduledTime, setScheduledTime] = useState('10:00')
-  const [notes, setNotes] = useState('')
-
-  // Step 3: Driver & Vehicle & Fare
-  const [driverId, setDriverId] = useState('')
-  const [vehicleId, setVehicleId] = useState('')
   const [tripAmount, setTripAmount] = useState<string>('1200')
+  const [notes, setNotes] = useState('')
 
   // Synchronize Airport Transfer Static/Dynamic Locations
   useEffect(() => {
@@ -97,22 +81,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   const { data: wallet } = useQuery<Wallet>({
     queryKey: ['wallet'],
     queryFn: async () => (await vendorApi.getWallet()).data,
-  })
-
-  const { data: drivers = [] } = useQuery<Driver[]>({
-    queryKey: ['drivers-active'],
-    queryFn: async () => {
-      const res = await vendorApi.getDrivers({ isActive: 'true' })
-      return res.data?.data || res.data || []
-    },
-  })
-
-  const { data: vehicles = [] } = useQuery<Vehicle[]>({
-    queryKey: ['vehicles-active'],
-    queryFn: async () => {
-      const res = await vendorApi.getVehicles({ isActive: 'true' })
-      return res.data?.data || res.data || []
-    },
   })
 
   const fareNum = parseFloat(tripAmount) || 0
@@ -135,8 +103,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         drop,
         scheduledDate,
         scheduledTime,
-        driverId: driverId || undefined,
-        vehicleId: vehicleId || undefined,
         tripAmount: fareNum,
         notes: notes || undefined,
       }
@@ -165,8 +131,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     setPassengerPhone('')
     setPickup(BLR_TERMINALS.T1)
     setDrop('')
-    setDriverId('')
-    setVehicleId('')
     setTripAmount('1200')
     setNotes('')
   }
@@ -184,10 +148,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       toast.error('Please enter both pickup and drop locations')
       return false
     }
-    return true
-  }
-
-  const validateStep3 = () => {
     if (fareNum <= 0) {
       toast.error('Trip amount must be greater than ₹0')
       return false
@@ -197,16 +157,12 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 
   const handleNext = () => {
     if (step === 2 && !validateStep2()) return
-    if (step === 3 && !validateStep3()) return
-    setStep((prev) => Math.min(prev + 1, 4) as 1 | 2 | 3 | 4)
+    setStep((prev) => Math.min(prev + 1, 3) as 1 | 2 | 3)
   }
 
   const handleBack = () => {
-    setStep((prev) => Math.max(prev - 1, 1) as 1 | 2 | 3 | 4)
+    setStep((prev) => Math.max(prev - 1, 1) as 1 | 2 | 3)
   }
-
-  const selectedDriver = drivers.find((d) => d.id === driverId)
-  const selectedVehicle = vehicles.find((v) => v.id === vehicleId)
 
   return (
     <>
@@ -240,7 +196,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
               >
                 Cancel
               </button>
-              {step < 4 ? (
+              {step < 3 ? (
                 <button
                   type="button"
                   onClick={handleNext}
@@ -271,14 +227,13 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         }
       >
         <div className="space-y-6">
-          {/* Step Progress Bar */}
+          {/* Step Progress Bar - 3 Steps */}
           <div className="flex items-center justify-between relative">
             <div className="absolute top-1/2 left-0 right-0 h-0.5 bg-sky-100 -translate-y-1/2 z-0" />
             {[
               { num: 1, label: 'Service' },
               { num: 2, label: 'Passenger & Route' },
-              { num: 3, label: 'Driver & Vehicle' },
-              { num: 4, label: 'Review & Confirm' },
+              { num: 3, label: 'Review & Confirm' },
             ].map((s) => {
               const isDone = step > s.num
               const isCurrent = step === s.num
@@ -437,7 +392,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
             </div>
           )}
 
-          {/* Step 2: Passenger & Route */}
+          {/* Step 2: Passenger & Route & Fare */}
           {step === 2 && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -474,7 +429,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                     </div>
                     <div>
                       <p className="text-xs font-bold text-sky-950">
-                        {airportDirection === 'PICKUP' ? '✈️ BLR Airport Pickup' : '🛫 BLR Airport Drop'}
+                        {airportDirection === 'PICKUP' ? 'BLR Airport Pickup' : 'BLR Airport Drop'}
                       </p>
                       <p className="text-[11px] text-sky-800">
                         Fixed Airport Location: <span className="font-semibold">Terminal {airportTerminal === 'T1' ? '1 (T1)' : '2 (T2)'}</span>
@@ -544,24 +499,12 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                         </div>
                         <input
                           type="text"
-                          placeholder="Enter destination in Bengaluru (e.g. Indiranagar, ITPL)"
+                          placeholder="Enter destination address in Bengaluru"
                           value={drop}
                           onChange={(e) => setDrop(e.target.value)}
                           className="input text-xs sm:text-sm"
                           required
                         />
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {POPULAR_HUBS.map((hub) => (
-                            <button
-                              key={hub}
-                              type="button"
-                              onClick={() => setDrop(`${hub}, Bengaluru`)}
-                              className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-sky-50 text-slate-600 hover:text-sky-700 font-medium border border-slate-200/70"
-                            >
-                              {hub}
-                            </button>
-                          ))}
-                        </div>
                       </div>
                     </>
                   ) : (
@@ -590,18 +533,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                           className="input text-xs sm:text-sm"
                           required
                         />
-                        <div className="flex flex-wrap gap-1 mt-1.5">
-                          {POPULAR_HUBS.map((hub) => (
-                            <button
-                              key={hub}
-                              type="button"
-                              onClick={() => setPickup(`${hub}, Bengaluru`)}
-                              className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-sky-50 text-slate-600 hover:text-sky-700 font-medium border border-slate-200/70"
-                            >
-                              {hub}
-                            </button>
-                          ))}
-                        </div>
                       </div>
 
                       <div>
@@ -645,18 +576,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                       className="input text-xs sm:text-sm"
                       required
                     />
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {POPULAR_HUBS.slice(0, 4).map((hub) => (
-                        <button
-                          key={hub}
-                          type="button"
-                          onClick={() => setPickup(`${hub}, Bengaluru`)}
-                          className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-sky-50 text-slate-600 hover:text-sky-700 font-medium border border-slate-200/70"
-                        >
-                          {hub}
-                        </button>
-                      ))}
-                    </div>
                   </div>
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -681,18 +600,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                       className="input text-xs sm:text-sm"
                       required
                     />
-                    <div className="flex flex-wrap gap-1 mt-1.5">
-                      {POPULAR_HUBS.slice(0, 4).map((hub) => (
-                        <button
-                          key={hub}
-                          type="button"
-                          onClick={() => setDrop(`${hub}, Bengaluru`)}
-                          className="text-[10px] px-2 py-0.5 rounded-md bg-slate-100 hover:bg-sky-50 text-slate-600 hover:text-sky-700 font-medium border border-slate-200/70"
-                        >
-                          {hub}
-                        </button>
-                      ))}
-                    </div>
                   </div>
                 </div>
               )}
@@ -721,54 +628,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
               </div>
 
               <div>
-                <label className="label">Passenger Notes / Special Instructions</label>
-                <textarea
-                  placeholder="Flight number, flight arrival/departure time, luggage count, pager name..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  className="input h-16 resize-none"
-                />
-              </div>
-            </div>
-          )}
-
-          {/* Step 3: Driver & Vehicle & Fare */}
-          {step === 3 && (
-            <div className="space-y-4">
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="label">Assign Driver (Optional)</label>
-                  <select
-                    value={driverId}
-                    onChange={(e) => setDriverId(e.target.value)}
-                    className="input"
-                  >
-                    <option value="">Auto-assign or Assign Later</option>
-                    {drivers.map((d) => (
-                      <option key={d.id} value={d.id}>
-                        {d.name} ({d.phone})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-                <div>
-                  <label className="label">Assign Vehicle (Optional)</label>
-                  <select
-                    value={vehicleId}
-                    onChange={(e) => setVehicleId(e.target.value)}
-                    className="input"
-                  >
-                    <option value="">Auto-assign or Assign Later</option>
-                    {vehicles.map((v) => (
-                      <option key={v.id} value={v.id}>
-                        {v.registrationNo} — {v.model} ({v.type})
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              </div>
-
-              <div>
                 <label className="label">Agreed Trip Amount (₹) *</label>
                 <input
                   type="number"
@@ -786,17 +645,17 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 
               {/* Wallet Validation Banner */}
               <div
-                className={`p-4 rounded-xl border flex items-center justify-between ${
+                className={`p-3.5 rounded-xl border flex items-center justify-between ${
                   isBalanceSufficient
                     ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
                     : 'bg-red-50 border-red-200 text-red-900'
                 }`}
               >
                 <div>
-                  <p className="font-semibold text-sm">
+                  <p className="font-semibold text-xs sm:text-sm">
                     {isBalanceSufficient ? 'Wallet Balance Sufficient' : 'Insufficient Wallet Balance'}
                   </p>
-                  <p className="text-xs mt-0.5">
+                  <p className="text-[11px] mt-0.5">
                     Current Balance: {formatCurrency(walletBalance)} · Required: {formatCurrency(fareNum)}
                   </p>
                 </div>
@@ -810,11 +669,21 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   </button>
                 )}
               </div>
+
+              <div>
+                <label className="label">Passenger Notes / Special Instructions</label>
+                <textarea
+                  placeholder="Flight number, flight arrival/departure time, luggage count, notes..."
+                  value={notes}
+                  onChange={(e) => setNotes(e.target.value)}
+                  className="input h-16 resize-none text-xs"
+                />
+              </div>
             </div>
           )}
 
-          {/* Step 4: Review & Confirm */}
-          {step === 4 && (
+          {/* Step 3: Review & Confirm */}
+          {step === 3 && (
             <div className="space-y-4">
               <div className="card p-4 space-y-2.5 text-xs bg-slate-50">
                 <div className="flex justify-between border-b border-sky-100 pb-2">
@@ -850,14 +719,22 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   </span>
                 </div>
                 <div className="flex justify-between border-b border-sky-100 pb-2">
-                  <span className="text-slate-500">Driver & Vehicle:</span>
-                  <span className="font-semibold text-slate-800">
-                    {selectedDriver?.name || 'Auto-assign'} / {selectedVehicle?.registrationNo || 'Auto-assign'}
+                  <span className="text-slate-500">Agreed Fare:</span>
+                  <span className="font-bold text-emerald-700 text-sm">
+                    {formatCurrency(fareNum)}
                   </span>
                 </div>
+                {notes && (
+                  <div className="flex justify-between pt-1">
+                    <span className="text-slate-500">Notes:</span>
+                    <span className="font-medium text-slate-700 italic text-right max-w-[280px]">
+                      {notes}
+                    </span>
+                  </div>
+                )}
               </div>
 
-              {/* Financial Preview */}
+              {/* Financial Breakdown Preview */}
               <div className="card p-3 border-dashed text-xs space-y-1.5 bg-white">
                 <p className="font-semibold text-slate-700">Financial Breakdown Preview:</p>
                 <div className="flex justify-between text-slate-600">
