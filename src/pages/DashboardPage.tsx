@@ -1,0 +1,377 @@
+import React, { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useNavigate } from 'react-router-dom'
+import {
+  Navigation,
+  Users,
+  Wallet,
+  Clock,
+  Car,
+  Building2,
+  ArrowUpRight,
+  ShieldAlert,
+} from 'lucide-react'
+import { vendorApi } from '../lib/api'
+import { StatCard, LoadingState } from '../components/ui/LoadingState'
+import { StatusBadge, TransactionBadge } from '../components/ui/StatusBadge'
+import { DataTable } from '../components/ui/DataTable'
+import { CreateTripModal } from '../components/trips/CreateTripModal'
+import { RechargeModal } from '../components/wallet/RechargeModal'
+import { DriverModal } from '../components/drivers/DriverModal'
+import { TripDetailDrawer } from '../components/trips/TripDetailDrawer'
+import { formatCurrency, formatDateTime, getWalletColor } from '../lib/utils'
+import type { DashboardData, Trip, WalletTransaction, ServiceType } from '../types'
+
+export const DashboardPage: React.FC = () => {
+  const navigate = useNavigate()
+  const [createTripOpen, setCreateTripOpen] = useState(false)
+  const [rechargeOpen, setRechargeOpen] = useState(false)
+  const [addDriverOpen, setAddDriverOpen] = useState(false)
+  const [tripServiceType, setTripServiceType] = useState<ServiceType>('RAC')
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null)
+
+  const { data, isLoading } = useQuery<DashboardData>({
+    queryKey: ['dashboard'],
+    queryFn: async () => {
+      try {
+        const res = await vendorApi.getDashboard()
+        const raw = res.data?.data || res.data || {}
+        return {
+          todayTrips: raw.todayTrips || {
+            total: raw.totalTrips ?? 0,
+            pending: 0,
+            confirmed: raw.activeTrips ?? 0,
+            inProgress: raw.activeTrips ?? 0,
+            completed: Math.max(0, (raw.totalTrips ?? 0) - (raw.activeTrips ?? 0)),
+            cancelled: 0,
+          },
+          walletBalance: parseFloat(raw.walletBalance ?? 0),
+          lowBalanceThreshold: raw.lowBalanceThreshold ?? 1000,
+          activeDrivers: raw.activeDrivers ?? raw.totalDrivers ?? 0,
+          totalDrivers: raw.totalDrivers ?? 0,
+          upcomingTrips: raw.upcomingTrips || [],
+          recentTrips: raw.recentTrips || [],
+          recentTransactions: raw.recentTransactions || [],
+        }
+      } catch {
+        return {
+          todayTrips: {
+            total: 0,
+            pending: 0,
+            confirmed: 0,
+            inProgress: 0,
+            completed: 0,
+            cancelled: 0,
+          },
+          walletBalance: 0,
+          lowBalanceThreshold: 1000,
+          activeDrivers: 0,
+          totalDrivers: 0,
+          upcomingTrips: [],
+          recentTrips: [],
+          recentTransactions: [],
+        }
+      }
+    },
+    refetchInterval: 30_000,
+  })
+
+  if (isLoading) {
+    return <LoadingState message="Loading vendor operations dashboard..." />
+  }
+
+  const walletBalance = data?.walletBalance ?? 0
+  const threshold = data?.lowBalanceThreshold ?? 1000
+  const colorState = getWalletColor(walletBalance, threshold)
+  const todayTrips = data?.todayTrips || {
+    total: 0,
+    pending: 0,
+    confirmed: 0,
+    inProgress: 0,
+    completed: 0,
+    cancelled: 0,
+  }
+
+  return (
+    <div className="space-y-6">
+      {/* Low Balance Warning Banner */}
+      {colorState !== 'green' && (
+        <div
+          className={`p-4 rounded-xl border flex items-center justify-between ${colorState === 'red'
+            ? 'bg-red-50 border-red-200 text-red-900'
+            : 'bg-amber-50 border-amber-200 text-amber-900'
+            }`}
+        >
+          <div className="flex items-center gap-3">
+            <ShieldAlert className="w-6 h-6 flex-shrink-0" />
+            <div>
+              <p className="font-semibold text-sm">
+                {colorState === 'red'
+                  ? 'Critical: Wallet balance is below minimum threshold'
+                  : 'Low Wallet Balance Notice'}
+              </p>
+              <p className="text-xs mt-0.5">
+                Current balance is {formatCurrency(walletBalance)}. Minimum recommended is{' '}
+                {formatCurrency(threshold)}. Top up now to prevent booking disruptions.
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={() => setRechargeOpen(true)}
+            className="btn-accent text-xs font-semibold px-4 py-2 flex-shrink-0"
+          >
+            Recharge Now
+          </button>
+        </div>
+      )}
+
+      {/* Top Action Bar */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
+            Operations Command Center
+          </h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Real-time fleet status, driver availability, and today's schedule
+          </p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => {
+              setTripServiceType('RAC')
+              setCreateTripOpen(true)
+            }}
+            className="btn-accent text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm"
+          >
+            <Car className="w-4 h-4" />
+            <span>Rent A Cab</span>
+          </button>
+          <button
+            onClick={() => {
+              setTripServiceType('PACKAGE')
+              setCreateTripOpen(true)
+            }}
+            className="btn-primary text-xs sm:text-sm flex items-center gap-1.5"
+          >
+            <Building2 className="w-4 h-4" />
+            <span>ETS</span>
+          </button>
+          <button
+            onClick={() => setRechargeOpen(true)}
+            className="btn-secondary text-xs sm:text-sm flex items-center gap-1.5"
+          >
+            <Wallet className="w-4 h-4 text-emerald-600" />
+            <span>Top-up Wallet</span>
+          </button>
+        </div>
+      </div>
+
+      {/* Stat Cards Grid */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Today's Trips"
+          value={todayTrips.total}
+          subtitle={`${todayTrips.inProgress} active · ${todayTrips.completed} completed`}
+          icon={<Navigation className="w-5 h-5" />}
+          colorClass="bg-sky-100 text-sky-800"
+          onClick={() => navigate('/trips')}
+        />
+        <StatCard
+          title="Wallet Balance"
+          value={formatCurrency(walletBalance)}
+          subtitle={colorState === 'green' ? 'Healthy balance' : 'Recharge recommended'}
+          icon={<Wallet className="w-5 h-5" />}
+          colorClass={
+            colorState === 'green'
+              ? 'bg-emerald-100 text-emerald-800'
+              : 'bg-amber-100 text-amber-800'
+          }
+          onClick={() => navigate('/wallet')}
+        />
+        <StatCard
+          title="Active Drivers"
+          value={data?.activeDrivers ?? 0}
+          subtitle={`Out of ${data?.totalDrivers ?? 0} registered fleet drivers`}
+          icon={<Users className="w-5 h-5" />}
+          colorClass="bg-indigo-100 text-indigo-800"
+          onClick={() => navigate('/drivers')}
+        />
+        <StatCard
+          title="Upcoming Trips"
+          value={data?.upcomingTrips?.length ?? 0}
+          subtitle="Trips scheduled for departure"
+          icon={<Clock className="w-5 h-5" />}
+          colorClass="bg-purple-100 text-purple-800"
+          onClick={() => navigate('/trips')}
+        />
+      </div>
+
+      {/* Two Column Section: Upcoming Trips & Recent Transactions */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+        {/* Left 2 cols: Recent Trips */}
+        <div className="lg:col-span-2 card overflow-hidden">
+          <div className="p-4 sm:px-6 border-b border-sky-100 flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Recent Trips</h2>
+              <p className="text-xs text-slate-500">Last 10 scheduled or executed trips</p>
+            </div>
+            <button
+              onClick={() => navigate('/trips')}
+              className="text-xs text-sky-700 hover:text-sky-900 font-semibold flex items-center gap-1"
+            >
+              <span>View All</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <DataTable<Trip>
+            columns={[
+              {
+                key: 'tripNo',
+                header: 'Trip No',
+                render: (row) => <span className="font-semibold text-sky-900">{row.tripNo}</span>,
+              },
+              {
+                key: 'serviceType',
+                header: 'Service',
+                render: (row) => (
+                  <span className="text-xs font-semibold px-2 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-200">
+                    {row.serviceType}
+                  </span>
+                ),
+              },
+              {
+                key: 'passengerName',
+                header: 'Passenger',
+                render: (row) => (
+                  <div>
+                    <p className="font-medium text-slate-800">{row.passengerName}</p>
+                    <p className="text-[11px] text-slate-400">{row.passengerPhone}</p>
+                  </div>
+                ),
+              },
+              {
+                key: 'route',
+                header: 'Route',
+                render: (row) => (
+                  <p className="text-xs max-w-[160px] truncate" title={`${row.pickup} → ${row.drop}`}>
+                    {row.pickup} → {row.drop}
+                  </p>
+                ),
+              },
+              {
+                key: 'driverName',
+                header: 'Driver',
+                render: (row) => (
+                  <span className="text-xs text-slate-600">
+                    {row.driverName || 'Unassigned'}
+                  </span>
+                ),
+              },
+              {
+                key: 'tripStatus',
+                header: 'Status',
+                render: (row) => <StatusBadge status={row.tripStatus} />,
+              },
+              {
+                key: 'tripAmount',
+                header: 'Fare',
+                render: (row) => (
+                  <span className="font-semibold text-slate-900">
+                    {formatCurrency(row.tripAmount)}
+                  </span>
+                ),
+              },
+            ]}
+            data={data?.recentTrips || []}
+            keyExtractor={(t) => t.id}
+            onRowClick={(t) => setSelectedTrip(t)}
+            emptyMessage="No recent trips found"
+            emptyDescription="Create your first fleet trip using the button above."
+          />
+        </div>
+
+        {/* Right 1 col: Recent Wallet Transactions */}
+        <div className="card overflow-hidden flex flex-col">
+          <div className="p-4 border-b border-sky-100 flex items-center justify-between">
+            <div>
+              <h2 className="text-base font-bold text-slate-900">Wallet Activity</h2>
+              <p className="text-xs text-slate-500">Recent credits & debits</p>
+            </div>
+            <button
+              onClick={() => navigate('/wallet')}
+              className="text-xs text-sky-700 hover:text-sky-900 font-semibold flex items-center gap-1"
+            >
+              <span>Wallet</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
+          </div>
+
+          <div className="flex-1 divide-y divide-sky-50 overflow-y-auto max-h-[380px]">
+            {(data?.recentTransactions || []).length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-400">
+                No recent transactions recorded.
+              </div>
+            ) : (
+              (data?.recentTransactions || []).slice(0, 6).map((tx: WalletTransaction) => (
+                <div key={tx.id} className="p-3 text-xs flex items-center justify-between">
+                  <div className="min-w-0 pr-2">
+                    <p className="font-medium text-slate-800 truncate">{tx.description}</p>
+                    <p className="text-[11px] text-slate-400">{formatDateTime(tx.createdAt)}</p>
+                  </div>
+                  <div className="text-right flex-shrink-0">
+                    <span
+                      className={`font-semibold text-xs ${tx.type === 'CREDIT' ? 'text-emerald-600' : 'text-red-600'
+                        }`}
+                    >
+                      {tx.type === 'CREDIT' ? '+' : '-'} {formatCurrency(tx.amount)}
+                    </span>
+                    <div className="mt-0.5">
+                      <TransactionBadge type={tx.type} />
+                    </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+
+          <div className="p-3 bg-sky-50/50 border-t border-sky-100 text-center">
+            <button
+              onClick={() => setRechargeOpen(true)}
+              className="btn-accent text-xs w-full py-1.5 font-semibold"
+            >
+              Recharge Balance
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Modals & Drawers */}
+      <CreateTripModal
+        isOpen={createTripOpen}
+        initialServiceType={tripServiceType}
+        onClose={() => setCreateTripOpen(false)}
+        onOpenRechargeModal={() => {
+          setCreateTripOpen(false)
+          setRechargeOpen(true)
+        }}
+      />
+
+      <RechargeModal
+        isOpen={rechargeOpen}
+        onClose={() => setRechargeOpen(false)}
+      />
+
+      <DriverModal
+        isOpen={addDriverOpen}
+        onClose={() => setAddDriverOpen(false)}
+      />
+
+      <TripDetailDrawer
+        trip={selectedTrip}
+        isOpen={!!selectedTrip}
+        onClose={() => setSelectedTrip(null)}
+      />
+    </div>
+  )
+}

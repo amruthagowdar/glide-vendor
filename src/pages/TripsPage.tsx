@@ -1,0 +1,305 @@
+import React, { useState } from 'react'
+import { useQuery } from '@tanstack/react-query'
+import { useSearchParams } from 'react-router-dom'
+import { PlusCircle, Filter, Download } from 'lucide-react'
+import { vendorApi } from '../lib/api'
+import { DataTable, Pagination } from '../components/ui/DataTable'
+import { StatusBadge, PaymentBadge } from '../components/ui/StatusBadge'
+import { CreateTripModal } from '../components/trips/CreateTripModal'
+import { RechargeModal } from '../components/wallet/RechargeModal'
+import { TripDetailDrawer } from '../components/trips/TripDetailDrawer'
+import { formatCurrency, formatDateTime } from '../lib/utils'
+import type { Trip, ServiceType, TripStatus, Driver } from '../types'
+
+const SERVICES: ServiceType[] = ['RAC', 'EMERGENCY', 'OUTSTATION', 'PACKAGE']
+const STATUSES: TripStatus[] = [
+  'PENDING',
+  'CONFIRMED',
+  'DRIVER_ASSIGNED',
+  'EN_ROUTE',
+  'ARRIVED',
+  'IN_PROGRESS',
+  'COMPLETED',
+  'CANCELLED',
+]
+
+export const TripsPage: React.FC = () => {
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [createModalOpen, setCreateModalOpen] = useState(
+    searchParams.get('action') === 'create'
+  )
+  const [rechargeModalOpen, setRechargeModalOpen] = useState(false)
+  const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null)
+
+  // Filters
+  const [statusFilter, setStatusFilter] = useState<string>('')
+  const [serviceFilter, setServiceFilter] = useState<string>('')
+  const [driverFilter, setDriverFilter] = useState<string>('')
+  const [dateFilter, setDateFilter] = useState<string>('')
+  const [page, setPage] = useState<number>(1)
+
+  // Fetch Drivers for dropdown filter
+  const { data: drivers = [] } = useQuery<Driver[]>({
+    queryKey: ['drivers-filter'],
+    queryFn: async () => {
+      const res = await vendorApi.getDrivers()
+      return res.data?.data || res.data || []
+    },
+  })
+
+  // Fetch Trips
+  const { data, isLoading } = useQuery<{ data: Trip[]; total: number; totalPages: number }>({
+    queryKey: ['trips', page, statusFilter, serviceFilter, driverFilter, dateFilter],
+    queryFn: async () => {
+      const params: Record<string, string> = {
+        page: String(page),
+        limit: '15',
+      }
+      if (statusFilter) params.status = statusFilter
+      if (serviceFilter) params.serviceType = serviceFilter
+      if (driverFilter) params.driverId = driverFilter
+      if (dateFilter) params.date = dateFilter
+
+      const res = await vendorApi.getTrips(params)
+      if (Array.isArray(res.data)) {
+        return { data: res.data, total: res.data.length, totalPages: 1 }
+      }
+      return {
+        data: res.data?.data || [],
+        total: res.data?.total || 0,
+        totalPages: res.data?.totalPages || 1,
+      }
+    },
+  })
+
+  const trips = data?.data || []
+  const total = data?.total || trips.length
+  const totalPages = data?.totalPages || 1
+
+  return (
+    <div className="space-y-6">
+      {/* Header */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+        <div>
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Trip Management</h1>
+          <p className="text-xs text-slate-500 mt-1">
+            Dispatch, track, and monitor all vendor fleet bookings
+          </p>
+        </div>
+        <button
+          onClick={() => setCreateModalOpen(true)}
+          className="btn-accent text-sm font-semibold flex items-center gap-1.5 shadow-sm"
+        >
+          <PlusCircle className="w-4 h-4" />
+          <span>Create New Trip</span>
+        </button>
+      </div>
+
+      {/* Filter Bar */}
+      <div className="card p-4">
+        <div className="flex items-center gap-2 mb-3 text-xs font-semibold text-slate-700">
+          <Filter className="w-3.5 h-3.5 text-sky-800" />
+          <span>Filters & Search</span>
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-3">
+          <div>
+            <select
+              value={statusFilter}
+              onChange={(e) => {
+                setStatusFilter(e.target.value)
+                setPage(1)
+              }}
+              className="input text-xs"
+            >
+              <option value="">All Statuses</option>
+              {STATUSES.map((s) => (
+                <option key={s} value={s}>
+                  {s.replace('_', ' ')}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <select
+              value={serviceFilter}
+              onChange={(e) => {
+                setServiceFilter(e.target.value)
+                setPage(1)
+              }}
+              className="input text-xs"
+            >
+              <option value="">All Service Types</option>
+              {SERVICES.map((s) => (
+                <option key={s} value={s}>
+                  {s}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <select
+              value={driverFilter}
+              onChange={(e) => {
+                setDriverFilter(e.target.value)
+                setPage(1)
+              }}
+              className="input text-xs"
+            >
+              <option value="">All Drivers</option>
+              {drivers.map((d) => (
+                <option key={d.id} value={d.id}>
+                  {d.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <input
+              type="date"
+              value={dateFilter}
+              onChange={(e) => {
+                setDateFilter(e.target.value)
+                setPage(1)
+              }}
+              className="input text-xs"
+            />
+          </div>
+        </div>
+      </div>
+
+      {/* Trips Table Card */}
+      <div className="card overflow-hidden">
+        <DataTable<Trip>
+          columns={[
+            {
+              key: 'tripNo',
+              header: 'Trip No',
+              render: (row) => (
+                <span className="font-semibold text-sky-900 hover:underline">
+                  {row.tripNo}
+                </span>
+              ),
+            },
+            {
+              key: 'serviceType',
+              header: 'Service',
+              render: (row) => (
+                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-200">
+                  {row.serviceType}
+                </span>
+              ),
+            },
+            {
+              key: 'passengerName',
+              header: 'Passenger',
+              render: (row) => (
+                <div>
+                  <p className="font-medium text-slate-800 text-xs">{row.passengerName}</p>
+                  <p className="text-[11px] text-slate-400">{row.passengerPhone}</p>
+                </div>
+              ),
+            },
+            {
+              key: 'pickup',
+              header: 'Pickup & Drop',
+              render: (row) => (
+                <div className="text-xs max-w-[200px] truncate">
+                  <p className="text-slate-800 truncate" title={row.pickup}>
+                    📍 {row.pickup}
+                  </p>
+                  <p className="text-slate-400 truncate mt-0.5" title={row.drop}>
+                    🏁 {row.drop}
+                  </p>
+                </div>
+              ),
+            },
+            {
+              key: 'scheduledDate',
+              header: 'Date & Time',
+              render: (row) => (
+                <div className="text-xs">
+                  <p className="font-medium text-slate-800">{row.scheduledDate}</p>
+                  <p className="text-slate-400 text-[11px]">{row.scheduledTime}</p>
+                </div>
+              ),
+            },
+            {
+              key: 'driverName',
+              header: 'Driver',
+              render: (row) => (
+                <span className="text-xs text-slate-700">
+                  {row.driverName || (
+                    <span className="text-amber-600 font-medium">Unassigned</span>
+                  )}
+                </span>
+              ),
+            },
+            {
+              key: 'tripStatus',
+              header: 'Status',
+              render: (row) => <StatusBadge status={row.tripStatus} />,
+            },
+            {
+              key: 'paymentStatus',
+              header: 'Payment',
+              render: (row) => <PaymentBadge status={row.paymentStatus} />,
+            },
+            {
+              key: 'tripAmount',
+              header: 'Amount',
+              render: (row) => (
+                <span className="font-semibold text-slate-900 text-xs">
+                  {formatCurrency(row.tripAmount)}
+                </span>
+              ),
+            },
+          ]}
+          data={trips}
+          isLoading={isLoading}
+          keyExtractor={(t) => t.id}
+          onRowClick={(t) => setSelectedTrip(t)}
+          emptyMessage="No trips found"
+          emptyDescription="Try clearing filters or click 'Create New Trip'."
+        />
+
+        {total > 0 && (
+          <Pagination
+            page={page}
+            totalPages={totalPages}
+            total={total}
+            limit={15}
+            onPageChange={(p) => setPage(p)}
+          />
+        )}
+      </div>
+
+      {/* Modals & Drawer */}
+      <CreateTripModal
+        isOpen={createModalOpen}
+        onClose={() => {
+          setCreateModalOpen(false)
+          searchParams.delete('action')
+          setSearchParams(searchParams)
+        }}
+        onOpenRechargeModal={() => {
+          setCreateModalOpen(false)
+          setRechargeModalOpen(true)
+        }}
+      />
+
+      <RechargeModal
+        isOpen={rechargeModalOpen}
+        onClose={() => setRechargeModalOpen(false)}
+      />
+
+      <TripDetailDrawer
+        trip={selectedTrip}
+        isOpen={!!selectedTrip}
+        onClose={() => setSelectedTrip(null)}
+      />
+    </div>
+  )
+}

@@ -1,0 +1,80 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  * {
+    @apply border-slate-200;
+  }
+  body {
+    @apply bg-slate-50/70 text-slate-900 font-sans selection:bg-slate-900 selection:text-white;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+@layer components {
+  /* Curvy Apple Style Buttons */
+  .btn-primary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-slate-900 hover:bg-black text-white font-semibold text-sm shadow-[0_2px_8px_rgba(0,0,0,0.12)] hover:shadow-[0_4px_16px_rgba(0,0,0,0.2)] active:scale-[0.98] transition-all duration-200 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed disabled:hover:bg-slate-900 disabled:shadow-none;
+  }
+  .btn-secondary {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-white/90 hover:bg-slate-100 text-slate-800 font-semibold text-sm border border-slate-200/80 shadow-[0_1px_4px_rgba(0,0,0,0.04)] hover:shadow-[0_2px_8px_rgba(0,0,0,0.08)] active:scale-[0.98] transition-all duration-200 cursor-pointer disabled:opacity-40;
+  }
+  .btn-accent {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-blue-600 hover:bg-blue-700 text-white font-semibold text-sm shadow-[0_2px_10px_rgba(37,99,235,0.25)] hover:shadow-[0_4px_16px_rgba(37,99,235,0.35)] active:scale-[0.98] transition-all duration-200 cursor-pointer disabled:opacity-40;
+  }
+  .btn-danger {
+    @apply inline-flex items-center justify-center gap-2 px-6 py-2.5 rounded-full bg-rose-600 hover:bg-rose-700 text-white font-semibold text-sm shadow-[0_2px_8px_rgba(225,29,72,0.2)] hover:shadow-[0_4px_14px_rgba(225,29,72,0.3)] active:scale-[0.98] transition-all duration-200 cursor-pointer disabled:opacity-40;
+  }
+
+  /* Curvy Apple Style Cards & Inputs */
+  .card {
+    @apply bg-white rounded-3xl border border-slate-100 shadow-[0_4px_24px_-6px_rgba(0,0,0,0.06)] backdrop-blur-sm;
+  }
+  .input {
+    @apply w-full px-4 py-2.5 border border-slate-200 rounded-2xl text-sm focus:outline-none focus:ring-2 focus:ring-slate-900/10 focus:border-slate-800 bg-slate-50/50 hover:bg-white focus:bg-white transition-all duration-200;
+  }
+  .label {
+    @apply block text-xs font-semibold uppercase tracking-wider text-slate-500 mb-1.5 ml-1;
+  }
+  .badge {
+    @apply inline-flex items-center px-3 py-1 rounded-full text-xs font-semibold;
+  }
+
+  /* Navigation Links with Apple Pill Curves */
+  .sidebar-link {
+    @apply flex items-center gap-3 px-4 py-2.5 text-slate-400 rounded-full hover:bg-white/10 hover:text-white transition-all duration-200 text-sm font-medium;
+  }
+  .sidebar-link.active {
+    @apply bg-white text-slate-900 shadow-md font-semibold;
+  }
+}
+
+/* Custom modern scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #cbd5e1;
+  border-radius: 9999px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #94a3b8;
+}
+
+/* Smooth Skeleton Animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(90deg, #f1f5f9 25%, #e2e8f0 50%, #f1f5f9 75%);
+  background-size: 200% 100%;
+  animation: shimmer 1.5s infinite;
+  border-radius: 9999px;
+}
