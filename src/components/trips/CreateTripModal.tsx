@@ -28,8 +28,56 @@ interface CreateTripModalProps {
 const SERVICES: ServiceType[] = ['RAC', 'OUTSTATION', 'PACKAGE']
 
 const BLR_TERMINALS = {
-  T1: 'Kempegowda International Airport - Terminal 1 (T1), Devanahalli, Bengaluru, Karnataka 560300',
-  T2: 'Kempegowda International Airport - Terminal 2 (T2), Devanahalli, Bengaluru, Karnataka 560300',
+  T1: 'Kempegowda Intl Airport - Terminal 1 (T1)',
+  T2: 'Kempegowda Intl Airport - Terminal 2 (T2)',
+}
+
+const BLR_AIRPORT_COORDS = { lat: 13.1986, lng: 77.7066 }
+
+function calculateBLRDistanceKm(lat: number, lng: number): number {
+  const R = 6371
+  const dLat = ((lat - BLR_AIRPORT_COORDS.lat) * Math.PI) / 180
+  const dLng = ((lng - BLR_AIRPORT_COORDS.lng) * Math.PI) / 180
+  const a =
+    Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+    Math.cos((BLR_AIRPORT_COORDS.lat * Math.PI) / 180) *
+      Math.cos((lat * Math.PI) / 180) *
+      Math.sin(dLng / 2) *
+      Math.sin(dLng / 2)
+  const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+  return Math.max(1, Math.round(R * c * 1.25))
+}
+
+function calculateAirportFare(distanceKm: number): number {
+  const BASE_FARE = 1200
+  const BASE_KM = 30
+  const EXTRA_RATE_PER_KM = 20
+
+  if (distanceKm <= BASE_KM) {
+    return BASE_FARE
+  }
+  const extraKm = distanceKm - BASE_KM
+  return Math.round(BASE_FARE + extraKm * EXTRA_RATE_PER_KM)
+}
+
+function estimateDistanceFromName(text: string): number | null {
+  const lower = text.toLowerCase()
+  if (lower.includes('electronic city') || lower.includes('ecity')) return 52
+  if (lower.includes('whitefield') || lower.includes('itpl')) return 44
+  if (lower.includes('hsr')) return 45
+  if (lower.includes('bellandur') || lower.includes('ecospace')) return 43
+  if (lower.includes('sarjapur')) return 48
+  if (lower.includes('koramangala')) return 42
+  if (lower.includes('indiranagar')) return 38
+  if (lower.includes('mg road') || lower.includes('brigade')) return 35
+  if (lower.includes('jayanagar') || lower.includes('jp nagar')) return 42
+  if (lower.includes('btm') || lower.includes('bannerghatta')) return 45
+  if (lower.includes('rajajinagar') || lower.includes('malleshwaram')) return 33
+  if (lower.includes('manyata')) return 26
+  if (lower.includes('hebbal')) return 28
+  if (lower.includes('yelahanka')) return 18
+  if (lower.includes('devanahalli')) return 12
+  return null
 }
 
 export const CreateTripModal: React.FC<CreateTripModalProps> = ({
@@ -62,7 +110,26 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   )
   const [scheduledTime, setScheduledTime] = useState('10:00')
   const [tripAmount, setTripAmount] = useState<string>('1200')
+  const [estimatedKm, setEstimatedKm] = useState<number | null>(null)
   const [notes, setNotes] = useState('')
+
+  const handleLocationInput = (val: string, field: 'pickup' | 'drop') => {
+    if (field === 'pickup') {
+      setPickup(val)
+    } else {
+      setDrop(val)
+    }
+    if (serviceType === 'RAC') {
+      const km = estimateDistanceFromName(val)
+      if (km !== null) {
+        setEstimatedKm(km)
+        setTripAmount(String(calculateAirportFare(km)))
+      } else if (!val.trim()) {
+        setEstimatedKm(null)
+        setTripAmount('1200')
+      }
+    }
+  }
 
   // Synchronize Airport Transfer Static/Dynamic Locations
   useEffect(() => {
@@ -132,6 +199,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     setPickup(BLR_TERMINALS.T1)
     setDrop('')
     setTripAmount('1200')
+    setEstimatedKm(null)
     setNotes('')
   }
 
@@ -484,7 +552,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                             type="text"
                             placeholder="Enter destination address in Bengaluru"
                             value={drop}
-                            onChange={(e) => setDrop(e.target.value)}
+                            onChange={(e) => handleLocationInput(e.target.value, 'drop')}
                             className="input text-xs sm:text-sm pr-9"
                             required
                           />
@@ -512,7 +580,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                             type="text"
                             placeholder="Enter pickup address in Bengaluru"
                             value={pickup}
-                            onChange={(e) => setPickup(e.target.value)}
+                            onChange={(e) => handleLocationInput(e.target.value, 'pickup')}
                             className="input text-xs sm:text-sm pr-9"
                             required
                           />
@@ -618,7 +686,18 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
               </div>
 
               <div>
-                <label className="label">Agreed Trip Amount (₹) *</label>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="label mb-0">Agreed Trip Amount (₹) *</label>
+                  {serviceType === 'RAC' && estimatedKm !== null && (
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                      estimatedKm <= 30
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-amber-100 text-amber-900'
+                    }`}>
+                      ~{estimatedKm} km from BLR Airport
+                    </span>
+                  )}
+                </div>
                 <input
                   type="number"
                   min="1"
@@ -628,9 +707,24 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   className="input text-lg font-bold"
                   required
                 />
-                <p className="text-[11px] text-slate-500 mt-1">
-                  Full amount is debited from your vendor prepaid wallet upon booking confirmation.
-                </p>
+                {serviceType === 'RAC' ? (
+                  <div className="text-[11px] mt-1 space-y-0.5">
+                    <p className="text-slate-500">
+                      ₹1,200 fixed up to 30 km radius from BLR Airport; beyond 30 km fare changes (+₹20/km).
+                    </p>
+                    {estimatedKm !== null && (
+                      <p className={`font-semibold ${estimatedKm <= 30 ? 'text-emerald-700' : 'text-amber-800'}`}>
+                        {estimatedKm <= 30
+                          ? '✓ Within 30 km airport radius: Standard ₹1,200 fixed fare applied.'
+                          : `⚠ Distance exceeds 30 km (~${estimatedKm} km): ₹1,200 base (30 km) + ${estimatedKm - 30} km extra @ ₹20/km = ₹${fareNum}.`}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Full amount is debited from your vendor prepaid wallet upon booking confirmation.
+                  </p>
+                )}
               </div>
 
               {/* Wallet Validation Banner */}
@@ -755,11 +849,17 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         onClose={() => setIsMapModalOpen(false)}
         title={`Select ${mapTargetField === 'pickup' ? 'Pickup' : 'Drop'} Location in Bengaluru`}
         initialAddress={mapTargetField === 'pickup' ? pickup : drop}
-        onSelectLocation={(address) => {
+        onSelectLocation={(address, lat, lng) => {
           if (mapTargetField === 'pickup') {
             setPickup(address)
           } else {
             setDrop(address)
+          }
+          if (serviceType === 'RAC' && lat && lng) {
+            const km = calculateBLRDistanceKm(lat, lng)
+            setEstimatedKm(km)
+            const fare = calculateAirportFare(km)
+            setTripAmount(String(fare))
           }
         }}
       />
