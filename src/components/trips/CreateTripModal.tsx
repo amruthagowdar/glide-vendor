@@ -15,7 +15,12 @@ import {
   PlaneLanding,
   PlaneTakeoff,
   MapPin,
-  Navigation,
+  Download,
+  Share2,
+  ChevronDown,
+  Download,
+  Share2,
+  ChevronDown,
 } from 'lucide-react'
 
 interface CreateTripModalProps {
@@ -26,6 +31,16 @@ interface CreateTripModalProps {
 }
 
 const SERVICES: ServiceType[] = ['RAC', 'OUTSTATION', 'PACKAGE']
+
+const VEHICLE_TYPES = [
+  'Mini 4+1 Seats',
+  'Sedan 4+1',
+  'Prime Sedan 4+1',
+  'SUV 6+1',
+  'Prime SUV 7+1',
+] as const
+
+type VehicleTypeOption = (typeof VEHICLE_TYPES)[number]
 
 const BLR_TERMINALS = {
   T1: 'Kempegowda Intl Airport - Terminal 1 (T1)',
@@ -51,7 +66,7 @@ function calculateBLRDistanceKm(lat: number, lng: number): number {
 function calculateAirportFare(distanceKm: number): number {
   const BASE_FARE = 1200
   const BASE_KM = 30
-  const EXTRA_RATE_PER_KM = 20
+  const EXTRA_RATE_PER_KM = 28
 
   if (distanceKm <= BASE_KM) {
     return BASE_FARE
@@ -100,9 +115,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   const [isMapModalOpen, setIsMapModalOpen] = useState(false)
   const [mapTargetField, setMapTargetField] = useState<'pickup' | 'drop'>('drop')
 
-  // Step 2: Passenger, Route & Fare
+  // Step 2: Passenger, Vehicle, Route & Fare
   const [passengerName, setPassengerName] = useState('')
   const [passengerPhone, setPassengerPhone] = useState('')
+  const [vehicleType, setVehicleType] = useState<VehicleTypeOption>('Sedan 4+1')
   const [pickup, setPickup] = useState('')
   const [drop, setDrop] = useState('')
   const [scheduledDate, setScheduledDate] = useState(
@@ -154,11 +170,14 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   const walletBalance = wallet?.balance ?? 0
   const isBalanceSufficient = walletBalance >= fareNum
 
-  // Platform commission calculations
-  const platformRate = 0.1
-  const commission = fareNum * platformRate
-  const companyShare = fareNum - commission
-  const driverPayable = fareNum * 0.75
+  // Financial Breakdown calculations
+  // Platform fee: ₹10 fixed on any trip
+  // Convenience fee: 15% on trip fare
+  // Driver payout: the rest (Trip Fare - Platform Fee - Convenience Fee)
+  // No net company margin
+  const platformFee = 10
+  const convenienceFee = Math.round(fareNum * 0.15)
+  const driverPayable = Math.max(0, fareNum - platformFee - convenienceFee)
 
   const createTripMutation = useMutation({
     mutationFn: async () => {
@@ -171,7 +190,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         scheduledDate,
         scheduledTime,
         tripAmount: fareNum,
-        notes: notes || undefined,
+        notes: `[Vehicle: ${vehicleType}] ${notes}`.trim(),
       }
       return (await vendorApi.createTrip(payload)).data
     },
@@ -196,6 +215,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     setAirportTerminal('T1')
     setPassengerName('')
     setPassengerPhone('')
+    setVehicleType('Sedan 4+1')
     setPickup(BLR_TERMINALS.T1)
     setDrop('')
     setTripAmount('1200')
@@ -216,6 +236,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       toast.error('Please enter both pickup and drop locations')
       return false
     }
+    if (serviceType === 'RAC' && fareNum < 1200) {
+      toast.error('Airport Transfer fare cannot be less than ₹1,200 (fixed minimum)')
+      return false
+    }
     if (fareNum <= 0) {
       toast.error('Trip amount must be greater than ₹0')
       return false
@@ -230,6 +254,55 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 
   const handleBack = () => {
     setStep((prev) => Math.max(prev - 1, 1) as 1 | 2 | 3)
+  }
+
+  const getShareText = () => {
+    const serviceName =
+      serviceType === 'RAC'
+        ? `Airport Transfer (${airportDirection === 'PICKUP' ? 'Pickup' : 'Drop'} - Terminal ${airportTerminal})`
+        : serviceType
+
+    return (
+      `*Glide Trip Booking Confirmation*\n` +
+      `--------------------------------\n` +
+      `*Service:* ${serviceName}\n` +
+      `*Vehicle Type:* ${vehicleType}\n` +
+      `*Passenger:* ${passengerName} (${passengerPhone})\n` +
+      `*Pickup:* ${pickup}\n` +
+      `*Drop:* ${drop}\n` +
+      `*Schedule:* ${scheduledDate} at ${scheduledTime}\n` +
+      `*Trip Fare:* ₹${fareNum.toLocaleString('en-IN')}\n` +
+      `*Platform Fee:* ₹10\n` +
+      `*Convenience Fee (15%):* ₹${convenienceFee.toLocaleString('en-IN')}\n` +
+      `*Driver Payout:* ₹${driverPayable.toLocaleString('en-IN')}\n` +
+      (notes ? `*Notes:* ${notes}\n` : '') +
+      `--------------------------------\n` +
+      `Booked via Atharva Travels / Glide`
+    )
+  }
+
+  const handleShareWhatsApp = () => {
+    const text = encodeURIComponent(getShareText())
+    window.open(`https://api.whatsapp.com/send?text=${text}`, '_blank')
+  }
+
+  const handleShareGmail = () => {
+    const subject = encodeURIComponent(`Trip Booking Confirmation - ${passengerName}`)
+    const body = encodeURIComponent(getShareText())
+    window.open(`https://mail.google.com/mail/?view=cm&fs=1&su=${subject}&body=${body}`, '_blank')
+  }
+
+  const handleDownloadSummary = () => {
+    const text = getShareText().replace(/\*/g, '')
+    const blob = new Blob([text], { type: 'text/plain;charset=utf-8' })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement('a')
+    a.href = url
+    a.download = `Trip-Summary-${passengerName.replace(/\s+/g, '_') || 'booking'}.txt`
+    document.body.appendChild(a)
+    a.click()
+    document.body.removeChild(a)
+    toast.success('Trip summary downloaded!')
   }
 
   return (
@@ -460,7 +533,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
             </div>
           )}
 
-          {/* Step 2: Passenger & Route & Fare */}
+          {/* Step 2: Passenger, Vehicle & Route & Fare */}
           {step === 2 && (
             <div className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -500,7 +573,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                         {airportDirection === 'PICKUP' ? 'BLR Airport Pickup' : 'BLR Airport Drop'}
                       </p>
                       <p className="text-[11px] text-sky-800">
-                        Fixed Airport Location: <span className="font-semibold">Terminal {airportTerminal === 'T1' ? '1 (T1)' : '2 (T2)'}</span>
+                        Airport Location: <span className="font-semibold">{BLR_TERMINALS[airportTerminal]}</span>
                       </p>
                     </div>
                   </div>
@@ -662,6 +735,46 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 </div>
               )}
 
+              {/* Vehicle Type Selection */}
+              <div>
+                <label className="label">Vehicle Type *</label>
+                <div className="relative">
+                  <select
+                    value={vehicleType}
+                    onChange={(e) => setVehicleType(e.target.value as VehicleTypeOption)}
+                    className="input appearance-none pr-10 cursor-pointer font-semibold text-slate-800 bg-white"
+                    required
+                  >
+                    {VEHICLE_TYPES.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
+              {/* Vehicle Type Selection */}
+              <div>
+                <label className="label">Vehicle Type *</label>
+                <div className="relative">
+                  <select
+                    value={vehicleType}
+                    onChange={(e) => setVehicleType(e.target.value as VehicleTypeOption)}
+                    className="input appearance-none pr-10 cursor-pointer font-semibold text-slate-800 bg-white"
+                    required
+                  >
+                    {VEHICLE_TYPES.map((v) => (
+                      <option key={v} value={v}>
+                        {v}
+                      </option>
+                    ))}
+                  </select>
+                  <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                </div>
+              </div>
+
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="label">Scheduled Date *</label>
@@ -689,34 +802,42 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 <div className="flex items-center justify-between mb-1">
                   <label className="label mb-0">Agreed Trip Amount (₹) *</label>
                   {serviceType === 'RAC' && estimatedKm !== null && (
-                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                      estimatedKm <= 30
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-900'
-                    }`}>
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        estimatedKm <= 30
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-100 text-amber-900'
+                      }`}
+                    >
                       ~{estimatedKm} km from BLR Airport
                     </span>
                   )}
                 </div>
                 <input
                   type="number"
-                  min="1"
+                  min={serviceType === 'RAC' ? 1200 : 1}
                   step="10"
                   value={tripAmount}
                   onChange={(e) => setTripAmount(e.target.value)}
+                  onBlur={() => {
+                    if (serviceType === 'RAC' && (parseFloat(tripAmount) || 0) < 1200) {
+                      setTripAmount('1200')
+                      toast.error('Airport Transfer fare cannot be less than ₹1,200 (fixed minimum)')
+                    }
+                  }}
                   className="input text-lg font-bold"
                   required
                 />
                 {serviceType === 'RAC' ? (
                   <div className="text-[11px] mt-1 space-y-0.5">
                     <p className="text-slate-500">
-                      ₹1,200 fixed up to 30 km radius from BLR Airport; beyond 30 km fare changes (+₹20/km).
+                      ₹1,200 fixed up to 30 km radius from BLR Airport; beyond 30 km charged at ₹28/km. Minimum fare is ₹1,200.
                     </p>
                     {estimatedKm !== null && (
                       <p className={`font-semibold ${estimatedKm <= 30 ? 'text-emerald-700' : 'text-amber-800'}`}>
                         {estimatedKm <= 30
                           ? '✓ Within 30 km airport radius: Standard ₹1,200 fixed fare applied.'
-                          : `⚠ Distance exceeds 30 km (~${estimatedKm} km): ₹1,200 base (30 km) + ${estimatedKm - 30} km extra @ ₹20/km = ₹${fareNum}.`}
+                          : `✓ Exceeds 30 km (~${estimatedKm} km): ₹1,200 base (30 km) + ${estimatedKm - 30} km extra @ ₹28/km = ₹${fareNum}.`}
                       </p>
                     )}
                   </div>
@@ -779,6 +900,12 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   </span>
                 </div>
                 <div className="flex justify-between border-b border-sky-100 pb-2">
+                  <span className="text-slate-500">Vehicle Type:</span>
+                  <span className="font-semibold text-slate-800">
+                    {vehicleType}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-sky-100 pb-2">
                   <span className="text-slate-500">Passenger:</span>
                   <span className="font-semibold text-slate-800">
                     {passengerName} ({passengerPhone})
@@ -818,6 +945,59 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 )}
               </div>
 
+              {/* Action Toolbar: Download & Share */}
+              <div className="flex items-center justify-between gap-2 pt-0.5 pb-0.5">
+                <span className="text-[11px] font-semibold text-slate-500">Trip Summary Actions</span>
+                <div className="flex items-center gap-2">
+                  {/* Download Button */}
+                  <button
+                    type="button"
+                    onClick={handleDownloadSummary}
+                    className="px-3 py-1.5 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all active:scale-[0.98]"
+                    title="Download Trip Summary"
+                  >
+                    <Download className="w-3.5 h-3.5 text-slate-600" />
+                    <span>Download</span>
+                  </button>
+
+                  {/* Share Button with Hover Dropdown */}
+                  <div className="relative group">
+                    <button
+                      type="button"
+                      className="px-3 py-1.5 rounded-xl border border-sky-200 bg-sky-50 hover:bg-sky-100 text-sky-800 text-xs font-semibold flex items-center gap-1.5 shadow-sm transition-all"
+                    >
+                      <Share2 className="w-3.5 h-3.5 text-sky-700" />
+                      <span>Share</span>
+                      <ChevronDown className="w-3 h-3 text-sky-600 transition-transform group-hover:rotate-180" />
+                    </button>
+
+                    {/* Hover Dropdown Menu */}
+                    <div className="absolute right-0 top-full mt-1.5 w-44 bg-white rounded-2xl shadow-xl border border-slate-200/90 py-1.5 z-50 hidden group-hover:block hover:block transition-all animate-in fade-in zoom-in-95">
+                      <button
+                        type="button"
+                        onClick={handleShareWhatsApp}
+                        className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-emerald-50 hover:text-emerald-800 flex items-center gap-2.5 transition-colors"
+                      >
+                        <div className="w-5 h-5 rounded-full bg-emerald-500 text-white flex items-center justify-center flex-shrink-0 text-[10px] font-black">
+                          W
+                        </div>
+                        <span>WhatsApp</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleShareGmail}
+                        className="w-full px-3.5 py-2 text-left text-xs font-semibold text-slate-700 hover:bg-rose-50 hover:text-rose-800 flex items-center gap-2.5 transition-colors"
+                      >
+                        <div className="w-5 h-5 rounded-full bg-rose-500 text-white flex items-center justify-center flex-shrink-0 text-[10px] font-black">
+                          M
+                        </div>
+                        <span>Gmail / Mail</span>
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              </div>
+
               {/* Financial Breakdown Preview */}
               <div className="card p-3 border-dashed text-xs space-y-1.5 bg-white">
                 <p className="font-semibold text-slate-700">Financial Breakdown Preview:</p>
@@ -826,16 +1006,16 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   <span className="font-medium">{formatCurrency(fareNum)}</span>
                 </div>
                 <div className="flex justify-between text-slate-500">
-                  <span>Platform Commission (10%):</span>
-                  <span>- {formatCurrency(commission)}</span>
+                  <span>Platform Fee:</span>
+                  <span>- {formatCurrency(platformFee)}</span>
                 </div>
                 <div className="flex justify-between text-slate-500">
-                  <span>Estimated Driver Payout (75%):</span>
-                  <span>{formatCurrency(driverPayable)}</span>
+                  <span>Convenience Fee (15%):</span>
+                  <span>- {formatCurrency(convenienceFee)}</span>
                 </div>
-                <div className="flex justify-between font-semibold text-sky-900 pt-1 border-t">
-                  <span>Net Company Margin:</span>
-                  <span>{formatCurrency(companyShare - driverPayable)}</span>
+                <div className="flex justify-between font-bold text-emerald-700 pt-1 border-t">
+                  <span>Driver Payout (Rest):</span>
+                  <span>{formatCurrency(driverPayable)}</span>
                 </div>
               </div>
             </div>
