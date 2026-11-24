@@ -86,7 +86,7 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, onOpenRechargeModal
           title="Wallet is frozen and cannot be opened"
         >
           <WalletIcon className="w-3.5 h-3.5 text-slate-400" />
-          <span>Wallet: {formatCurrency(balance)}</span>
+          <span>Wallet: ₹0</span>
           <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 border border-slate-300">
             Frozen
           </span>

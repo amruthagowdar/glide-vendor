@@ -212,17 +212,20 @@ export const EditTripModal: React.FC<EditTripModalProps> = ({
           </div>
 
           <div>
-            <label className="label text-xs font-semibold">Trip Fare (₹)</label>
+            <div className="flex items-center justify-between mb-1">
+              <label className="label text-xs font-semibold mb-0">Trip Fare (₹)</label>
+              <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-200 text-slate-600 border border-slate-300">
+                Frozen
+              </span>
+            </div>
             <div className="relative">
               <DollarSign className="w-4 h-4 text-slate-400 absolute left-3 top-2.5" />
               <input
-                type="number"
-                min="0"
-                step="1"
-                required
-                value={tripAmount}
-                onChange={(e) => setTripAmount(Number(e.target.value))}
-                className="input text-xs pl-9"
+                type="text"
+                readOnly
+                disabled
+                value="₹0 (Frozen)"
+                className="input text-xs pl-9 bg-slate-100 text-slate-500 cursor-not-allowed select-none"
               />
             </div>
           </div>

@@ -284,14 +284,18 @@ export const TripsPage: React.FC = () => {
             {
               key: 'paymentStatus',
               header: 'Payment',
-              render: (row) => <PaymentBadge status={row.paymentStatus} />,
+              render: () => (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-300">
+                  Frozen
+                </span>
+              ),
             },
             {
               key: 'tripAmount',
               header: 'Amount',
-              render: (row) => (
-                <span className="font-semibold text-slate-900 text-xs">
-                  {formatCurrency(row.tripAmount)}
+              render: () => (
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-300">
+                  Frozen
                 </span>
               ),
             },

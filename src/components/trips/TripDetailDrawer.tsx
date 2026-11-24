@@ -441,36 +441,20 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
           </div>
         </div>
 
-        {/* Financial Breakdown */}
-        <div className="card p-4 space-y-2.5 bg-sky-50/50">
-          <div className="flex items-center gap-2 text-xs font-semibold text-sky-900 uppercase tracking-wider">
-            <Receipt className="w-4 h-4 text-sky-700" />
-            <span>Financial Breakdown</span>
+        {/* Financial Breakdown: Frozen */}
+        <div className="card p-4 bg-slate-100 border border-slate-300 text-slate-700 space-y-2 text-xs">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2 font-bold text-slate-900">
+              <span className="w-2 h-2 rounded-full bg-slate-400" />
+              <span>Financial & Payment Breakdown</span>
+            </div>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 border border-slate-300">
+              Frozen
+            </span>
           </div>
-          <div className="space-y-1.5 text-xs">
-            <div className="flex justify-between text-slate-600">
-              <span>Total Trip Amount:</span>
-              <span className="font-semibold text-slate-900">
-                {formatCurrency(trip.tripAmount)}
-              </span>
-            </div>
-            <div className="flex justify-between text-slate-500">
-              <span>Platform Commission ({trip.commissionRate || 10}%):</span>
-              <span>- {formatCurrency(trip.commissionAmount || 0)}</span>
-            </div>
-            <div className="flex justify-between text-slate-500">
-              <span>Driver Payable:</span>
-              <span>{formatCurrency(trip.driverPayable || 0)}</span>
-            </div>
-            <div className="flex justify-between text-sky-900 font-bold border-t border-sky-200 pt-1.5">
-              <span>Vendor Retained Margin:</span>
-              <span>
-                {formatCurrency(
-                  trip.tripAmount - (trip.commissionAmount || 0) - (trip.driverPayable || 0)
-                )}
-              </span>
-            </div>
-          </div>
+          <p className="text-[11px] text-slate-500 leading-relaxed">
+            Wallet escrow debits and fee breakdowns are frozen until the admin portal connects. Trip operates under direct corporate invoicing.
+          </p>
         </div>
 
         {/* Notes */}

@@ -209,8 +209,8 @@ export const DashboardPage: React.FC = () => {
         />
         <StatCard
           title="Wallet Balance"
-          value={formatCurrency(walletBalance)}
-          subtitle="Frozen · Direct Billing"
+          value="₹0"
+          subtitle="Frozen · Admin Connect Pending"
           icon={<Wallet className="w-5 h-5 text-slate-400" />}
           colorClass="bg-slate-100 text-slate-700 border border-slate-300"
           onClick={undefined}
@@ -303,9 +303,9 @@ export const DashboardPage: React.FC = () => {
               {
                 key: 'tripAmount',
                 header: 'Fare',
-                render: (row) => (
-                  <span className="font-semibold text-slate-900">
-                    {formatCurrency(row.tripAmount)}
+                render: () => (
+                  <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-300">
+                    Frozen
                   </span>
                 ),
               },
@@ -362,67 +362,17 @@ export const DashboardPage: React.FC = () => {
             </span>
           </div>
 
-          <div className="flex-1 divide-y divide-sky-50 overflow-y-auto max-h-[380px]">
-            {(data?.recentTransactions || []).length === 0 ? (
-              <div className="p-8 text-center text-xs text-slate-400">
-                No recent transactions recorded.
-              </div>
-            ) : (
-              (data?.recentTransactions || []).slice(0, 6).map((tx: WalletTransaction) => (
-                <SlideToDeleteItem
-                  key={tx.id}
-                  onDelete={() =>
-                    setDeletingItem({
-                      type: 'TRANSACTION',
-                      id: tx.id,
-                      title: tx.description,
-                      details: `Amount: ${formatCurrency(tx.amount)} • Ref: ${tx.reference || 'N/A'}`,
-                    })
-                  }
-                >
-                  <div className="p-3 text-xs flex items-center justify-between w-full group">
-                    <div className="min-w-0 pr-2">
-                      <p className="font-medium text-slate-800 truncate">{tx.description}</p>
-                      <p className="text-[11px] text-slate-400">{formatDateTime(tx.createdAt)}</p>
-                    </div>
-                    <div className="flex items-center gap-2 flex-shrink-0">
-                      <div className="text-right">
-                        <span
-                          className={`font-semibold text-xs ${
-                            tx.type === 'CREDIT' ? 'text-emerald-600' : 'text-red-600'
-                          }`}
-                        >
-                          {tx.type === 'CREDIT' ? '+' : '-'} {formatCurrency(tx.amount)}
-                        </span>
-                        <div className="mt-0.5">
-                          <TransactionBadge type={tx.type} />
-                        </div>
-                      </div>
-                      <SlideDeleteAction
-                        itemLabel="transaction"
-                        onEdit={() => setEditingTx(tx)}
-                        onDelete={() =>
-                          setDeletingItem({
-                            type: 'TRANSACTION',
-                            id: tx.id,
-                            title: tx.description,
-                            details: `Amount: ${formatCurrency(tx.amount)} • Ref: ${tx.reference || 'N/A'}`,
-                          })
-                        }
-                        onSlideDelete={() =>
-                          setDeletingItem({
-                            type: 'TRANSACTION',
-                            id: tx.id,
-                            title: tx.description,
-                            details: `Amount: ${formatCurrency(tx.amount)} • Ref: ${tx.reference || 'N/A'}`,
-                          })
-                        }
-                      />
-                    </div>
-                  </div>
-                </SlideToDeleteItem>
-              ))
-            )}
+          <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
+            <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-300 text-slate-400 flex items-center justify-center mb-2.5">
+              <Wallet className="w-5 h-5" />
+            </div>
+            <p className="font-bold text-slate-800 text-xs sm:text-sm">Prepaid Wallet Frozen</p>
+            <p className="text-[11px] text-slate-500 mt-1 max-w-[260px] leading-relaxed">
+              All wallet debits, escrow holds, and transaction activity are frozen until the admin portal connects.
+            </p>
+            <span className="mt-3 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300">
+              Direct Corporate Billing Active
+            </span>
           </div>
 
           <div className="p-3 bg-slate-50 border-t border-slate-200 text-center">
