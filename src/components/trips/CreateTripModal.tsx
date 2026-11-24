@@ -120,10 +120,14 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   const [vehicleType, setVehicleType] = useState<VehicleTypeOption>('Sedan 4+1')
   const [pickup, setPickup] = useState('')
   const [drop, setDrop] = useState('')
-  const [scheduledDate, setScheduledDate] = useState(
+  const [fromDate, setFromDate] = useState(
     new Date().toISOString().split('T')[0]
   )
-  const [scheduledTime, setScheduledTime] = useState('10:00')
+  const [fromTime, setFromTime] = useState('10:00')
+  const [toDate, setToDate] = useState(
+    new Date().toISOString().split('T')[0]
+  )
+  const [toTime, setToTime] = useState('18:00')
   const [tripAmount, setTripAmount] = useState<string>('1200')
   const [estimatedKm, setEstimatedKm] = useState<number | null>(null)
   const [notes, setNotes] = useState('')
@@ -204,10 +208,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         passengerPhone,
         pickup,
         drop,
-        scheduledDate,
-        scheduledTime,
+        scheduledDate: fromDate,
+        scheduledTime: fromTime,
         tripAmount: fareNum,
-        notes: `[Vehicle: ${vehicleType}] ${notes}`.trim(),
+        notes: `[From: ${fromDate} ${fromTime} | To: ${toDate} ${toTime}] [Vehicle: ${vehicleType}] ${notes}`.trim(),
       }
       return (await vendorApi.createTrip(payload)).data
     },
@@ -235,6 +239,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     setVehicleType('Sedan 4+1')
     setPickup(BLR_TERMINALS.T1)
     setDrop('')
+    setFromDate(new Date().toISOString().split('T')[0])
+    setFromTime('10:00')
+    setToDate(new Date().toISOString().split('T')[0])
+    setToTime('18:00')
     setTripAmount('1200')
     setEstimatedKm(null)
     setNotes('')
@@ -299,7 +307,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       `*Passenger:* ${passengerName} (${passengerPhone})\n` +
       `*Pickup:* ${pickup}\n` +
       `*Drop:* ${drop}\n` +
-      `*Schedule:* ${scheduledDate} at ${scheduledTime}\n` +
+      `*From:* ${fromDate} at ${fromTime}\n` +
+      `*To:* ${toDate} at ${toTime}\n` +
       `*Trip Fare:* ₹${fareNum.toLocaleString('en-IN')}\n` +
       `*Platform Fee:* ₹10\n` +
       `*Convenience Fee (15%):* ₹${convenienceFee.toLocaleString('en-IN')}\n` +
@@ -791,23 +800,48 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 </div>
               </div>
 
+              {/* From Date & Time */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="label">Scheduled Date *</label>
+                  <label className="label">From Date *</label>
                   <input
                     type="date"
-                    value={scheduledDate}
-                    onChange={(e) => setScheduledDate(e.target.value)}
+                    value={fromDate}
+                    onChange={(e) => setFromDate(e.target.value)}
                     className="input"
                     required
                   />
                 </div>
                 <div>
-                  <label className="label">Scheduled Time *</label>
+                  <label className="label">From Time *</label>
                   <input
                     type="time"
-                    value={scheduledTime}
-                    onChange={(e) => setScheduledTime(e.target.value)}
+                    value={fromTime}
+                    onChange={(e) => setFromTime(e.target.value)}
+                    className="input"
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* To Date & Time */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="label">To Date *</label>
+                  <input
+                    type="date"
+                    value={toDate}
+                    onChange={(e) => setToDate(e.target.value)}
+                    className="input"
+                    required
+                  />
+                </div>
+                <div>
+                  <label className="label">To Time *</label>
+                  <input
+                    type="time"
+                    value={toTime}
+                    onChange={(e) => setToTime(e.target.value)}
                     className="input"
                     required
                   />
@@ -938,9 +972,15 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   </span>
                 </div>
                 <div className="flex justify-between border-b border-sky-100 pb-2">
-                  <span className="text-slate-500">Schedule:</span>
+                  <span className="text-slate-500">From:</span>
                   <span className="font-semibold text-slate-800">
-                    {scheduledDate} at {scheduledTime}
+                    {fromDate} at {fromTime}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-sky-100 pb-2">
+                  <span className="text-slate-500">To:</span>
+                  <span className="font-semibold text-slate-800">
+                    {toDate} at {toTime}
                   </span>
                 </div>
                 <div className="flex justify-between border-b border-sky-100 pb-2">
