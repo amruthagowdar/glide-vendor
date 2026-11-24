@@ -1,11 +1,12 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import { useSearchParams } from 'react-router-dom'
-import { PlusCircle, Filter, Download } from 'lucide-react'
+import { PlusCircle, Filter, Download, Building2, Car } from 'lucide-react'
 import { vendorApi } from '../lib/api'
 import { DataTable, Pagination } from '../components/ui/DataTable'
 import { StatusBadge, PaymentBadge } from '../components/ui/StatusBadge'
 import { CreateTripModal } from '../components/trips/CreateTripModal'
+import { CreateETSTripModal } from '../components/trips/CreateETSTripModal'
 import { RechargeModal } from '../components/wallet/RechargeModal'
 import { TripDetailDrawer } from '../components/trips/TripDetailDrawer'
 import { formatCurrency, formatDateTime } from '../lib/utils'
@@ -28,6 +29,7 @@ export const TripsPage: React.FC = () => {
   const [createModalOpen, setCreateModalOpen] = useState(
     searchParams.get('action') === 'create'
   )
+  const [createETSTripOpen, setCreateETSTripOpen] = useState(false)
   const [rechargeModalOpen, setRechargeModalOpen] = useState(false)
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null)
 
@@ -91,13 +93,22 @@ export const TripsPage: React.FC = () => {
             Dispatch, track, and monitor all vendor fleet bookings
           </p>
         </div>
-        <button
-          onClick={() => setCreateModalOpen(true)}
-          className="btn-accent text-sm font-semibold flex items-center gap-1.5 shadow-sm"
-        >
-          <PlusCircle className="w-4 h-4" />
-          <span>Create New Trip</span>
-        </button>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setCreateETSTripOpen(true)}
+            className="btn-primary text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm"
+          >
+            <Building2 className="w-4 h-4" />
+            <span>Create ETS Trip</span>
+          </button>
+          <button
+            onClick={() => setCreateModalOpen(true)}
+            className="btn-accent text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm"
+          >
+            <Car className="w-4 h-4" />
+            <span>Rent A Cab</span>
+          </button>
+        </div>
       </div>
 
       {/* Filter Bar */}
@@ -291,6 +302,15 @@ export const TripsPage: React.FC = () => {
         }}
         onOpenRechargeModal={() => {
           setCreateModalOpen(false)
+          setRechargeModalOpen(true)
+        }}
+      />
+
+      <CreateETSTripModal
+        isOpen={createETSTripOpen}
+        onClose={() => setCreateETSTripOpen(false)}
+        onOpenRechargeModal={() => {
+          setCreateETSTripOpen(false)
           setRechargeModalOpen(true)
         }}
       />

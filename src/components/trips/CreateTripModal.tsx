@@ -18,6 +18,8 @@ import {
   Download,
   Share2,
   ChevronDown,
+  Navigation,
+  Building2,
 } from 'lucide-react'
 
 interface CreateTripModalProps {
@@ -96,13 +98,13 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   isOpen,
   onClose,
   onOpenRechargeModal,
-  initialServiceType = 'RAC',
+  initialServiceType,
 }) => {
   const queryClient = useQueryClient()
   const [step, setStep] = useState<1 | 2 | 3>(1)
 
-  // Step 1: Service
-  const [serviceType, setServiceType] = useState<ServiceType>(initialServiceType)
+  // Step 1: Service (null until clicked)
+  const [serviceType, setServiceType] = useState<ServiceType | null>(initialServiceType || null)
 
   // Airport Transfer specific options
   const [airportDirection, setAirportDirection] = useState<'PICKUP' | 'DROP'>('PICKUP')
@@ -143,6 +145,17 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       }
     }
   }
+
+  // Reset state whenever modal is opened
+  useEffect(() => {
+    if (isOpen) {
+      setStep(1)
+      setServiceType(initialServiceType || null)
+      if (initialServiceType === 'RAC') {
+        setPickup(BLR_TERMINALS[airportTerminal])
+      }
+    }
+  }, [isOpen, initialServiceType])
 
   // Synchronize Airport Transfer Static/Dynamic Locations
   useEffect(() => {
@@ -214,7 +227,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 
   const resetForm = () => {
     setStep(1)
-    setServiceType('RAC')
+    setServiceType(initialServiceType || null)
     setAirportDirection('PICKUP')
     setAirportTerminal('T1')
     setPassengerName('')
@@ -260,6 +273,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   }
 
   const handleNext = () => {
+    if (step === 1 && !serviceType) {
+      toast.error('Please select a service type to continue')
+      return
+    }
     if (step === 2 && !validateStep2()) return
     setStep((prev) => Math.min(prev + 1, 3) as 1 | 2 | 3)
   }
@@ -352,10 +369,19 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
               {step < 3 ? (
                 <button
                   type="button"
+                  disabled={step === 1 && !serviceType}
                   onClick={handleNext}
-                  className="btn-primary text-sm flex items-center gap-1.5"
+                  className="btn-accent text-sm flex items-center gap-1.5 font-semibold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  <span>Continue</span>
+                  <span>
+                    {step === 1
+                      ? !serviceType
+                        ? 'Select a Service to Continue'
+                        : serviceType === 'RAC'
+                        ? 'Continue with Airport Transfer'
+                        : `Continue with ${serviceType === 'OUTSTATION' ? 'Outstation' : 'Package'}`
+                      : 'Continue'}
+                  </span>
                   <ArrowRight className="w-4 h-4" />
                 </button>
               ) : (
@@ -431,14 +457,20 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                     key={s}
                     service={s}
                     selected={serviceType === s}
-                    onClick={() => setServiceType(s)}
+                    onClick={() => {
+                      setServiceType(s)
+                      if (s === 'RAC') {
+                        setPickup(BLR_TERMINALS[airportTerminal])
+                        setTripAmount('1200')
+                      }
+                    }}
                   />
                 ))}
               </div>
 
-              {/* Airport Transfer Specific Configuration */}
+              {/* Airport Transfer Specific Configuration (Appears ONLY after clicking Airport Transfer) */}
               {serviceType === 'RAC' && (
-                <div className="p-4 rounded-2xl bg-sky-50/70 border border-sky-200/90 space-y-4 animate-in fade-in duration-200">
+                <div className="p-4 rounded-2xl bg-sky-50/70 border border-sky-200/90 space-y-4 animate-in fade-in slide-in-from-top-3 duration-300">
                   <div className="flex items-center justify-between pb-2 border-b border-sky-200/60">
                     <div className="flex items-center gap-2">
                       <div className="w-7 h-7 rounded-lg bg-sky-600 text-white flex items-center justify-center">
@@ -536,6 +568,46 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   </div>
                 </div>
               )}
+
+              {/* Outstation Card */}
+              {serviceType === 'OUTSTATION' && (
+                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/90 space-y-2 animate-in fade-in slide-in-from-top-3 duration-300">
+                  <div className="flex items-center justify-between pb-2 border-b border-amber-200/60">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center">
+                        <Navigation className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-sm font-bold text-amber-950">Outstation & Intercity Travel</h4>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                      Outstation
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-900 leading-relaxed">
+                    Point-to-point and round-trip intercity bookings across South India with dedicated driver and toll management.
+                  </p>
+                </div>
+              )}
+
+              {/* Package Card */}
+              {serviceType === 'PACKAGE' && (
+                <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200/90 space-y-2 animate-in fade-in slide-in-from-top-3 duration-300">
+                  <div className="flex items-center justify-between pb-2 border-b border-purple-200/60">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-sm font-bold text-purple-950">Corporate & Hourly Rental Package (ETS)</h4>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-200 text-purple-900">
+                      Package / ETS
+                    </span>
+                  </div>
+                  <p className="text-xs text-purple-900 leading-relaxed">
+                    Custom hourly packages for corporate employee transport, corporate shuttles, VIP events, and full-day charters.
+                  </p>
+                </div>
+              )}
             </div>
           )}
 
@@ -605,6 +677,46 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                       Terminal 2
                     </button>
                   </div>
+                </div>
+              )}
+
+              {/* Outstation Card */}
+              {serviceType === 'OUTSTATION' && (
+                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/90 space-y-2 animate-in fade-in slide-in-from-top-3 duration-300">
+                  <div className="flex items-center justify-between pb-2 border-b border-amber-200/60">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center">
+                        <Navigation className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-sm font-bold text-amber-950">Outstation & Intercity Travel</h4>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                      Outstation
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-900 leading-relaxed">
+                    Point-to-point and round-trip intercity bookings across South India with dedicated driver and toll management.
+                  </p>
+                </div>
+              )}
+
+              {/* Package Card */}
+              {serviceType === 'PACKAGE' && (
+                <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200/90 space-y-2 animate-in fade-in slide-in-from-top-3 duration-300">
+                  <div className="flex items-center justify-between pb-2 border-b border-purple-200/60">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-sm font-bold text-purple-950">Corporate & Hourly Rental Package (ETS)</h4>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-200 text-purple-900">
+                      Package / ETS
+                    </span>
+                  </div>
+                  <p className="text-xs text-purple-900 leading-relaxed">
+                    Custom hourly packages for corporate employee transport, corporate shuttles, VIP events, and full-day charters.
+                  </p>
                 </div>
               )}
 
@@ -736,6 +848,46 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                       </button>
                     </div>
                   </div>
+                </div>
+              )}
+
+              {/* Outstation Card */}
+              {serviceType === 'OUTSTATION' && (
+                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/90 space-y-2 animate-in fade-in slide-in-from-top-3 duration-300">
+                  <div className="flex items-center justify-between pb-2 border-b border-amber-200/60">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center">
+                        <Navigation className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-sm font-bold text-amber-950">Outstation & Intercity Travel</h4>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
+                      Outstation
+                    </span>
+                  </div>
+                  <p className="text-xs text-amber-900 leading-relaxed">
+                    Point-to-point and round-trip intercity bookings across South India with dedicated driver and toll management.
+                  </p>
+                </div>
+              )}
+
+              {/* Package Card */}
+              {serviceType === 'PACKAGE' && (
+                <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200/90 space-y-2 animate-in fade-in slide-in-from-top-3 duration-300">
+                  <div className="flex items-center justify-between pb-2 border-b border-purple-200/60">
+                    <div className="flex items-center gap-2">
+                      <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center">
+                        <Building2 className="w-4 h-4" />
+                      </div>
+                      <h4 className="text-sm font-bold text-purple-950">Corporate & Hourly Rental Package (ETS)</h4>
+                    </div>
+                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-200 text-purple-900">
+                      Package / ETS
+                    </span>
+                  </div>
+                  <p className="text-xs text-purple-900 leading-relaxed">
+                    Custom hourly packages for corporate employee transport, corporate shuttles, VIP events, and full-day charters.
+                  </p>
                 </div>
               )}
 
