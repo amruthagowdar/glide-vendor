@@ -52,6 +52,12 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
     navigate('/login')
   }
 
+  const handleNavClick = () => {
+    if (typeof window !== 'undefined' && window.innerWidth < 1024) {
+      onClose()
+    }
+  }
+
   return (
     <>
       {/* Mobile backdrop */}
@@ -63,31 +69,33 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       )}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col w-64 bg-[#09090b] text-white border-r border-slate-800/80 transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col w-64 bg-[#09090b] text-white border-r border-slate-800/80 transition-transform duration-200 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Brand header */}
-        <div className="flex items-center justify-between h-20 px-6 border-b border-slate-800/60 bg-[#09090b]">
-          <div className="flex items-center gap-3">
-            <div className="flex items-center justify-center w-11 h-11 rounded-2xl bg-white shadow-lg p-1.5 flex-shrink-0">
+        <div className="flex items-center justify-between h-20 px-5 border-b border-slate-800/60 bg-[#09090b]">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <div className="flex items-center justify-center w-10 h-10 rounded-2xl bg-white shadow-lg p-1.5 flex-shrink-0">
               <img src="/logo.png" alt="Glide Logo" className="w-full h-full object-contain" />
             </div>
-            <div>
+            <div className="min-w-0">
               <div className="flex items-center gap-1.5">
                 <span className="font-extrabold tracking-tight text-xl text-white">Glide</span>
-                <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-full bg-blue-600 text-white">
+                <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-full bg-blue-600 text-white">
                   Vendor
                 </span>
               </div>
-              <p className="text-xs text-slate-400 truncate max-w-[130px]">
+              <p className="text-xs text-slate-400 truncate max-w-[110px]">
                 {user?.companyName || 'Fleet Partner'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-full lg:hidden text-slate-400 hover:text-white hover:bg-white/10"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0 ml-1"
+            title="Close sidebar"
+            aria-label="Close sidebar"
           >
             <X className="w-5 h-5" />
           </button>
@@ -113,7 +121,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                 key={item.path}
                 to={item.path}
                 end={item.path === '/'}
-                onClick={onClose}
+                onClick={handleNavClick}
                 className={({ isActive }) =>
                   `sidebar-link ${isActive ? 'active' : ''}`
                 }

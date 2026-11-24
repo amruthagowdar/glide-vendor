@@ -11,9 +11,10 @@ import type { Notification } from '../../types'
 interface NavbarProps {
   onMenuClick: () => void
   onOpenRechargeModal?: () => void
+  sidebarOpen?: boolean
 }
 
-export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, onOpenRechargeModal }) => {
+export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, onOpenRechargeModal, sidebarOpen }) => {
   const { user } = useAuth()
   const navigate = useNavigate()
   const { data: wallet } = useWallet()
@@ -66,8 +67,11 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, onOpenRechargeModal
       <div className="flex items-center gap-3">
         <button
           onClick={onMenuClick}
-          className="p-2 -ml-2 text-slate-600 rounded-full lg:hidden hover:bg-slate-100"
-          aria-label="Open menu"
+          className={`p-2 -ml-2 text-slate-600 rounded-lg hover:bg-slate-100 hover:text-slate-900 transition-colors ${
+            sidebarOpen ? 'lg:hidden' : 'flex items-center'
+          }`}
+          aria-label={sidebarOpen ? 'Close menu' : 'Open menu'}
+          title="Toggle sidebar"
         >
           <Menu className="w-5 h-5" />
         </button>

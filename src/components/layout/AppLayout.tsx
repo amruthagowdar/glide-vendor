@@ -5,16 +5,22 @@ import { Navbar } from './Navbar'
 import { RechargeModal } from '../wallet/RechargeModal'
 
 export const AppLayout: React.FC = () => {
-  const [sidebarOpen, setSidebarOpen] = useState(false)
+  const [sidebarOpen, setSidebarOpen] = useState(() => {
+    if (typeof window !== 'undefined') {
+      return window.innerWidth >= 1024
+    }
+    return true
+  })
   const [rechargeModalOpen, setRechargeModalOpen] = useState(false)
 
   return (
     <div className="min-h-screen bg-sky-50/50 flex flex-col">
       <Sidebar isOpen={sidebarOpen} onClose={() => setSidebarOpen(false)} />
 
-      <div className="lg:pl-64 flex flex-col flex-1">
+      <div className={`transition-all duration-200 flex flex-col flex-1 ${sidebarOpen ? 'lg:pl-64' : 'lg:pl-0'}`}>
         <Navbar
-          onMenuClick={() => setSidebarOpen(true)}
+          sidebarOpen={sidebarOpen}
+          onMenuClick={() => setSidebarOpen((prev) => !prev)}
           onOpenRechargeModal={() => setRechargeModalOpen(true)}
         />
 
