@@ -371,6 +371,10 @@ export const TripsPage: React.FC = () => {
         trip={selectedTrip}
         isOpen={!!selectedTrip}
         onClose={() => setSelectedTrip(null)}
+        onDelete={(t) => {
+          setSelectedTrip(null)
+          setDeletingTrip(t)
+        }}
       />
     </div>
   )

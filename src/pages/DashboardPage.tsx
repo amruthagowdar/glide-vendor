@@ -468,6 +468,15 @@ export const DashboardPage: React.FC = () => {
         trip={selectedTrip}
         isOpen={!!selectedTrip}
         onClose={() => setSelectedTrip(null)}
+        onDelete={(t) => {
+          setSelectedTrip(null)
+          setDeletingItem({
+            type: 'TRIP',
+            id: t.id,
+            title: `Trip ${t.tripNo}`,
+            details: `${t.passengerName} (${t.serviceType}) • ${t.pickup} → ${t.drop}`,
+          })
+        }}
       />
 
       {/* Edit Trip Modal */}

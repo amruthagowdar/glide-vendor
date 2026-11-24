@@ -24,8 +24,11 @@ import {
   ArrowLeft,
   Sparkles,
   X,
+  Trash2,
 } from 'lucide-react'
 import { CreateETSTripModal, CORPORATE_OFFICES } from '../components/trips/CreateETSTripModal'
+import { SlideDeleteModal } from '../components/ui/SlideDeleteModal'
+import { logAuditEvent } from '../lib/auditLogger'
 import { formatCurrency } from '../lib/utils'
 import {
   fetchOSRMRoute,
@@ -149,7 +152,35 @@ export const ETSDashboardPage: React.FC = () => {
   const [vehicleFilter, setVehicleFilter] = useState<'ALL' | 'SEDAN' | 'SUV'>('ALL')
   const [selectedShift, setSelectedShift] = useState<LiveShiftCab | null>(null)
   const [selectedShiftForDrawer, setSelectedShiftForDrawer] = useState<LiveShiftCab | null>(null)
+  const [deletingShift, setDeletingShift] = useState<LiveShiftCab | null>(null)
   const [showGeofenceClusters, setShowGeofenceClusters] = useState(true)
+
+  const handleConfirmDeleteShift = () => {
+    if (!deletingShift) return
+    const updated = liveShifts.filter(
+      (s) => s.id !== deletingShift.id && s.shiftCode !== deletingShift.shiftCode
+    )
+    setLiveShifts(updated)
+    try {
+      localStorage.setItem('ETS_DISPATCHED_SHIFTS', JSON.stringify(updated))
+    } catch {
+      // ignore
+    }
+
+    logAuditEvent({
+      action: 'TRIP_DELETED',
+      entityType: 'TRIP',
+      entityId: deletingShift.id,
+      entityTitle: `ETS Shift ${deletingShift.shiftCode}`,
+      performedBy: 'Vendor Admin',
+      summary: `Deleted ETS shift trip ${deletingShift.shiftCode} for ${deletingShift.hubName}`,
+      details: { deleted: deletingShift },
+    })
+
+    toast.success(`Shift ${deletingShift.shiftCode} deleted successfully!`)
+    setSelectedShiftForDrawer(null)
+    setDeletingShift(null)
+  }
 
   // Map Refs
   const mapContainerRef = useRef<HTMLDivElement>(null)
@@ -171,6 +202,18 @@ export const ETSDashboardPage: React.FC = () => {
     if (vehicleFilter === 'SUV' && !shift.vehicleType.includes('SUV')) return false
     return true
   })
+
+  // Determine whether a shift is currently active on the road
+  const isShiftActive = (shift: LiveShiftCab): boolean => {
+    if (shift.status === 'ARRIVED' || shift.status === 'COMPLETED') return false
+    const stageInfo = getShiftStageInfo(shift)
+    if (stageInfo.stageIndex >= stageInfo.totalStages) return false
+    return true
+  }
+
+  const activeShifts = filteredShifts.filter(isShiftActive)
+  const completedShifts = filteredShifts.filter((s) => !isShiftActive(s))
+  const [panelTab, setPanelTab] = useState<'ACTIVE' | 'COMPLETED'>('ACTIVE')
 
   // Initialize and Render GMaps Leaflet Dashboard
   useEffect(() => {
@@ -234,8 +277,8 @@ export const ETSDashboardPage: React.FC = () => {
       }
     })
 
-    // 2. Render Active Shift Cabs and Dynamic Route Paths
-    filteredShifts.forEach((shift) => {
+    // 2. Render ONLY Active Shift Cabs and Dynamic Route Paths on the Main Map
+    activeShifts.forEach((shift) => {
       const isSedan = shift.vehicleType.includes('Sedan')
       const stageInfo = getShiftStageInfo(shift)
 
@@ -338,7 +381,7 @@ export const ETSDashboardPage: React.FC = () => {
         stopMarker.bindPopup(empTooltipHtml)
       })
     })
-  }, [filteredShifts, showGeofenceClusters])
+  }, [activeShifts, showGeofenceClusters])
 
   // Initialize and render Leaflet Map in Shift & Hub Details Slide Drawer
   useEffect(() => {
@@ -593,6 +636,20 @@ export const ETSDashboardPage: React.FC = () => {
                 <span>8 km Hub Geofence</span>
               </label>
             </div>
+
+            {/* Live Active Status Indicator on Map */}
+            <div className="bg-slate-900/90 backdrop-blur-md px-3 py-1.5 rounded-xl shadow-md border border-slate-700/80 flex items-center gap-2 pointer-events-auto text-xs text-white">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  activeShifts.length > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-slate-400'
+                }`}
+              />
+              <span className="font-bold">
+                {activeShifts.length > 0
+                  ? `${activeShifts.length} Active on Main Map`
+                  : '0 Active Trips (Clean Map)'}
+              </span>
+            </div>
           </div>
 
           {/* Leaflet Map Div */}
@@ -622,99 +679,190 @@ export const ETSDashboardPage: React.FC = () => {
           </div>
         </div>
 
-        {/* Side Panel: Active Shift Manifests (1 col) */}
+        {/* Side Panel: Active & Completed Shift Manifests (1 col) */}
         <div className="card p-4 border border-slate-200/90 shadow-sm flex flex-col h-[580px]">
-          <div className="flex items-center justify-between pb-3 border-b border-slate-200">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-200">
             <div>
               <h3 className="text-sm font-bold text-slate-900 flex items-center gap-1.5">
                 <Navigation className="w-4 h-4 text-sky-700" />
-                <span>Live Active Shifts</span>
+                <span>Shift Manifests</span>
               </h3>
-              <p className="text-[11px] text-slate-500">Click a shift to center map on vehicle</p>
+              <p className="text-[11px] text-slate-500">Live active trips and completed records</p>
             </div>
             <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-800">
-              {filteredShifts.length} Running
+              {panelTab === 'ACTIVE' ? `${activeShifts.length} Active` : `${completedShifts.length} Completed`}
             </span>
           </div>
 
+          {/* Segmented Tabs: Active vs Completed */}
+          <div className="flex items-center gap-1 p-1 bg-slate-100 rounded-xl my-2.5">
+            <button
+              type="button"
+              onClick={() => setPanelTab('ACTIVE')}
+              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                panelTab === 'ACTIVE'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  activeShifts.length > 0 ? 'bg-emerald-500 animate-pulse' : 'bg-slate-300'
+                }`}
+              />
+              <span>Active ({activeShifts.length})</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setPanelTab('COMPLETED')}
+              className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold transition-all flex items-center justify-center gap-1.5 ${
+                panelTab === 'COMPLETED'
+                  ? 'bg-white text-slate-900 shadow-xs'
+                  : 'text-slate-500 hover:text-slate-800'
+              }`}
+            >
+              <span className="w-2 h-2 rounded-full bg-sky-500" />
+              <span>Completed ({completedShifts.length})</span>
+            </button>
+          </div>
+
           {/* Shift Cards List */}
-          <div className="flex-1 overflow-y-auto space-y-3 pt-3 pr-1">
-            {filteredShifts.length === 0 ? (
-              <div className="flex flex-col items-center justify-center h-48 text-center p-4 text-slate-400">
-                <Car className="w-8 h-8 mb-2 text-slate-300" />
-                <p className="text-xs font-semibold text-slate-600">No active shift trips</p>
-                <p className="text-[11px] text-slate-400 mt-0.5">Dispatched ETS trips will appear here</p>
-              </div>
-            ) : (
-              filteredShifts.map((shift) => {
-              const isSelected = selectedShift?.id === shift.id
-              const isSedan = shift.vehicleType.includes('Sedan')
-
-              return (
-                <div
-                  key={shift.id}
-                  onClick={() => handleSelectShiftInList(shift)}
-                  className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer ${
-                    isSelected
-                      ? 'border-sky-600 bg-sky-50/70 shadow-md ring-2 ring-sky-500/20'
-                      : 'border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-sm'
-                  }`}
-                >
-                  <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-slate-100">
-                    <div className="flex items-center gap-1.5">
-                      <span className="text-xs font-extrabold text-slate-900">{shift.shiftCode}</span>
-                      <span
-                        className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
-                          shift.shiftType === 'LOGIN' ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'
-                        }`}
-                      >
-                        {shift.shiftType}
-                      </span>
-                    </div>
-
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono">
-                      {shift.vehicleNo}
-                    </span>
-                  </div>
-
-                  <p className="text-xs font-bold text-slate-800 truncate">{shift.hubName}</p>
-
-                  {(() => {
-                    const info = getShiftStageInfo(shift)
-                    return (
-                      <>
-                        <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
-                          <span>Driver: {shift.driverName}</span>
-                          <span className="font-bold text-sky-800">
-                            {info.seatsFilled}/{shift.capacity} Seats Filled
-                          </span>
-                        </div>
-                        <div className="mt-1 flex items-center justify-between text-[10px]">
-                          <span className="font-semibold text-sky-700 truncate max-w-[200px]">
-                            {info.stageTitle}
-                          </span>
-                          <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">
-                            {info.statusBadge}
-                          </span>
-                        </div>
-                      </>
-                    )
-                  })()}
-
-                  {/* Passenger names preview */}
-                  <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
-                    <span className="truncate max-w-[190px]">
-                      {shift.stops.map((s) => s.name.split(' ')[0]).join(', ')}
-                    </span>
-                    <span className="text-sky-700 font-bold flex items-center gap-0.5">
-                      <span>View Route</span>
-                      <ChevronRight className="w-3 h-3" />
-                    </span>
-                  </div>
+          <div className="flex-1 overflow-y-auto space-y-3 pr-1">
+            {panelTab === 'ACTIVE' ? (
+              activeShifts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 text-center p-4 text-slate-400">
+                  <Car className="w-8 h-8 mb-2 text-slate-300" />
+                  <p className="text-xs font-semibold text-slate-600">No active trips on road right now</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">
+                    Main map is clear. Click "Completed" tab to review finished shifts.
+                  </p>
                 </div>
+              ) : (
+                activeShifts.map((shift) => {
+                  const isSelected = selectedShift?.id === shift.id
+
+                  return (
+                    <div
+                      key={shift.id}
+                      onClick={() => handleSelectShiftInList(shift)}
+                      className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-sky-600 bg-sky-50/70 shadow-md ring-2 ring-sky-500/20'
+                          : 'border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-sm'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-extrabold text-slate-900">{shift.shiftCode}</span>
+                          <span
+                            className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
+                              shift.shiftType === 'LOGIN' ? 'bg-emerald-100 text-emerald-800' : 'bg-indigo-100 text-indigo-800'
+                            }`}
+                          >
+                            {shift.shiftType}
+                          </span>
+                        </div>
+
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono">
+                          {shift.vehicleNo}
+                        </span>
+                      </div>
+
+                      <p className="text-xs font-bold text-slate-800 truncate">{shift.hubName}</p>
+
+                      {(() => {
+                        const info = getShiftStageInfo(shift)
+                        return (
+                          <>
+                            <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
+                              <span>Driver: {shift.driverName}</span>
+                              <span className="font-bold text-sky-800">
+                                {info.seatsFilled}/{shift.capacity} Seats Filled
+                              </span>
+                            </div>
+                            <div className="mt-1 flex items-center justify-between text-[10px]">
+                              <span className="font-semibold text-sky-700 truncate max-w-[200px]">
+                                {info.stageTitle}
+                              </span>
+                              <span className="text-[9px] font-bold uppercase px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">
+                                {info.statusBadge}
+                              </span>
+                            </div>
+                          </>
+                        )
+                      })()}
+
+                      <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px] text-slate-500">
+                        <span className="truncate max-w-[190px]">
+                          {shift.stops.map((s) => s.name.split(' ')[0]).join(', ')}
+                        </span>
+                        <span className="text-sky-700 font-bold flex items-center gap-0.5">
+                          <span>View Details</span>
+                          <ChevronRight className="w-3 h-3" />
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })
               )
-            })
-          )}
+            ) : (
+              completedShifts.length === 0 ? (
+                <div className="flex flex-col items-center justify-center h-48 text-center p-4 text-slate-400">
+                  <CheckCircle2 className="w-8 h-8 mb-2 text-emerald-300" />
+                  <p className="text-xs font-semibold text-slate-600">No completed shifts yet</p>
+                  <p className="text-[11px] text-slate-400 mt-0.5">Shifts that have finished will appear here</p>
+                </div>
+              ) : (
+                completedShifts.map((shift) => {
+                  const isSelected = selectedShiftForDrawer?.id === shift.id
+
+                  return (
+                    <div
+                      key={shift.id}
+                      onClick={() => {
+                        setSelectedShift(shift)
+                        setSelectedShiftForDrawer(shift)
+                      }}
+                      className={`p-3.5 rounded-2xl border-2 transition-all cursor-pointer ${
+                        isSelected
+                          ? 'border-emerald-600 bg-emerald-50/70 shadow-md ring-2 ring-emerald-500/20'
+                          : 'border-slate-200/90 bg-white hover:border-slate-300 hover:shadow-sm'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-slate-100">
+                        <div className="flex items-center gap-1.5">
+                          <span className="text-xs font-extrabold text-slate-900">{shift.shiftCode}</span>
+                          <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800 border border-emerald-200">
+                            ✓ ARRIVED
+                          </span>
+                        </div>
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono">
+                          {shift.vehicleNo}
+                        </span>
+                      </div>
+
+                      <p className="text-xs font-bold text-slate-800 truncate">{shift.hubName}</p>
+                      <div className="flex items-center justify-between text-[11px] text-slate-500 mt-1">
+                        <span>Driver: {shift.driverName}</span>
+                        <span className="font-bold text-emerald-700">
+                          {shift.capacity}/{shift.capacity} Delivered
+                        </span>
+                      </div>
+
+                      <div className="mt-2.5 pt-2 border-t border-slate-100 flex items-center justify-between text-[10px]">
+                        <span className="text-emerald-700 font-semibold flex items-center gap-1">
+                          <CheckCircle2 className="w-3 h-3 text-emerald-600" />
+                          <span>Shift Completed</span>
+                        </span>
+                        <span className="text-slate-500 hover:text-red-600 font-bold flex items-center gap-1">
+                          <span>Delete / Details &rarr;</span>
+                        </span>
+                      </div>
+                    </div>
+                  )
+                })
+              )
+            )}
           </div>
 
           {/* Quick Create Shift Trigger */}
@@ -784,14 +932,24 @@ export const ETSDashboardPage: React.FC = () => {
                 </div>
               </div>
 
-              <button
-                type="button"
-                onClick={() => setSelectedShiftForDrawer(null)}
-                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
-                title="Close Shift Details"
-              >
-                <X className="w-5 h-5" />
-              </button>
+              <div className="flex items-center gap-1.5">
+                <button
+                  type="button"
+                  onClick={() => setDeletingShift(selectedShiftForDrawer)}
+                  className="p-2 rounded-xl text-red-500 hover:text-red-700 hover:bg-red-50 transition-colors"
+                  title="Delete this Shift Trip"
+                >
+                  <Trash2 className="w-5 h-5" />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setSelectedShiftForDrawer(null)}
+                  className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
+                  title="Close Shift Details"
+                >
+                  <X className="w-5 h-5" />
+                </button>
+              </div>
             </div>
 
             {/* Scrollable Body */}
@@ -1044,13 +1202,24 @@ export const ETSDashboardPage: React.FC = () => {
 
             {/* Footer */}
             <div className="p-4 border-t border-slate-200 flex items-center justify-between gap-3 bg-slate-50">
-              <button
-                type="button"
-                onClick={() => setSelectedShiftForDrawer(null)}
-                className="btn-secondary text-xs py-2 px-4 font-semibold"
-              >
-                Close
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setSelectedShiftForDrawer(null)}
+                  className="btn-secondary text-xs py-2 px-4 font-semibold"
+                >
+                  Close
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setDeletingShift(selectedShiftForDrawer)}
+                  className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 flex items-center gap-1.5 transition-colors shadow-2xs"
+                  title="Delete Shift Trip"
+                >
+                  <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                  <span>Delete</span>
+                </button>
+              </div>
 
               <button
                 type="button"
@@ -1073,6 +1242,21 @@ export const ETSDashboardPage: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* Slide to Delete Confirmation Modal for ETS Shift */}
+      <SlideDeleteModal
+        isOpen={!!deletingShift}
+        onClose={() => setDeletingShift(null)}
+        onConfirmDelete={handleConfirmDeleteShift}
+        title="Delete ETS Shift Trip"
+        subtitle="This action will delete this scheduled shift and create an audit log."
+        entityName={deletingShift ? `Shift ${deletingShift.shiftCode}` : ''}
+        entityDetails={
+          deletingShift
+            ? `${deletingShift.shiftType} Shift • Hub: ${deletingShift.hubName} • Vehicle: ${deletingShift.vehicleNo} (${deletingShift.stops.length} Stops)`
+            : undefined
+        }
+      />
     </div>
   )
 }

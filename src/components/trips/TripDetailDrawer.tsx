@@ -23,18 +23,21 @@ import {
   ExternalLink,
   RotateCcw,
   ShieldCheck,
+  Trash2,
 } from 'lucide-react'
 
 interface TripDetailDrawerProps {
   trip: Trip | null
   isOpen: boolean
   onClose: () => void
+  onDelete?: (trip: Trip) => void
 }
 
 export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
   trip,
   isOpen,
   onClose,
+  onDelete,
 }) => {
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
@@ -492,9 +495,32 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
           />
         </div>
 
-        <p className="text-[11px] text-slate-400 text-center">
-          Created on {formatDateTime(trip.createdAt)}
-        </p>
+        {/* Footer Actions with Close and Delete */}
+        <div className="pt-3 border-t border-slate-200 flex items-center justify-between">
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={onClose}
+              className="btn-secondary text-xs py-2 px-4 font-semibold"
+            >
+              Close
+            </button>
+            {onDelete && (
+              <button
+                type="button"
+                onClick={() => onDelete(trip)}
+                className="px-3.5 py-2 rounded-lg text-xs font-semibold bg-red-50 text-red-700 hover:bg-red-100 border border-red-200 flex items-center gap-1.5 transition-colors shadow-2xs"
+                title="Delete this Trip"
+              >
+                <Trash2 className="w-3.5 h-3.5 text-red-600" />
+                <span>Delete</span>
+              </button>
+            )}
+          </div>
+          <p className="text-[11px] text-slate-400 text-right">
+            Created on {formatDateTime(trip.createdAt)}
+          </p>
+        </div>
       </div>
     </Drawer>
   )
