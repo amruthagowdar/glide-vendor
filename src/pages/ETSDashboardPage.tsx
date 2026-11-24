@@ -646,8 +646,8 @@ export const ETSDashboardPage: React.FC = () => {
               />
               <span className="font-bold">
                 {activeShifts.length > 0
-                  ? `${activeShifts.length} Active on Main Map`
-                  : '0 Active Trips (Clean Map)'}
+                  ? `${activeShifts.length} Active Trips`
+                  : '0 Active Trips'}
               </span>
             </div>
           </div>
