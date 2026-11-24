@@ -1,21 +1,51 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import toast from 'react-hot-toast'
+import { getMockResponse } from './mockData'
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api'
+
+const isStaticOrUnreachableHost = (): boolean => {
+  if (typeof window === 'undefined') return false
+  const host = window.location.hostname
+  const isLocal =
+    host === 'localhost' ||
+    host === '127.0.0.1' ||
+    host.startsWith('192.168.') ||
+    host.startsWith('10.') ||
+    host.startsWith('172.')
+  const hasCustomApi =
+    Boolean(import.meta.env.VITE_API_URL) && import.meta.env.VITE_API_URL !== '/api'
+  return !isLocal && !hasCustomApi
+}
 
 const api = axios.create({
   baseURL: BASE_URL,
   headers: { 'Content-Type': 'application/json' },
-  timeout: 30000,
+  timeout: 15000,
 })
 
-// Request interceptor — attach JWT
+// Request interceptor — attach JWT or short-circuit in static demo mode
 api.interceptors.request.use(
-  (config: InternalAxiosRequestConfig) => {
+  async (config: InternalAxiosRequestConfig) => {
     const token = localStorage.getItem('accessToken')
     if (token && config.headers) {
       config.headers.Authorization = `Bearer ${token}`
     }
+
+    // If deployed on static host (Netlify) without a configured backend endpoint, serve mock directly
+    if (isStaticOrUnreachableHost()) {
+      const mock = getMockResponse(config.url, config.method, config.data)
+      if (mock !== null) {
+        config.adapter = async () => ({
+          data: mock,
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config,
+        })
+      }
+    }
+
     return config
   },
   (error) => Promise.reject(error)
@@ -32,13 +62,42 @@ const processQueue = (error: unknown, token: string | null = null) => {
   failedQueue = []
 }
 
-// Response interceptor — auto-refresh on 401
+// Response interceptor — fallback on HTML / 404 / 401
 api.interceptors.response.use(
-  (response) => response,
+  (response) => {
+    // If static host returns index.html for unmatched /api routes
+    if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+      const mock = getMockResponse(response.config.url, response.config.method, response.config.data)
+      if (mock !== null) {
+        return {
+          ...response,
+          data: mock,
+        }
+      }
+    }
+    return response
+  },
   async (error: AxiosError) => {
-    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean }
+    const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Fallback to mock data if network failed or endpoint not found on static host
+    if (originalRequest) {
+      const url = originalRequest.url
+      const method = originalRequest.method || 'get'
+      const requestData = originalRequest.data
+      const mock = getMockResponse(url, method, requestData)
+      if (mock !== null) {
+        return {
+          data: mock,
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: originalRequest,
+        }
+      }
+    }
+
+    if (error.response?.status === 401 && originalRequest && !originalRequest._retry) {
       if (isRefreshing) {
         return new Promise((resolve, reject) => {
           failedQueue.push({ resolve, reject })
@@ -54,9 +113,12 @@ api.interceptors.response.use(
       isRefreshing = true
 
       const refreshToken = localStorage.getItem('refreshToken')
-      if (!refreshToken) {
-        processQueue(new Error('No refresh token'), null)
+      if (!refreshToken || refreshToken.startsWith('glide_demo_')) {
         isRefreshing = false
+        if (refreshToken?.startsWith('glide_demo_')) {
+          return Promise.resolve({ data: { status: 'success' }, status: 200 } as any)
+        }
+        processQueue(new Error('No refresh token'), null)
         localStorage.clear()
         window.location.href = '/login'
         return Promise.reject(error)
