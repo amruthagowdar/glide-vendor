@@ -23,6 +23,7 @@ import {
   Phone,
   ArrowLeft,
   Sparkles,
+  X,
 } from 'lucide-react'
 import { CreateETSTripModal, CORPORATE_OFFICES } from '../components/trips/CreateETSTripModal'
 import { formatCurrency } from '../lib/utils'
@@ -109,12 +110,15 @@ export const ETSDashboardPage: React.FC = () => {
   const [shiftFilter, setShiftFilter] = useState<'ALL' | 'LOGIN' | 'LOGOUT'>('ALL')
   const [vehicleFilter, setVehicleFilter] = useState<'ALL' | 'SEDAN' | 'SUV'>('ALL')
   const [selectedShift, setSelectedShift] = useState<LiveShiftCab | null>(null)
+  const [selectedShiftForDrawer, setSelectedShiftForDrawer] = useState<LiveShiftCab | null>(null)
   const [showGeofenceClusters, setShowGeofenceClusters] = useState(true)
 
   // Map Refs
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
   const markersLayerRef = useRef<any>(null)
+  const shiftDrawerMapContainerRef = useRef<HTMLDivElement>(null)
+  const shiftDrawerMapInstanceRef = useRef<any>(null)
 
   // Open Modal with specific view
   const openModal = (view: 'CREATE_TRIP' | 'EMPLOYEE_LOG' | 'ROUTING_RULES') => {
@@ -268,9 +272,101 @@ export const ETSDashboardPage: React.FC = () => {
     })
   }, [filteredShifts, showGeofenceClusters])
 
-  // Center on selected shift
+  // Initialize and render Leaflet Map in Shift & Hub Details Slide Drawer
+  useEffect(() => {
+    if (!selectedShiftForDrawer) {
+      if (shiftDrawerMapInstanceRef.current) {
+        shiftDrawerMapInstanceRef.current.remove()
+        shiftDrawerMapInstanceRef.current = null
+      }
+      return
+    }
+
+    const timer = setTimeout(() => {
+      const L = (window as any).L
+      if (!L || !shiftDrawerMapContainerRef.current) return
+
+      if (shiftDrawerMapInstanceRef.current) {
+        shiftDrawerMapInstanceRef.current.remove()
+        shiftDrawerMapInstanceRef.current = null
+      }
+
+      const shift = selectedShiftForDrawer
+      const map = L.map(shiftDrawerMapContainerRef.current).setView(
+        [shift.currentCoords.lat, shift.currentCoords.lng],
+        13
+      )
+      shiftDrawerMapInstanceRef.current = map
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+      }).addTo(map)
+
+      // Vehicle Marker (Car Icon)
+      const carIcon = L.divIcon({
+        className: 'custom-cab-icon',
+        html: `
+          <div style="background-color: #0284c7; color: white; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 2px solid white;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      })
+      const vehicleMarker = L.marker([shift.currentCoords.lat, shift.currentCoords.lng], { icon: carIcon }).addTo(map)
+      vehicleMarker.bindPopup(`<b>${shift.shiftCode} (${shift.vehicleNo})</b><br/>Driver: ${shift.driverName}`).openPopup()
+
+      // Office Hub Marker
+      const officeIcon = L.divIcon({
+        className: 'custom-hub-icon',
+        html: `
+          <div style="background-color: #0f172a; color: white; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 2px solid #38bdf8;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      })
+      const officeMarker = L.marker([shift.hubCoords.lat, shift.hubCoords.lng], { icon: officeIcon }).addTo(map)
+      officeMarker.bindPopup(`<b>${shift.hubName}</b><br/>${shift.hubAddress}`)
+
+      // Render stops
+      const allPoints: [number, number][] = [
+        [shift.currentCoords.lat, shift.currentCoords.lng],
+        ...shift.stops.map((s) => [s.lat, s.lng] as [number, number]),
+        [shift.hubCoords.lat, shift.hubCoords.lng],
+      ]
+
+      shift.stops.forEach((stop, idx) => {
+        const stopMarker = L.circleMarker([stop.lat, stop.lng], {
+          radius: 7,
+          fillColor: stop.status === 'PICKED' ? '#10b981' : stop.status === 'NEXT' ? '#38bdf8' : '#cbd5e1',
+          color: '#ffffff',
+          weight: 2,
+          fillOpacity: 0.9,
+        }).addTo(map)
+        stopMarker.bindPopup(`<b>Stop #${idx + 1}: ${stop.name}</b><br/>${stop.address}`)
+      })
+
+      // Draw polyline connecting route
+      const polyline = L.polyline(allPoints, {
+        color: '#0284c7',
+        weight: 4,
+        dashArray: '6, 8',
+        opacity: 0.85,
+      }).addTo(map)
+
+      map.fitBounds(polyline.getBounds(), { padding: [35, 35] })
+    }, 150)
+
+    return () => clearTimeout(timer)
+  }, [selectedShiftForDrawer])
+
+  // Center on selected shift & open right-side slide page to view details
   const handleSelectShiftInList = (shift: LiveShiftCab) => {
     setSelectedShift(shift)
+    setSelectedShiftForDrawer(shift)
     if (mapInstanceRef.current) {
       mapInstanceRef.current.flyTo([shift.currentCoords.lat, shift.currentCoords.lng], 13, {
         duration: 1.2,
@@ -509,6 +605,201 @@ export const ETSDashboardPage: React.FC = () => {
           navigate('/wallet')
         }}
       />
+      {/* ======================================================== */}
+      {/* RIGHT SIDE SLIDE DRAWER: SHIFT & HUB DETAILS WITH GMAPS */}
+      {/* ======================================================== */}
+      {selectedShiftForDrawer && (
+        <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
+            onClick={() => setSelectedShiftForDrawer(null)}
+          />
+
+          {/* Drawer Panel */}
+          <div className="relative w-full max-w-lg bg-white h-full shadow-2xl flex flex-col z-10 border-l border-slate-200 animate-in slide-in-from-right duration-300">
+            {/* Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-sky-900 text-white flex items-center justify-center shadow-sm">
+                  <Car className="w-5 h-5 text-sky-400" />
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900">{selectedShiftForDrawer.shiftCode}</h3>
+                    <span
+                      className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
+                        selectedShiftForDrawer.shiftType === 'LOGIN'
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-indigo-100 text-indigo-800'
+                      }`}
+                    >
+                      {selectedShiftForDrawer.shiftType}
+                    </span>
+                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-sky-100 text-sky-800">
+                      {selectedShiftForDrawer.status}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {selectedShiftForDrawer.hubName}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setSelectedShiftForDrawer(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
+                title="Close Shift Details"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable Body */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+              {/* GMaps / Leaflet Map Container */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-sky-600" />
+                    <span>Live Vehicle Route & Stops</span>
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-slate-500">
+                    {selectedShiftForDrawer.currentCoords.lat.toFixed(4)}, {selectedShiftForDrawer.currentCoords.lng.toFixed(4)}
+                  </span>
+                </div>
+
+                <div
+                  ref={shiftDrawerMapContainerRef}
+                  className="w-full h-56 rounded-xl border border-slate-200 shadow-inner z-0"
+                  style={{ minHeight: '220px' }}
+                />
+
+                <p className="text-[11px] text-slate-500 italic">
+                  Live vehicle position connected to {selectedShiftForDrawer.hubName}.
+                </p>
+              </div>
+
+              {/* Hub & Vehicle Information */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-slate-400 block">Corporate Client Hub</span>
+                  <h4 className="text-xs font-bold text-slate-900 mt-0.5">{selectedShiftForDrawer.hubName}</h4>
+                  <p className="text-[11px] text-slate-600 mt-0.5">{selectedShiftForDrawer.hubAddress}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Vehicle</span>
+                    <p className="text-xs font-mono font-bold text-slate-800 mt-0.5">{selectedShiftForDrawer.vehicleNo}</p>
+                    <span className="text-[10px] text-slate-500">{selectedShiftForDrawer.vehicleType}</span>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Driver Contact</span>
+                    <p className="text-xs font-bold text-slate-900 mt-0.5">{selectedShiftForDrawer.driverName}</p>
+                    {selectedShiftForDrawer.driverPhone && (
+                      <a
+                        href={`tel:${selectedShiftForDrawer.driverPhone}`}
+                        className="text-[11px] font-mono text-emerald-700 hover:underline flex items-center gap-1 mt-0.5"
+                      >
+                        <Phone className="w-2.5 h-2.5" />
+                        <span>{selectedShiftForDrawer.driverPhone}</span>
+                      </a>
+                    )}
+                  </div>
+                </div>
+
+                <div className="pt-2 border-t border-slate-200">
+                  <div className="flex items-center justify-between text-xs font-semibold mb-1">
+                    <span className="text-slate-600">Capacity & Occupancy</span>
+                    <span className="text-sky-800 font-bold font-mono">
+                      {selectedShiftForDrawer.seatsUsed} / {selectedShiftForDrawer.capacity} Seats Filled
+                    </span>
+                  </div>
+                  <div className="w-full h-2 rounded-full bg-slate-200 overflow-hidden">
+                    <div
+                      className="h-full bg-emerald-500 transition-all rounded-full"
+                      style={{
+                        width: `${(selectedShiftForDrawer.seatsUsed / selectedShiftForDrawer.capacity) * 100}%`,
+                      }}
+                    />
+                  </div>
+                </div>
+              </div>
+
+              {/* Passenger Stop Manifest */}
+              <div className="space-y-2">
+                <h4 className="text-xs font-bold text-slate-900 flex items-center gap-1.5">
+                  <Users className="w-3.5 h-3.5 text-slate-700" />
+                  <span>Assigned Employee Manifest ({selectedShiftForDrawer.stops.length})</span>
+                </h4>
+
+                <div className="space-y-2">
+                  {selectedShiftForDrawer.stops.map((stop, idx) => (
+                    <div
+                      key={idx}
+                      className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3 text-xs shadow-2xs"
+                    >
+                      <div className="flex items-center gap-2.5 min-w-0">
+                        <span className="w-6 h-6 rounded-lg bg-sky-100 text-sky-800 font-extrabold text-[11px] flex items-center justify-center shrink-0">
+                          {idx + 1}
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-bold text-slate-900 truncate">{stop.name}</p>
+                          <p className="text-[11px] text-slate-500 truncate">{stop.address}</p>
+                        </div>
+                      </div>
+
+                      <span
+                        className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full shrink-0 ${
+                          stop.status === 'PICKED'
+                            ? 'bg-emerald-100 text-emerald-800'
+                            : stop.status === 'NEXT'
+                            ? 'bg-sky-100 text-sky-800'
+                            : 'bg-slate-100 text-slate-600'
+                        }`}
+                      >
+                        {stop.status}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-slate-200 flex items-center justify-between gap-3 bg-slate-50">
+              <button
+                type="button"
+                onClick={() => setSelectedShiftForDrawer(null)}
+                className="btn-secondary text-xs py-2 px-4 font-semibold"
+              >
+                Close
+              </button>
+
+              <button
+                type="button"
+                onClick={() => {
+                  if (mapInstanceRef.current && selectedShiftForDrawer) {
+                    mapInstanceRef.current.flyTo(
+                      [selectedShiftForDrawer.currentCoords.lat, selectedShiftForDrawer.currentCoords.lng],
+                      14,
+                      { duration: 1.2 }
+                    )
+                  }
+                  setSelectedShiftForDrawer(null)
+                }}
+                className="btn-accent text-xs font-bold py-2 px-4 flex items-center gap-1.5 shadow-sm"
+              >
+                <Navigation className="w-3.5 h-3.5" />
+                <span>Center on Main Map</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
