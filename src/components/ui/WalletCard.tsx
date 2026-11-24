@@ -102,7 +102,7 @@ export const WalletCard: React.FC<WalletCardProps> = ({
                   className="px-4 py-2 rounded-full bg-white text-emerald-800 hover:bg-emerald-50 text-xs font-bold shadow-md hover:shadow-lg transition-all active:scale-[0.98] flex items-center gap-1.5 cursor-pointer"
                 >
                   <Plus className="w-3.5 h-3.5" />
-                  <span>+ Recharge Wallet</span>
+                  <span>Recharge Wallet</span>
                 </button>
               )}
             </div>

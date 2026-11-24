@@ -112,30 +112,17 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose })
       title="Recharge Vendor Wallet"
       size="md"
       footer={
-        <div className="flex items-center justify-between">
-          <div className="flex items-center gap-1.5 text-xs text-slate-500">
-            <ShieldCheck className="w-4 h-4 text-emerald-600" />
-            <span>256-bit Secure Razorpay Checkout</span>
-          </div>
-          <div className="flex gap-2">
-            <button onClick={onClose} className="btn-secondary text-sm" disabled={isLoading}>
-              Cancel
-            </button>
-            <button
-              onClick={handleRecharge}
-              disabled={isLoading || finalAmount <= 0}
-              className="btn-accent text-sm flex items-center gap-1.5"
-            >
-              {isLoading ? (
-                <span>Processing...</span>
-              ) : (
-                <>
-                  <IndianRupee className="w-4 h-4" />
-                  <span>Pay {formatCurrency(finalAmount)}</span>
-                </>
-              )}
-            </button>
-          </div>
+        <div className="flex items-center justify-end gap-2.5">
+          <button onClick={onClose} className="btn-secondary text-sm" disabled={isLoading}>
+            Cancel
+          </button>
+          <button
+            onClick={handleRecharge}
+            disabled={isLoading || finalAmount <= 0}
+            className="btn-accent text-sm font-semibold whitespace-nowrap px-4 py-2"
+          >
+            {isLoading ? <span>Processing...</span> : <span>Pay {formatCurrency(finalAmount)}</span>}
+          </button>
         </div>
       }
     >
