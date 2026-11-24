@@ -31,15 +31,23 @@ interface CreateTripModalProps {
 
 const SERVICES: ServiceType[] = ['RAC', 'OUTSTATION', 'PACKAGE']
 
-const VEHICLE_TYPES = [
-  'Mini 4+1 Seats',
-  'Sedan 4+1',
-  'Prime Sedan 4+1',
-  'SUV 6+1',
-  'Prime SUV 7+1',
+const VEHICLE_CATEGORIES = [
+  'Mini 4+1',
+  'Sedan',
+  'SUV',
+  'Prime Sedan',
+  'Prime SUV',
 ] as const
 
-type VehicleTypeOption = (typeof VEHICLE_TYPES)[number]
+type VehicleCategory = (typeof VEHICLE_CATEGORIES)[number]
+
+const VEHICLE_CATEGORY_TYPES: Record<VehicleCategory, string[]> = {
+  'Mini 4+1': ['Mini', 'CNG'],
+  'Sedan': ['Sedan', 'Sedan CNG'],
+  'SUV': ['SUV', 'SUV CNG'],
+  'Prime Sedan': ['EV', 'Petrol'],
+  'Prime SUV': ['EV', 'Petrol'],
+}
 
 const BLR_TERMINALS = {
   T1: 'Kempegowda Intl Airport - Terminal 1 (T1)',
@@ -118,7 +126,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   const [passengerName, setPassengerName] = useState('')
   const [passengerPhone, setPassengerPhone] = useState('')
   const [passengerEmail, setPassengerEmail] = useState('')
-  const [vehicleType, setVehicleType] = useState<VehicleTypeOption>('Sedan 4+1')
+  const [vehicleCategory, setVehicleCategory] = useState<VehicleCategory>('Sedan')
+  const [vehicleType, setVehicleType] = useState<string>('Sedan')
   const [pickup, setPickup] = useState('')
   const [drop, setDrop] = useState('')
   const [createdDate, setCreatedDate] = useState(
@@ -202,10 +211,11 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 
   const createTripMutation = useMutation({
     mutationFn: async () => {
+      const vehicleDesc = `${vehicleCategory} (${vehicleType})`
       const scheduleNotes =
         serviceType === 'RAC'
-          ? `[Created: ${createdDate}] [Booking: ${fromDate} ${fromTime}] [Vehicle: ${vehicleType}]${passengerEmail ? ` [Email: ${passengerEmail}]` : ''} ${notes}`.trim()
-          : `[From: ${fromDate} ${fromTime} | To: ${toDate} ${toTime}] [Vehicle: ${vehicleType}] ${notes}`.trim()
+          ? `[Created: ${createdDate}] [Booking: ${fromDate} ${fromTime}] [Vehicle: ${vehicleDesc}]${passengerEmail ? ` [Email: ${passengerEmail}]` : ''} ${notes}`.trim()
+          : `[From: ${fromDate} ${fromTime} | To: ${toDate} ${toTime}] [Vehicle: ${vehicleDesc}] ${notes}`.trim()
 
       const payload = {
         serviceType,
@@ -241,7 +251,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     setPassengerName('')
     setPassengerPhone('')
     setPassengerEmail('')
-    setVehicleType('Sedan 4+1')
+    setVehicleCategory('Sedan')
+    setVehicleType('Sedan')
     setPickup(BLR_TERMINALS.T1)
     setDrop('')
     setCreatedDate(new Date().toISOString().split('T')[0])
@@ -298,6 +309,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       `--------------------------------\n` +
       `*Service:* ${serviceName}\n` +
       (serviceType === 'RAC' ? `*Created Date:* ${createdDate}\n` : '') +
+      `*Vehicle Category:* ${vehicleCategory}\n` +
       `*Vehicle Type:* ${vehicleType}\n` +
       `*Passenger:* ${passengerName} (${passengerPhone})${serviceType === 'RAC' && passengerEmail ? `\n*Email:* ${passengerEmail}` : ''}\n` +
       `*Pickup:* ${pickup}\n` +
@@ -791,23 +803,69 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 </div>
               )}
 
-              {/* Vehicle Type Selection */}
-              <div>
-                <label className="label">Vehicle Type *</label>
-                <div className="relative">
-                  <select
-                    value={vehicleType}
-                    onChange={(e) => setVehicleType(e.target.value as VehicleTypeOption)}
-                    className="input appearance-none pr-10 cursor-pointer font-semibold text-slate-800 bg-white"
-                    required
-                  >
-                    {VEHICLE_TYPES.map((v) => (
-                      <option key={v} value={v}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+              {/* Vehicle Category & Dependent Vehicle Type Selection */}
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <div>
+                  <label className="label">Vehicle Category *</label>
+                  <div className="relative">
+                    <select
+                      value={vehicleCategory}
+                      onChange={(e) => {
+                        const newCat = e.target.value as VehicleCategory
+                        setVehicleCategory(newCat)
+                        setVehicleType(VEHICLE_CATEGORY_TYPES[newCat][0])
+                      }}
+                      className="input appearance-none pr-10 cursor-pointer font-semibold text-slate-800 bg-white"
+                      required
+                    >
+                      {VEHICLE_CATEGORIES.map((cat) => (
+                        <option key={cat} value={cat}>
+                          {cat}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="label">Vehicle Type *</label>
+                  <div className="relative">
+                    <select
+                      value={vehicleType}
+                      onChange={(e) => setVehicleType(e.target.value)}
+                      className="input appearance-none pr-10 cursor-pointer font-semibold text-slate-800 bg-white"
+                      required
+                    >
+                      {VEHICLE_CATEGORY_TYPES[vehicleCategory].map((type) => (
+                        <option key={type} value={type}>
+                          {type}
+                        </option>
+                      ))}
+                    </select>
+                    <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
+                  </div>
+                  {/* Quick selection pills to directly view and select either type */}
+                  <div className="flex items-center gap-2 mt-2">
+                    {VEHICLE_CATEGORY_TYPES[vehicleCategory].map((type) => {
+                      const isSelected = vehicleType === type
+                      return (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => setVehicleType(type)}
+                          className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
+                            isSelected
+                              ? 'bg-sky-600 text-white border-sky-600 shadow-sm ring-1 ring-sky-500/20'
+                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-800'
+                          }`}
+                        >
+                          {isSelected && <Check className="w-3.5 h-3.5 text-white stroke-[2.5]" />}
+                          <span>{type}</span>
+                        </button>
+                      )
+                    })}
+                  </div>
                 </div>
               </div>
 
@@ -966,6 +1024,12 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                     {serviceType === 'RAC'
                       ? `Airport Transfer (${airportDirection === 'PICKUP' ? 'Pickup' : 'Drop'} - Terminal ${airportTerminal})`
                       : serviceType}
+                  </span>
+                </div>
+                <div className="flex justify-between border-b border-sky-100 pb-2">
+                  <span className="text-slate-500">Vehicle Category:</span>
+                  <span className="font-semibold text-slate-800">
+                    {vehicleCategory}
                   </span>
                 </div>
                 <div className="flex justify-between border-b border-sky-100 pb-2">
