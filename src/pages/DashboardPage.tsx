@@ -186,10 +186,13 @@ export const DashboardPage: React.FC = () => {
           </button>
           <button
             onClick={() => navigate('/ets')}
-            className="btn-primary text-xs sm:text-sm flex items-center gap-1.5"
+            className="px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-colors"
           >
-            <Building2 className="w-4 h-4" />
+            <Building2 className="w-4 h-4 text-slate-500" />
             <span>ETS</span>
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 border border-slate-300">
+              Frozen
+            </span>
           </button>
         </div>
       </div>

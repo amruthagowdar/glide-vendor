@@ -390,7 +390,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   type="button"
                   disabled={createTripMutation.isPending}
                   onClick={() => createTripMutation.mutate()}
-                  className="btn-accent text-sm flex items-center gap-1.5 font-semibold"
+                  className="bg-slate-800 hover:bg-slate-900 text-white text-sm flex items-center gap-1.5 font-semibold py-2 px-4 rounded-xl shadow-sm border border-slate-700 disabled:opacity-50"
                 >
                   {createTripMutation.isPending ? (
                     <span>Creating Trip...</span>

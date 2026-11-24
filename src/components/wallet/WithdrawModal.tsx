@@ -214,28 +214,33 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
         ) : (
           /* State B: No Ongoing Trips — Withdrawal Allowed */
           <form onSubmit={handleSubmit} className="space-y-4">
-            {/* Available Balance Banner */}
-            <div className="p-4 rounded-2xl bg-gradient-to-r from-emerald-600 to-teal-700 text-white shadow-md flex items-center justify-between">
+            {/* Available Balance Banner in Grey */}
+            <div className="p-4 rounded-2xl bg-gradient-to-r from-slate-700 via-slate-800 to-slate-900 text-white shadow-md border border-slate-700 flex items-center justify-between">
               <div>
-                <p className="text-xs text-emerald-100 font-medium">Withdrawable Balance</p>
-                <p className="text-2xl sm:text-3xl font-extrabold mt-0.5">{formatCurrency(balance)}</p>
-                <p className="text-[11px] text-emerald-200 mt-1 flex items-center gap-1">
-                  <CheckCircle2 className="w-3.5 h-3.5" /> No active trips · 100% available for payout
+                <div className="flex items-center gap-2">
+                  <p className="text-xs text-slate-300 font-medium">Withdrawable Balance</p>
+                  <span className="px-1.5 py-0.2 rounded text-[10px] font-bold bg-slate-700 text-slate-200 border border-slate-600">
+                    Frozen
+                  </span>
+                </div>
+                <p className="text-2xl sm:text-3xl font-extrabold text-white mt-0.5">{formatCurrency(balance)}</p>
+                <p className="text-[11px] text-slate-400 mt-1 flex items-center gap-1">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-slate-300" /> Direct settlement enabled
                 </p>
               </div>
-              <div className="w-12 h-12 rounded-2xl bg-white/20 flex items-center justify-center">
-                <ArrowDownToLine className="w-6 h-6 text-white" />
+              <div className="w-12 h-12 rounded-2xl bg-slate-700/60 border border-slate-600/50 flex items-center justify-center text-slate-200">
+                <ArrowDownToLine className="w-6 h-6 text-slate-200" />
               </div>
             </div>
 
             {/* Withdrawal Amount Field */}
             <div>
               <div className="flex items-center justify-between mb-1.5">
-                <label className="label mb-0">Withdrawal Amount (₹) *</label>
+                <label className="label mb-0 text-slate-700">Withdrawal Amount (₹) *</label>
                 <button
                   type="button"
                   onClick={() => setAmount(String(balance))}
-                  className="text-xs font-bold text-sky-700 hover:text-sky-900 cursor-pointer"
+                  className="text-xs font-bold text-slate-600 hover:text-slate-900 cursor-pointer"
                 >
                   Withdraw All ({formatCurrency(balance)})
                 </button>
@@ -248,7 +253,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
                 placeholder="Enter amount to withdraw (Min ₹100)"
                 value={amount}
                 onChange={(e) => setAmount(e.target.value)}
-                className="input text-lg font-bold"
+                className="input text-lg font-bold border-slate-300 focus:border-slate-500 focus:ring-slate-400"
                 required
               />
               <p className="text-[11px] text-slate-500 mt-1">
@@ -258,18 +263,18 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
 
             {/* Payout Method Selection */}
             <div>
-              <label className="label">Settlement Destination *</label>
+              <label className="label text-slate-700">Settlement Destination *</label>
               <div className="grid grid-cols-2 gap-2 mb-3">
                 <button
                   type="button"
                   onClick={() => setMethod('BANK')}
                   className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                     method === 'BANK'
-                      ? 'border-sky-600 bg-sky-50 text-sky-950 ring-1 ring-sky-600'
+                      ? 'border-slate-700 bg-slate-200 text-slate-900 ring-1 ring-slate-400'
                       : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                   }`}
                 >
-                  <Building2 className="w-4 h-4" />
+                  <Building2 className="w-4 h-4 text-slate-700" />
                   <span>Bank Account</span>
                 </button>
                 <button
@@ -277,10 +282,11 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
                   onClick={() => setMethod('UPI')}
                   className={`p-2.5 rounded-xl border text-xs font-bold transition-all flex items-center justify-center gap-2 ${
                     method === 'UPI'
-                      ? 'border-sky-600 bg-sky-50 text-sky-950 ring-1 ring-sky-600'
+                      ? 'border-slate-700 bg-slate-200 text-slate-900 ring-1 ring-slate-400'
                       : 'border-slate-200 bg-white text-slate-600 hover:bg-slate-50'
                   }`}
                 >
+                  <span className="font-bold text-slate-700">@</span>
                   <span>UPI ID</span>
                 </button>
               </div>
@@ -364,13 +370,13 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
                 <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
                   <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
                     <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
-                      <span className="text-sky-600 font-bold text-sm">@</span>
+                      <span className="text-slate-600 font-bold text-sm">@</span>
                       Enter UPI ID / VPA Details
                     </span>
                     <button
                       type="button"
                       onClick={() => setUpiId('atharva.travels@okaxis')}
-                      className="text-[11px] font-semibold text-sky-600 hover:text-sky-800 cursor-pointer"
+                      className="text-[11px] font-semibold text-slate-600 hover:text-slate-800 cursor-pointer"
                     >
                       Reset Default UPI
                     </button>
@@ -395,9 +401,9 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
               )}
             </div>
 
-            {/* Settlement Policy Reminder */}
-            <div className="p-3 rounded-xl bg-sky-50 border border-sky-200/80 text-[11px] text-sky-900 flex items-start gap-2">
-              <ShieldCheck className="w-4 h-4 text-sky-700 flex-shrink-0 mt-0.5" />
+            {/* Settlement Policy Reminder in Grey */}
+            <div className="p-3 rounded-xl bg-slate-100 border border-slate-300 text-[11px] text-slate-700 flex items-start gap-2">
+              <ShieldCheck className="w-4 h-4 text-slate-500 flex-shrink-0 mt-0.5" />
               <span>
                 <strong>Instant Settlement:</strong> Withdrawals are credited directly to your specified account via IMPS or UPI transfer within 15–30 minutes.
               </span>
@@ -415,7 +421,7 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
               <button
                 type="submit"
                 disabled={!isValidAmount || withdrawMutation.isPending}
-                className="btn-accent text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm"
+                className="bg-slate-800 hover:bg-slate-900 text-white text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm px-4 py-2 rounded-xl border border-slate-700 disabled:opacity-50"
               >
                 <ArrowDownToLine className="w-4 h-4" />
                 <span>

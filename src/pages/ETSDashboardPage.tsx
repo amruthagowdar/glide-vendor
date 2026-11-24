@@ -549,15 +549,20 @@ export const ETSDashboardPage: React.FC = () => {
         <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
           <div>
             <div className="flex items-center gap-2.5">
-              <div className="w-9 h-9 rounded-xl bg-sky-900 text-white flex items-center justify-center shadow-sm">
-                <Building2 className="w-5 h-5 text-sky-400" />
+              <div className="w-9 h-9 rounded-xl bg-slate-800 text-slate-300 flex items-center justify-center shadow-sm border border-slate-700">
+                <Building2 className="w-5 h-5 text-slate-300" />
               </div>
               <div>
-                <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
-                  ETS Command Center
-                </h1>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
+                    ETS Command Center
+                  </h1>
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300 uppercase tracking-wider">
+                    Frozen
+                  </span>
+                </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Live Bengaluru corporate fleet tracking, automated employee roster routing, and geofence telemetry
+                  Live corporate fleet tracking (Module Frozen · Operations Suspended / Read-Only)
                 </p>
               </div>
             </div>
@@ -568,10 +573,10 @@ export const ETSDashboardPage: React.FC = () => {
             {/* Button 1: Create Trip */}
             <button
               onClick={() => openModal('CREATE_TRIP')}
-              className="btn-accent text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-md px-3.5 py-2"
+              className="bg-slate-800 hover:bg-slate-900 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-sm px-3.5 py-2 rounded-xl border border-slate-700"
             >
-              <Car className="w-4 h-4" />
-              <span>Create Trip</span>
+              <Car className="w-4 h-4 text-slate-300" />
+              <span>Create Trip (Frozen)</span>
             </button>
 
             {/* Button 2: Employee Log */}
@@ -869,10 +874,10 @@ export const ETSDashboardPage: React.FC = () => {
           <div className="pt-3 border-t border-slate-200">
             <button
               onClick={() => openModal('CREATE_TRIP')}
-              className="btn-accent text-xs font-bold w-full py-2 flex items-center justify-center gap-1.5 shadow-sm"
+              className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5 shadow-sm border border-slate-700"
             >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Dispatch New Shift Trip</span>
+              <Plus className="w-3.5 h-3.5 text-slate-300" />
+              <span>Dispatch New Shift Trip (Frozen)</span>
             </button>
           </div>
         </div>
@@ -1233,7 +1238,7 @@ export const ETSDashboardPage: React.FC = () => {
                   }
                   setSelectedShiftForDrawer(null)
                 }}
-                className="btn-accent text-xs font-bold py-2 px-4 flex items-center gap-1.5 shadow-sm"
+                className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold py-2 px-4 flex items-center gap-1.5 shadow-sm rounded-xl border border-slate-700"
               >
                 <Navigation className="w-3.5 h-3.5" />
                 <span>Center on Main Map</span>

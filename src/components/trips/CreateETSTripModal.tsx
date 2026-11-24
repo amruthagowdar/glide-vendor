@@ -1129,7 +1129,7 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                       setStep(4)
                     }
                   }}
-                  className="btn-accent text-sm flex items-center gap-1.5 font-semibold shadow-sm"
+                  className="bg-slate-800 hover:bg-slate-900 text-white text-sm flex items-center gap-1.5 font-semibold shadow-sm py-2 px-4 rounded-xl border border-slate-700"
                 >
                   <span>Review ETS Shift Manifest</span>
                   <ArrowRight className="w-4 h-4" />
@@ -1141,7 +1141,7 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                   type="button"
                   disabled={createTripMutation.isPending}
                   onClick={() => createTripMutation.mutate()}
-                  className="btn-accent text-sm flex items-center gap-1.5 font-semibold shadow-sm disabled:opacity-50"
+                  className="bg-slate-800 hover:bg-slate-900 text-white text-sm flex items-center gap-1.5 font-semibold shadow-sm py-2 px-4 rounded-xl border border-slate-700 disabled:opacity-50"
                 >
                   {createTripMutation.isPending ? (
                     <span>Dispatching ETS Shift...</span>

@@ -26,7 +26,7 @@ const navItems: Array<{
   tag?: string
 }> = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { name: 'ETS Command', path: '/ets', icon: Building2 },
+  { name: 'ETS Command', path: '/ets', icon: Building2, tag: 'Frozen' },
   { name: 'Trips', path: '/trips', icon: Navigation },
   { name: 'Wallet', path: '/wallet', icon: Wallet, tag: 'Frozen' },
   { name: 'Notifications', path: '/notifications', icon: Bell, badge: true },

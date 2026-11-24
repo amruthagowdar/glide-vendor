@@ -167,8 +167,8 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose })
             disabled={isLoading || finalAmount <= 0 || isOverDailyLimit}
             className={`text-sm font-semibold whitespace-nowrap px-4 py-2 rounded-lg transition-all ${
               isOverDailyLimit
-                ? 'bg-rose-100 text-rose-700 cursor-not-allowed border border-rose-300'
-                : 'btn-accent'
+                ? 'bg-slate-200 text-slate-500 cursor-not-allowed border border-slate-300'
+                : 'bg-slate-800 hover:bg-slate-900 text-white shadow-sm border border-slate-700'
             }`}
           >
             {isLoading ? (
@@ -184,7 +184,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose })
     >
       <div className="space-y-5">
         <div>
-          <label className="label">Select Quick Amount</label>
+          <label className="label text-slate-700">Select Quick Amount</label>
           <div className="grid grid-cols-3 gap-2 mt-1.5">
             {PRESET_AMOUNTS.map((val) => (
               <button
@@ -196,8 +196,8 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose })
                 }}
                 className={`py-2 px-3 text-sm font-medium rounded-lg border text-center transition-all ${
                   amount === val && !customAmount
-                    ? 'bg-sky-900 text-white border-sky-900 shadow-sm'
-                    : 'border-sky-200 text-slate-700 hover:bg-sky-50'
+                    ? 'bg-slate-800 text-white border-slate-800 shadow-sm'
+                    : 'border-slate-300 text-slate-700 hover:bg-slate-100'
                 }`}
               >
                 ₹{val.toLocaleString('en-IN')}
@@ -208,7 +208,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose })
 
         <div>
           <div className="flex items-center justify-between">
-            <label className="label mb-0">Or Enter Custom Amount (₹)</label>
+            <label className="label mb-0 text-slate-700">Or Enter Custom Amount (₹)</label>
             <span className="text-[11px] font-semibold text-slate-500">
               Limit: ₹1,00,000 / day {todayRecharged > 0 ? `(Remaining: ₹${remainingDailyLimit.toLocaleString('en-IN')})` : ''}
             </span>
@@ -228,7 +228,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose })
                 setCustomAmount(e.target.value)
                 setAmount(0)
               }}
-              className={`input pl-8 ${isOverDailyLimit ? 'border-rose-400 focus:ring-rose-400' : ''}`}
+              className={`input pl-8 border-slate-300 ${isOverDailyLimit ? 'border-rose-400 focus:ring-rose-400' : ''}`}
             />
           </div>
           {isOverDailyLimit && (
@@ -243,13 +243,13 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose })
           )}
         </div>
 
-        <div className="p-3.5 bg-sky-50 border border-sky-200 rounded-lg text-xs text-sky-800 space-y-1">
-          <div className="flex items-center gap-1.5 font-semibold">
-            <AlertCircle className="w-4 h-4 text-sky-700" />
-            <span>Atomic Balance Top-up</span>
+        <div className="p-3.5 bg-slate-100 border border-slate-300 rounded-lg text-xs text-slate-700 space-y-1">
+          <div className="flex items-center gap-1.5 font-semibold text-slate-800">
+            <AlertCircle className="w-4 h-4 text-slate-500" />
+            <span>Prepaid Balance Top-up (Wallet Frozen)</span>
           </div>
-          <p>
-            Recharged funds are credited atomically upon server verification and immediately available for new trip bookings and driver payouts.
+          <p className="text-slate-600">
+            Recharged funds are credited atomically. Wallet deductions are frozen across portal bookings.
           </p>
         </div>
       </div>
