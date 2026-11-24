@@ -1,7 +1,8 @@
 import React, { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, useNavigate } from 'react-router-dom'
-import { PlusCircle, Filter, Download, Building2, Car } from 'lucide-react'
+import { PlusCircle, Filter, Download, Building2, Car, FileSpreadsheet } from 'lucide-react'
+import * as XLSX from 'xlsx'
 import { vendorApi } from '../lib/api'
 import { DataTable, Pagination } from '../components/ui/DataTable'
 import { StatusBadge, PaymentBadge } from '../components/ui/StatusBadge'
@@ -103,6 +104,64 @@ export const TripsPage: React.FC = () => {
   const total = data?.total || trips.length
   const totalPages = data?.totalPages || 1
 
+  const handleExportTrips = () => {
+    if (!trips || trips.length === 0) {
+      toast.error('No trips available to export.')
+      return
+    }
+
+    const rows = trips.map((t, idx) => {
+      const vehicleMatch = t.notes?.match(/\[Vehicle:\s*([^\]]+)\]/)
+      const vehicleInfo = vehicleMatch
+        ? vehicleMatch[1]
+        : t.vehicleRegNo
+        ? `${t.vehicleRegNo}`
+        : 'Sedan'
+
+      return {
+        'Sl No': idx + 1,
+        'Trip ID': t.tripNo || t.id,
+        'Service Type': t.serviceType,
+        'Scheduled Date': t.scheduledDate || '',
+        'Scheduled Time': t.scheduledTime || '',
+        'Passenger Name': t.passengerName || 'N/A',
+        'Passenger Contact': t.passengerPhone || 'N/A',
+        'Pickup Location': t.pickup || '',
+        'Drop Location': t.drop || 'As Directed',
+        'Vehicle Category / Type': vehicleInfo,
+        'Driver Assigned': t.driverName || 'Unassigned',
+        'Trip Status': t.tripStatus,
+        'Fare / Billing': 'Direct Corporate Billing [Frozen]',
+        'Special Notes': t.notes || '',
+        'Created Date': t.createdAt ? t.createdAt.split('T')[0] : '',
+      }
+    })
+
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    worksheet['!cols'] = [
+      { wch: 8 },  // Sl No
+      { wch: 15 }, // Trip ID
+      { wch: 14 }, // Service Type
+      { wch: 14 }, // Scheduled Date
+      { wch: 12 }, // Scheduled Time
+      { wch: 22 }, // Passenger Name
+      { wch: 18 }, // Passenger Contact
+      { wch: 34 }, // Pickup Location
+      { wch: 34 }, // Drop Location
+      { wch: 24 }, // Vehicle Category / Type
+      { wch: 20 }, // Driver Assigned
+      { wch: 16 }, // Trip Status
+      { wch: 28 }, // Fare / Billing
+      { wch: 36 }, // Special Notes
+      { wch: 15 }, // Created Date
+    ]
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Trips')
+    const filename = `Trips_Export_${new Date().toISOString().split('T')[0]}.xlsx`
+    XLSX.writeFile(workbook, filename)
+    toast.success(`Exported ${rows.length} trips to Excel!`)
+  }
+
   return (
     <div className="space-y-6">
       {/* Header */}
@@ -124,6 +183,14 @@ export const TripsPage: React.FC = () => {
               Frozen
             </span>
           </div>
+          <button
+            onClick={handleExportTrips}
+            className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-2xs transition"
+            title="Export trips to Excel (.xlsx)"
+          >
+            <FileSpreadsheet className="w-4 h-4 text-emerald-600" />
+            <span>Export Report</span>
+          </button>
           <button
             onClick={() => setCreateModalOpen(true)}
             className="btn-accent text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm"
