@@ -225,6 +225,235 @@ export async function fetchOSRMRoute(
 }
 
 /**
+ * Calculates total road distance in kilometers along a polyline
+ */
+export function calculateRouteDistanceKm(coords: [number, number][]): number {
+  if (!coords || coords.length < 2) return 0
+  let totalMeters = 0
+  for (let i = 0; i < coords.length - 1; i++) {
+    const [lat1, lng1] = coords[i]
+    const [lat2, lng2] = coords[i + 1]
+    const dLat = ((lat2 - lat1) * Math.PI) / 180
+    const dLng = ((lng2 - lng1) * Math.PI) / 180
+    const a =
+      Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+      Math.cos((lat1 * Math.PI) / 180) *
+        Math.cos((lat2 * Math.PI) / 180) *
+        Math.sin(dLng / 2) *
+        Math.sin(dLng / 2)
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
+    totalMeters += 6371000 * c
+  }
+  return totalMeters / 1000
+}
+
+/**
+ * Known Bengaluru landmark and hub coordinates for instant high-accuracy resolution
+ */
+const BENGALURU_LANDMARK_MAP: { keywords: string[]; lat: number; lng: number; displayName: string }[] = [
+  {
+    keywords: ['kailaseshwara', 'balepet', 'chikkapete', 'chickpete', 'chickpet'],
+    lat: 12.9716,
+    lng: 77.5756,
+    displayName: 'Balepet / Chickpete Central',
+  },
+  {
+    keywords: ['kempegowda', 'airport', 'kia', 'terminal 1', 'terminal 2', 'bial', 't1', 't2', 'airport terminal'],
+    lat: 13.1986,
+    lng: 77.7066,
+    displayName: 'Kempegowda Intl Airport (KIA)',
+  },
+  {
+    keywords: ['manyata', 'hebbal'],
+    lat: 13.0475,
+    lng: 77.6202,
+    displayName: 'Manyata Tech Park (Hebbal)',
+  },
+  {
+    keywords: ['electronic city', 'e-city', 'atharva tech hub'],
+    lat: 12.8399,
+    lng: 77.6770,
+    displayName: 'Electronic City Tech Hub',
+  },
+  {
+    keywords: ['whitefield', 'itpl'],
+    lat: 12.9863,
+    lng: 77.7383,
+    displayName: 'Whitefield (ITPL)',
+  },
+  {
+    keywords: ['indiranagar', '100ft rd', '100 feet road'],
+    lat: 12.9784,
+    lng: 77.6408,
+    displayName: 'Indiranagar',
+  },
+  {
+    keywords: ['koramangala'],
+    lat: 12.9352,
+    lng: 77.6245,
+    displayName: 'Koramangala',
+  },
+  {
+    keywords: ['hsr', 'hsr layout'],
+    lat: 12.9121,
+    lng: 77.6446,
+    displayName: 'HSR Layout',
+  },
+  {
+    keywords: ['bellandur', 'ecospace', 'outer ring rd', 'outer ring road'],
+    lat: 12.9260,
+    lng: 77.6833,
+    displayName: 'Bellandur EcoSpace',
+  },
+  {
+    keywords: ['mahadevapura'],
+    lat: 12.9900,
+    lng: 77.7000,
+    displayName: 'Mahadevapura',
+  },
+  {
+    keywords: ['marathahalli', 'marathalli'],
+    lat: 12.9569,
+    lng: 77.7011,
+    displayName: 'Marathahalli',
+  },
+  {
+    keywords: ['btm', 'btm layout'],
+    lat: 12.9166,
+    lng: 77.6101,
+    displayName: 'BTM Layout',
+  },
+  {
+    keywords: ['jayanagar'],
+    lat: 12.9250,
+    lng: 77.5938,
+    displayName: 'Jayanagar',
+  },
+  {
+    keywords: ['jp nagar', 'jayaprakash nagar'],
+    lat: 12.9063,
+    lng: 77.5857,
+    displayName: 'JP Nagar',
+  },
+  {
+    keywords: ['mg road', 'brigade road', 'church street', 'ashok nagar'],
+    lat: 12.9756,
+    lng: 77.6066,
+    displayName: 'MG Road Central',
+  },
+  {
+    keywords: ['majestic', 'ksr', 'city railway station', 'kempegowda bus station'],
+    lat: 12.9781,
+    lng: 77.5696,
+    displayName: 'Majestic / KSR Railway Station',
+  },
+  {
+    keywords: ['yeshwanthpur', 'yesvantpur'],
+    lat: 13.0285,
+    lng: 77.5408,
+    displayName: 'Yeshwanthpur',
+  },
+  {
+    keywords: ['malleshwaram', 'malleswaram'],
+    lat: 13.0031,
+    lng: 77.5643,
+    displayName: 'Malleshwaram',
+  },
+  {
+    keywords: ['rajajinagar'],
+    lat: 12.9982,
+    lng: 77.5530,
+    displayName: 'Rajajinagar',
+  },
+  {
+    keywords: ['kudlu gate', 'kudlu'],
+    lat: 12.8750,
+    lng: 77.6500,
+    displayName: 'Kudlu Gate',
+  },
+  {
+    keywords: ['yelahanka'],
+    lat: 13.1007,
+    lng: 77.5963,
+    displayName: 'Yelahanka',
+  },
+  {
+    keywords: ['devanahalli'],
+    lat: 13.2483,
+    lng: 77.7126,
+    displayName: 'Devanahalli',
+  },
+  {
+    keywords: ['silk board', 'central silk board'],
+    lat: 12.9176,
+    lng: 77.6238,
+    displayName: 'Silk Board Junction',
+  },
+  {
+    keywords: ['banashankari'],
+    lat: 12.9255,
+    lng: 77.5468,
+    displayName: 'Banashankari',
+  },
+  {
+    keywords: ['kengeri'],
+    lat: 12.9081,
+    lng: 77.4842,
+    displayName: 'Kengeri',
+  },
+  {
+    keywords: ['sarjapur'],
+    lat: 12.8590,
+    lng: 77.7869,
+    displayName: 'Sarjapur Road',
+  },
+  {
+    keywords: ['kadubeesanahalli', 'prestige tech park'],
+    lat: 12.9360,
+    lng: 77.6970,
+    displayName: 'Kadubeesanahalli / Prestige Tech Park',
+  },
+]
+
+/**
+ * Resolves any address string to realistic Bengaluru coordinates:
+ * 1. Checks matching keywords against major landmark and tech corridors
+ * 2. If unknown, generates deterministic coordinates in Bengaluru metropolitan area
+ */
+export function resolveBengaluruCoords(address: string): { lat: number; lng: number; displayName: string } {
+  if (!address || typeof address !== 'string') {
+    return { lat: 12.9716, lng: 77.5946, displayName: 'Bengaluru Central' }
+  }
+
+  const lower = address.toLowerCase()
+
+  for (const entry of BENGALURU_LANDMARK_MAP) {
+    if (entry.keywords.some((kw) => lower.includes(kw))) {
+      return {
+        lat: entry.lat,
+        lng: entry.lng,
+        displayName: entry.displayName,
+      }
+    }
+  }
+
+  // Deterministic fallback based on address hash in Bengaluru bounds
+  let hash = 0
+  for (let i = 0; i < address.length; i++) {
+    hash = (hash << 5) - hash + address.charCodeAt(i)
+    hash |= 0
+  }
+  const latOffset = ((Math.abs(hash) % 1000) / 1000 - 0.5) * 0.12
+  const lngOffset = ((Math.abs(hash >> 3) % 1000) / 1000 - 0.5) * 0.12
+
+  return {
+    lat: Number((12.9716 + latOffset).toFixed(4)),
+    lng: Number((77.5946 + lngOffset).toFixed(4)),
+    displayName: address.split(',')[0] || 'Bengaluru Location',
+  }
+}
+
+/**
  * Builds rich HTML hover card for the Vehicle / Driver marker on the map
  */
 export function buildVehicleHoverCardHtml(shift: LiveShiftCab, stageInfo: ShiftStageInfo): string {
