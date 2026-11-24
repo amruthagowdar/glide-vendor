@@ -330,15 +330,6 @@ export const ETSDashboardPage: React.FC = () => {
               <Sliders className="w-4 h-4 text-amber-600" />
               <span>Auto Routing</span>
             </button>
-
-            {/* Back to Standard Command Center */}
-            <button
-              onClick={() => navigate('/')}
-              className="text-xs text-slate-500 hover:text-slate-800 font-semibold px-2.5 py-2 flex items-center gap-1 ml-1"
-            >
-              <ArrowLeft className="w-3.5 h-3.5" />
-              <span>Standard Dashboard</span>
-            </button>
           </div>
         </div>
       </div>
