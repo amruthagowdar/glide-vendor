@@ -223,3 +223,172 @@ export async function fetchOSRMRoute(
   // Graceful fallback to waypoints in case of offline / network outage
   return waypoints.map((p) => [Number(p.lat), Number(p.lng)])
 }
+
+/**
+ * Builds rich HTML hover card for the Vehicle / Driver marker on the map
+ */
+export function buildVehicleHoverCardHtml(shift: LiveShiftCab, stageInfo: ShiftStageInfo): string {
+  const onboardEmployees = stageInfo.updatedStops.filter((s) => s.status === 'PICKED')
+  const nextEmployee = stageInfo.updatedStops.find((s) => s.status === 'NEXT')
+
+  return `
+    <div style="font-family: inherit; font-size: 11px; min-width: 230px; line-height: 1.4;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; border-bottom: 1px solid #334155; padding-bottom: 4px;">
+        <div style="display: flex; align-items: center; gap: 6px;">
+          <span style="font-size: 14px;">🚖</span>
+          <b style="color: #f8fafc; font-size: 12px;">${shift.vehicleNo}</b>
+        </div>
+        <span style="background: ${stageInfo.stageIndex >= stageInfo.totalStages ? '#059669' : '#0284c7'}; color: white; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
+          ${stageInfo.statusBadge}
+        </span>
+      </div>
+
+      <div style="color: #cbd5e1; font-size: 10px; margin-bottom: 5px;">
+        <div><b>Driver:</b> <span style="color: #ffffff; font-weight: bold;">${shift.driverName}</span> ${shift.driverPhone ? `(${shift.driverPhone})` : ''}</div>
+        <div><b>Vehicle:</b> ${shift.vehicleType} • ${shift.shiftCode}</div>
+        <div><b>Destination:</b> <span style="color: #38bdf8;">${shift.hubName}</span></div>
+        <div style="margin-top: 2px;"><b>Status:</b> <span style="color: #38bdf8; font-weight: bold;">${stageInfo.stageTitle}</span></div>
+      </div>
+
+      <!-- Live Passengers Currently Inside Cab -->
+      <div style="margin-top: 5px; padding-top: 4px; border-top: 1px dashed #475569;">
+        <div style="display: flex; justify-content: space-between; font-size: 9px; font-weight: 800; text-transform: uppercase; color: #94a3b8; margin-bottom: 3px;">
+          <span>Onboard in Cab</span>
+          <span style="color: #38bdf8;">${onboardEmployees.length}/${shift.capacity} Seats</span>
+        </div>
+        ${
+          onboardEmployees.length > 0
+            ? onboardEmployees
+                .map(
+                  (e) => `
+                <div style="display: flex; align-items: center; gap: 5px; color: #4ade80; font-size: 10px; font-weight: 600; padding: 1px 0;">
+                  <span>✓</span>
+                  <span>${e.name}</span>
+                  <span style="color: #94a3b8; font-size: 9px; font-weight: normal;">(Boarded)</span>
+                </div>
+              `
+                )
+                .join('')
+            : `<div style="color: #94a3b8; font-size: 10px; font-style: italic;">No passengers inside cab yet (En route to Stop #1)</div>`
+        }
+      </div>
+
+      <!-- Next Pickup Waiting at Home -->
+      ${
+        nextEmployee
+          ? `
+          <div style="margin-top: 5px; padding-top: 4px; border-top: 1px dashed #475569;">
+            <div style="font-size: 9px; font-weight: 800; text-transform: uppercase; color: #f59e0b; margin-bottom: 2px;">
+              Next Target Pickup:
+            </div>
+            <div style="color: #f1f5f9; font-size: 10px; font-weight: bold;">
+              ${nextEmployee.name} <span style="color: #facc15; font-size: 9px;">(Waiting at Home)</span>
+            </div>
+            <div style="color: #94a3b8; font-size: 9px; max-width: 220px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+              ${nextEmployee.address}
+            </div>
+          </div>
+          `
+          : stageInfo.stageIndex >= stageInfo.totalStages
+          ? `<div style="margin-top: 5px; color: #34d399; font-size: 10px; font-weight: bold;">✓ Arrived & Verified at ${shift.hubName}</div>`
+          : `<div style="margin-top: 5px; color: #38bdf8; font-size: 10px; font-weight: bold;">Driving to ${shift.hubName} (Shortest Road Route)</div>`
+      }
+    </div>
+  `
+}
+
+/**
+ * Builds rich HTML hover card for Employee Stop pins on the map
+ */
+export function buildEmployeeHoverCardHtml(
+  stop: { name: string; address: string; lat: number; lng: number; status: 'PICKED' | 'NEXT' | 'PENDING' },
+  idx: number,
+  totalStops: number,
+  shift: LiveShiftCab,
+  stageInfo: ShiftStageInfo
+): string {
+  const isPicked = stop.status === 'PICKED'
+  const isNext = stop.status === 'NEXT'
+  const isFarthest = idx === 0
+  const isNearest = idx === totalStops - 1
+
+  // Approximate distance from current vehicle location
+  const dLat = (Number(stop.lat) - stageInfo.currentCoords.lat) * 111
+  const dLng =
+    (Number(stop.lng) - stageInfo.currentCoords.lng) *
+    111 *
+    Math.cos((stageInfo.currentCoords.lat * Math.PI) / 180)
+  const distKm = Math.hypot(dLat, dLng)
+
+  return `
+    <div style="font-family: inherit; font-size: 11px; min-width: 220px; line-height: 1.4;">
+      <div style="display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; border-bottom: 1px solid #334155; padding-bottom: 4px;">
+        <div style="display: flex; align-items: center; gap: 5px;">
+          <span style="font-size: 13px;">👤</span>
+          <b style="color: #f8fafc; font-size: 12px;">${stop.name}</b>
+        </div>
+        <span style="background: ${isPicked ? '#059669' : isNext ? '#0284c7' : '#d97706'}; color: white; font-size: 9px; font-weight: 800; padding: 2px 6px; border-radius: 4px; text-transform: uppercase;">
+          ${isPicked ? 'IN CAB (BOARDED)' : isNext ? 'NEXT PICKUP 📍' : 'AT HOME (WAITING)'}
+        </span>
+      </div>
+
+      <div style="color: #cbd5e1; font-size: 10px; space-y: 2px;">
+        <div style="margin-bottom: 2px;">
+          <b>Current Location:</b> 
+          <span style="color: ${isPicked ? '#4ade80' : '#facc15'}; font-weight: bold;">
+            ${isPicked ? `Inside Cab ${shift.vehicleNo} with Driver ${shift.driverName}` : 'At Home (Waiting for Driver)'}
+          </span>
+        </div>
+        <div style="margin-bottom: 2px;"><b>Pickup Address:</b> <span style="color: #f1f5f9;">${stop.address}</span></div>
+        <div style="margin-bottom: 2px;"><b>Assigned Cab:</b> <span style="color: #38bdf8;">${shift.vehicleNo} (${shift.vehicleType})</span></div>
+        <div style="margin-bottom: 2px;"><b>Assigned Driver:</b> <span style="color: #ffffff;">${shift.driverName}</span></div>
+        <div style="margin-bottom: 2px;"><b>Destination Hub:</b> <span style="color: #ffffff;">${shift.hubName}</span></div>
+        <div style="margin-bottom: 2px;">
+          <b>Stop Sequence:</b> Stop #${idx + 1} of ${totalStops} ${
+            isFarthest ? '(Farthest - First Pickup)' : isNearest ? '(Nearest - Last Pickup)' : ''
+          }
+        </div>
+
+        ${
+          isPicked
+            ? `
+            <div style="margin-top: 5px; padding-top: 4px; border-top: 1px dashed #475569; color: #4ade80; font-weight: bold; font-size: 10px;">
+              ✓ Boarded successfully — currently traveling towards corporate office
+            </div>
+            `
+            : `
+            <div style="margin-top: 5px; padding-top: 4px; border-top: 1px dashed #475569; color: #38bdf8; font-weight: bold; font-size: 10px;">
+              Driver is currently ~${distKm.toFixed(1)} km away from this pickup point
+            </div>
+            `
+        }
+      </div>
+    </div>
+  `
+}
+
+/**
+ * Builds HTML for employee pin DivIcon with explicit name badge and live status
+ */
+export function buildEmployeePinDivIconHtml(
+  stop: { name: string; status: 'PICKED' | 'NEXT' | 'PENDING' },
+  idx: number,
+  isPicked: boolean,
+  isNext: boolean,
+  isFarthest: boolean
+): string {
+  const bgColor = isPicked ? '#059669' : isNext ? '#0284c7' : isFarthest ? '#e11d48' : '#d97706'
+  const statusLabel = isPicked ? 'In Cab ✓' : isNext ? 'Next 📍' : 'At Home'
+
+  return `
+    <div style="display: flex; flex-direction: column; align-items: center; transform: translate(-50%, -100%); cursor: pointer;">
+      <div style="background: ${bgColor}; color: white; padding: 2px 7px; border-radius: 9999px; font-weight: 800; font-size: 10px; box-shadow: 0 4px 10px rgba(0,0,0,0.3); border: 2px solid white; display: flex; align-items: center; gap: 4px; white-space: nowrap; pointer-events: auto;">
+        <span>${isPicked ? '✓' : idx + 1}</span>
+        <span>${stop.name}</span>
+        <span style="background: rgba(255,255,255,0.25); padding: 1px 4px; border-radius: 9999px; font-size: 8px; text-transform: uppercase;">${statusLabel}</span>
+      </div>
+      <div style="width: 2px; height: 5px; background: ${bgColor};"></div>
+      <div style="width: 8px; height: 8px; border-radius: 50%; background: ${bgColor}; border: 2px solid white; box-shadow: 0 2px 4px rgba(0,0,0,0.3);"></div>
+    </div>
+  `
+}

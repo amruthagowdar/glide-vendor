@@ -32,6 +32,9 @@ import {
   sortStopsFarthestFirst,
   getShiftStageInfo,
   progressShiftStage,
+  buildVehicleHoverCardHtml,
+  buildEmployeeHoverCardHtml,
+  buildEmployeePinDivIconHtml,
   type LiveShiftCab,
   type ShiftStageInfo,
 } from '../lib/routing'
@@ -307,7 +310,7 @@ export const ETSDashboardPage: React.FC = () => {
       const vehicleIcon = L.divIcon({
         className: 'custom-cab-icon',
         html: `
-          <div style="background-color: ${stageInfo.stageIndex >= stageInfo.totalStages ? '#059669' : isSedan ? '#0284c7' : '#4f46e5'}; color: white; padding: 4px 8px; border-radius: 9999px; font-weight: bold; font-size: 11px; display: flex; align-items: center; gap: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.25); border: 2px solid white; white-space: nowrap;">
+          <div style="background-color: ${stageInfo.stageIndex >= stageInfo.totalStages ? '#059669' : isSedan ? '#0284c7' : '#4f46e5'}; color: white; padding: 4px 8px; border-radius: 9999px; font-weight: bold; font-size: 11px; display: flex; align-items: center; gap: 4px; box-shadow: 0 4px 10px rgba(0,0,0,0.25); border: 2px solid white; white-space: nowrap; cursor: pointer;">
             <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.5 2.8C2.1 10.7 2 11 2 11.4V16c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><circle cx="17" cy="17" r="2"/></svg>
             <span>${shift.shiftCode} (${stageInfo.seatsFilled}/${shift.capacity})</span>
           </div>
@@ -318,24 +321,16 @@ export const ETSDashboardPage: React.FC = () => {
 
       const cabMarker = L.marker([stageInfo.currentCoords.lat, stageInfo.currentCoords.lng], { icon: vehicleIcon }).addTo(layer)
 
-      cabMarker.bindPopup(`
-        <div style="font-family: inherit; font-size: 12px; min-width: 220px;">
-          <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px;">
-            <b style="color: #0f172a; font-size: 13px;">${shift.shiftCode} — ${shift.vehicleType}</b>
-            <span style="background: ${shift.shiftType === 'LOGIN' ? '#dcfce7' : '#e0e7ff'}; color: ${shift.shiftType === 'LOGIN' ? '#166534' : '#3730a3'}; font-size: 10px; font-weight: bold; padding: 2px 6px; border-radius: 4px;">${shift.shiftType}</span>
-          </div>
-          <div style="color: #475569; font-size: 11px; margin-bottom: 4px;">
-            <b>Status:</b> <span style="color: #0284c7; font-weight: bold;">${stageInfo.stageTitle}</span><br/>
-            <b>Vehicle No:</b> ${shift.vehicleNo}<br/>
-            <b>Driver:</b> ${shift.driverName} (${shift.driverPhone})<br/>
-            <b>Destination:</b> ${shift.hubName}<br/>
-            <b>Occupancy:</b> ${stageInfo.seatsFilled} of ${shift.capacity} Employees Picked Up
-          </div>
-          <div style="margin-top: 6px; padding-top: 4px; border-top: 1px solid #e2e8f0; font-size: 10px; color: #0284c7; font-weight: bold;">
-            Karnataka ETS Escort Compliant ✓
-          </div>
-        </div>
-      `)
+      // Rich Hover Tooltip for Vehicle & Driver
+      const vehicleTooltipHtml = buildVehicleHoverCardHtml(shift, stageInfo)
+      cabMarker.bindTooltip(vehicleTooltipHtml, {
+        direction: 'top',
+        offset: [0, -12],
+        className: 'custom-map-dark-tooltip',
+        sticky: true,
+        opacity: 1,
+      })
+      cabMarker.bindPopup(vehicleTooltipHtml)
 
       cabMarker.on('click', () => handleSelectShiftInList(shift))
 
@@ -354,41 +349,60 @@ export const ETSDashboardPage: React.FC = () => {
       // 2. Render Driver Home / Start Depot Pin if present
       if (shift.driverHomeCoords) {
         const homeMarker = L.circleMarker([shift.driverHomeCoords.lat, shift.driverHomeCoords.lng], {
-          radius: 6,
-          color: '#475569',
-          fillColor: '#94a3b8',
-          fillOpacity: 0.9,
+          radius: 7,
+          color: '#334155',
+          fillColor: '#64748b',
+          fillOpacity: 0.95,
           weight: 2,
         }).addTo(layer)
-        homeMarker.bindPopup(`<b>Driver Home Location</b><br/>${shift.driverName} (${shift.vehicleNo})<br/>Trip Start Base`)
+
+        const homeTooltipHtml = `
+          <div style="font-family: inherit; font-size: 11px; min-width: 180px;">
+            <div style="display: flex; align-items: center; gap: 4px; font-weight: bold; color: #f8fafc; margin-bottom: 2px;">
+              <span>🏠</span>
+              <span>Driver Home Base</span>
+            </div>
+            <div style="color: #cbd5e1; font-size: 10px;">
+              <b>Driver:</b> <span style="color: #ffffff;">${shift.driverName}</span><br/>
+              <b>Vehicle:</b> ${shift.vehicleNo}<br/>
+              <b>Status:</b> Shift Start & Depot
+            </div>
+          </div>
+        `
+        homeMarker.bindTooltip(homeTooltipHtml, {
+          direction: 'top',
+          className: 'custom-map-dark-tooltip',
+          sticky: true,
+          opacity: 1,
+        })
+        homeMarker.bindPopup(homeTooltipHtml)
       }
 
-      // 3. Employee Stop Pins in optimal sequence (Stop 1 = Farthest, Stop N = Nearest)
+      // 3. Employee Stop Pins in optimal sequence with explicit Name Badge & Rich Hover Cards
       stageInfo.updatedStops.forEach((stop, i) => {
         const isFarthest = i === 0
         const isNearest = i === stageInfo.updatedStops.length - 1
         const isPicked = stop.status === 'PICKED'
         const isNext = stop.status === 'NEXT'
 
-        const stopMarker = L.circleMarker([stop.lat, stop.lng], {
-          radius: isNext ? 9 : 7,
-          color: isPicked ? '#16a34a' : isNext ? '#0284c7' : isFarthest ? '#ef4444' : isNearest ? '#38bdf8' : '#f59e0b',
-          fillColor: isPicked ? '#22c55e' : isNext ? '#38bdf8' : isFarthest ? '#f87171' : isNearest ? '#7dd3fc' : '#fbbf24',
-          fillOpacity: 0.95,
-          weight: isNext ? 3 : 2,
-        }).addTo(layer)
+        const empIcon = L.divIcon({
+          className: 'custom-emp-pin-icon',
+          html: buildEmployeePinDivIconHtml(stop, i, isPicked, isNext, isFarthest),
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+        })
 
-        stopMarker.bindPopup(`
-          <div style="font-family: inherit; font-size: 11px;">
-            <div style="font-weight: bold; color: #0f172a; margin-bottom: 2px;">
-              Stop #${i + 1}: ${stop.name} ${isFarthest ? '(First Pickup - Farthest)' : isNearest ? '(Last Pickup - Nearest to Hub)' : ''}
-            </div>
-            <div style="color: #64748b;">${stop.address}</div>
-            <div style="margin-top: 4px; font-weight: bold; color: ${isPicked ? '#16a34a' : isNext ? '#0284c7' : '#64748b'};">
-              Status: ${isPicked ? 'Boarded ✓' : isNext ? 'Current Target Pickup 📍' : 'Waiting in Queue'}
-            </div>
-          </div>
-        `)
+        const stopMarker = L.marker([stop.lat, stop.lng], { icon: empIcon }).addTo(layer)
+
+        const empTooltipHtml = buildEmployeeHoverCardHtml(stop, i, stageInfo.updatedStops.length, shift, stageInfo)
+        stopMarker.bindTooltip(empTooltipHtml, {
+          direction: 'top',
+          offset: [0, -22],
+          className: 'custom-map-dark-tooltip',
+          sticky: true,
+          opacity: 1,
+        })
+        stopMarker.bindPopup(empTooltipHtml)
       })
     })
   }, [filteredShifts, showGeofenceClusters])
@@ -430,7 +444,7 @@ export const ETSDashboardPage: React.FC = () => {
       const carIcon = L.divIcon({
         className: 'custom-cab-icon',
         html: `
-          <div style="background-color: ${stageInfo.stageIndex >= stageInfo.totalStages ? '#059669' : '#0284c7'}; color: white; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 2px solid white;">
+          <div style="background-color: ${stageInfo.stageIndex >= stageInfo.totalStages ? '#059669' : '#0284c7'}; color: white; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 2px solid white; cursor: pointer;">
             <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
           </div>
         `,
@@ -438,18 +452,47 @@ export const ETSDashboardPage: React.FC = () => {
         iconAnchor: [16, 16],
       })
       const vehicleMarker = L.marker([stageInfo.currentCoords.lat, stageInfo.currentCoords.lng], { icon: carIcon }).addTo(map)
-      vehicleMarker.bindPopup(`<b>${shift.shiftCode} (${shift.vehicleNo})</b><br/>Driver: ${shift.driverName}<br/><b>Status:</b> ${stageInfo.stageTitle}`).openPopup()
+
+      // Rich Hover Tooltip for Vehicle & Driver
+      const drawerVehicleTooltipHtml = buildVehicleHoverCardHtml(shift, stageInfo)
+      vehicleMarker.bindTooltip(drawerVehicleTooltipHtml, {
+        direction: 'top',
+        offset: [0, -14],
+        className: 'custom-map-dark-tooltip',
+        sticky: true,
+        opacity: 1,
+      })
+      vehicleMarker.bindPopup(drawerVehicleTooltipHtml).openPopup()
 
       // Driver Home Marker if present
       if (shift.driverHomeCoords) {
         const homeMarker = L.circleMarker([shift.driverHomeCoords.lat, shift.driverHomeCoords.lng], {
           radius: 7,
-          color: '#475569',
-          fillColor: '#94a3b8',
-          fillOpacity: 0.9,
+          color: '#334155',
+          fillColor: '#64748b',
+          fillOpacity: 0.95,
           weight: 2,
         }).addTo(map)
-        homeMarker.bindPopup(`<b>Driver Home Base</b><br/>Trip Start Base`)
+        const homeTooltipHtml = `
+          <div style="font-family: inherit; font-size: 11px; min-width: 170px;">
+            <div style="display: flex; align-items: center; gap: 4px; font-weight: bold; color: #f8fafc; margin-bottom: 2px;">
+              <span>🏠</span>
+              <span>Driver Home Base</span>
+            </div>
+            <div style="color: #cbd5e1; font-size: 10px;">
+              <b>Driver:</b> ${shift.driverName}<br/>
+              <b>Vehicle:</b> ${shift.vehicleNo}<br/>
+              <b>Status:</b> Shift Start Base
+            </div>
+          </div>
+        `
+        homeMarker.bindTooltip(homeTooltipHtml, {
+          direction: 'top',
+          className: 'custom-map-dark-tooltip',
+          sticky: true,
+          opacity: 1,
+        })
+        homeMarker.bindPopup(homeTooltipHtml)
       }
 
       // Office Hub Marker
@@ -466,21 +509,31 @@ export const ETSDashboardPage: React.FC = () => {
       const officeMarker = L.marker([shift.hubCoords.lat, shift.hubCoords.lng], { icon: officeIcon }).addTo(map)
       officeMarker.bindPopup(`<b>${shift.hubName}</b><br/>${shift.hubAddress}`)
 
-      // Render stops with stage progression statuses
+      // Render stops with stage progression statuses and employee name pins
       stageInfo.updatedStops.forEach((stop, idx) => {
         const isFarthest = idx === 0
         const isNearest = idx === stageInfo.updatedStops.length - 1
         const isPicked = stop.status === 'PICKED'
         const isNext = stop.status === 'NEXT'
 
-        const stopMarker = L.circleMarker([stop.lat, stop.lng], {
-          radius: isNext ? 9 : 7,
-          fillColor: isPicked ? '#10b981' : isNext ? '#38bdf8' : isFarthest ? '#ef4444' : isNearest ? '#0284c7' : '#fbbf24',
-          color: '#ffffff',
-          weight: isNext ? 3 : 2,
-          fillOpacity: 0.95,
-        }).addTo(map)
-        stopMarker.bindPopup(`<b>Stop #${idx + 1}: ${stop.name}</b> ${isFarthest ? '(First Pickup - Farthest)' : isNearest ? '(Last Pickup - Nearest to Hub)' : ''}<br/>${stop.address}<br/><b>Status:</b> ${isPicked ? 'Boarded ✓' : isNext ? 'Current Target Pickup 📍' : 'Waiting in Queue'}`)
+        const empIcon = L.divIcon({
+          className: 'custom-emp-pin-icon',
+          html: buildEmployeePinDivIconHtml(stop, idx, isPicked, isNext, isFarthest),
+          iconSize: [0, 0],
+          iconAnchor: [0, 0],
+        })
+
+        const stopMarker = L.marker([stop.lat, stop.lng], { icon: empIcon }).addTo(map)
+
+        const empTooltipHtml = buildEmployeeHoverCardHtml(stop, idx, stageInfo.updatedStops.length, shift, stageInfo)
+        stopMarker.bindTooltip(empTooltipHtml, {
+          direction: 'top',
+          offset: [0, -22],
+          className: 'custom-map-dark-tooltip',
+          sticky: true,
+          opacity: 1,
+        })
+        stopMarker.bindPopup(empTooltipHtml)
       })
 
       // Fetch and draw real road navigation polyline for REMAINING active path
