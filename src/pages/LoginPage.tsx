@@ -5,8 +5,8 @@ import toast from 'react-hot-toast'
 import { Shield, Lock, Mail, ArrowRight } from 'lucide-react'
 
 export const LoginPage: React.FC = () => {
-  const [email, setEmail] = useState('harish@atharvatravels.com')
-  const [password, setPassword] = useState('password')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [isLoading, setIsLoading] = useState(false)
   const { login } = useAuth()
   const navigate = useNavigate()
@@ -15,9 +15,9 @@ export const LoginPage: React.FC = () => {
     e.preventDefault()
     setIsLoading(true)
 
-    // Strict restriction to authorized vendor account
+    // Strict restriction to authorized vendor account without disclosing internal identities
     if (email.toLowerCase().trim() !== 'harish@atharvatravels.com') {
-      toast.error('Access restricted. Only authorized vendor account (harish@atharvatravels.com) is permitted.')
+      toast.error('Access restricted.')
       setIsLoading(false)
       return
     }
@@ -26,9 +26,8 @@ export const LoginPage: React.FC = () => {
       await login(email, password)
       toast.success('Welcome back, Atharva Travels!')
       navigate('/')
-    } catch (err: unknown) {
-      const msg = (err as { response?: { data?: { message?: string } } })?.response?.data?.message
-      toast.error(msg || 'Invalid login credentials. Please check your password.')
+    } catch {
+      toast.error('Access restricted.')
     } finally {
       setIsLoading(false)
     }
@@ -73,7 +72,7 @@ export const LoginPage: React.FC = () => {
                   required
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  placeholder="harish@atharvatravels.com"
+                  placeholder="name@company.com"
                   className="input pl-10"
                 />
               </div>
@@ -116,7 +115,7 @@ export const LoginPage: React.FC = () => {
           <div className="mt-6 pt-4 border-t border-slate-100 text-center">
             <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-slate-50 border border-slate-200/80 text-slate-600 text-xs font-semibold">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-              <span>Restricted Access: Atharva Travels</span>
+              <span>Restricted Access: Authorized Personnel Only</span>
             </div>
           </div>
         </div>
