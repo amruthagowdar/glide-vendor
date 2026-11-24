@@ -27,24 +27,9 @@ import {
 } from 'lucide-react'
 import { CreateETSTripModal, CORPORATE_OFFICES } from '../components/trips/CreateETSTripModal'
 import { formatCurrency } from '../lib/utils'
+import { fetchOSRMRoute, sortStopsFarthestFirst, type LiveShiftCab } from '../lib/routing'
 
-export interface LiveShiftCab {
-  id: string
-  shiftCode: string
-  vehicleType: 'Sedan 4+1' | 'SUV 6+1'
-  seatsUsed: number
-  capacity: number
-  shiftType: 'LOGIN' | 'LOGOUT'
-  hubName: string
-  hubAddress: string
-  driverName: string
-  driverPhone: string
-  vehicleNo: string
-  status: 'BOARDING' | 'ON_ROUTE' | 'ARRIVED'
-  currentCoords: { lat: number; lng: number }
-  hubCoords: { lat: number; lng: number }
-  stops: { name: string; address: string; lat: number; lng: number; status: 'PICKED' | 'NEXT' | 'PENDING' }[]
-}
+export type { LiveShiftCab }
 
 export const ETSDashboardPage: React.FC = () => {
   const navigate = useNavigate()
@@ -235,37 +220,47 @@ export const ETSDashboardPage: React.FC = () => {
 
       cabMarker.on('click', () => setSelectedShift(shift))
 
-      // Route Polyline (Stops -> Hub)
-      const latlngs = [
-        ...shift.stops.map((s) => [s.lat, s.lng]),
-        [shift.currentCoords.lat, shift.currentCoords.lng],
-        [shift.hubCoords.lat, shift.hubCoords.lng],
+      // 1. Sort stops so farthest from hub is picked up first, and nearest to hub is picked up last
+      const orderedStops = sortStopsFarthestFirst(shift.stops, shift.hubCoords)
+
+      // 2. Waypoints for road routing: Stop 1 (farthest) -> ... -> Stop N (nearest) -> Office Hub
+      const routeWaypoints = [
+        ...orderedStops.map((s) => ({ lat: s.lat, lng: s.lng })),
+        { lat: shift.hubCoords.lat, lng: shift.hubCoords.lng },
       ]
 
-      L.polyline(latlngs, {
-        color: isSedan ? '#0284c7' : '#6366f1',
-        weight: 3,
-        opacity: 0.75,
-        dashArray: '6, 6',
-      }).addTo(layer)
+      // 3. Fetch real road geometry from OSRM and draw smooth road polyline
+      fetchOSRMRoute(routeWaypoints).then((roadCoords) => {
+        if (!markersLayerRef.current) return
+        L.polyline(roadCoords, {
+          color: isSedan ? '#0284c7' : '#6366f1',
+          weight: 4,
+          opacity: 0.85,
+        }).addTo(layer)
+      })
 
-      // Employee Stop Pins
-      shift.stops.forEach((stop, i) => {
+      // 4. Employee Stop Pins in optimal sequence (Stop 1 = Farthest, Stop N = Nearest)
+      orderedStops.forEach((stop, i) => {
+        const isFarthest = i === 0
+        const isNearest = i === orderedStops.length - 1
+
         const stopMarker = L.circleMarker([stop.lat, stop.lng], {
-          radius: 6,
-          color: stop.status === 'PICKED' ? '#16a34a' : '#f59e0b',
-          fillColor: stop.status === 'PICKED' ? '#22c55e' : '#fbbf24',
-          fillOpacity: 0.9,
+          radius: 7,
+          color: stop.status === 'PICKED' ? '#16a34a' : isFarthest ? '#ef4444' : isNearest ? '#0284c7' : '#f59e0b',
+          fillColor: stop.status === 'PICKED' ? '#22c55e' : isFarthest ? '#f87171' : isNearest ? '#38bdf8' : '#fbbf24',
+          fillOpacity: 0.95,
           weight: 2,
         }).addTo(layer)
 
         stopMarker.bindPopup(`
           <div style="font-family: inherit; font-size: 11px;">
-            <b>Stop #${i + 1}: ${stop.name}</b><br/>
-            <span>${stop.address}</span><br/>
-            <span style="font-weight: bold; color: ${stop.status === 'PICKED' ? '#16a34a' : '#f59e0b'};">
+            <div style="font-weight: bold; color: #0f172a; margin-bottom: 2px;">
+              Stop #${i + 1}: ${stop.name} ${isFarthest ? '(First Pickup - Farthest)' : isNearest ? '(Last Pickup - Nearest to Hub)' : ''}
+            </div>
+            <div style="color: #64748b;">${stop.address}</div>
+            <div style="margin-top: 4px; font-weight: bold; color: ${stop.status === 'PICKED' ? '#16a34a' : '#0284c7'};">
               Status: ${stop.status === 'PICKED' ? 'Boarded ✓' : 'Next in Queue'}
-            </span>
+            </div>
           </div>
         `)
       })
@@ -331,33 +326,38 @@ export const ETSDashboardPage: React.FC = () => {
       const officeMarker = L.marker([shift.hubCoords.lat, shift.hubCoords.lng], { icon: officeIcon }).addTo(map)
       officeMarker.bindPopup(`<b>${shift.hubName}</b><br/>${shift.hubAddress}`)
 
-      // Render stops
-      const allPoints: [number, number][] = [
-        [shift.currentCoords.lat, shift.currentCoords.lng],
-        ...shift.stops.map((s) => [s.lat, s.lng] as [number, number]),
-        [shift.hubCoords.lat, shift.hubCoords.lng],
-      ]
+      // Render stops in optimal farthest-first sequence
+      const orderedStops = sortStopsFarthestFirst(shift.stops, shift.hubCoords)
 
-      shift.stops.forEach((stop, idx) => {
+      orderedStops.forEach((stop, idx) => {
+        const isFarthest = idx === 0
+        const isNearest = idx === orderedStops.length - 1
+
         const stopMarker = L.circleMarker([stop.lat, stop.lng], {
           radius: 7,
-          fillColor: stop.status === 'PICKED' ? '#10b981' : stop.status === 'NEXT' ? '#38bdf8' : '#cbd5e1',
+          fillColor: stop.status === 'PICKED' ? '#10b981' : isFarthest ? '#ef4444' : isNearest ? '#0284c7' : '#fbbf24',
           color: '#ffffff',
           weight: 2,
-          fillOpacity: 0.9,
+          fillOpacity: 0.95,
         }).addTo(map)
-        stopMarker.bindPopup(`<b>Stop #${idx + 1}: ${stop.name}</b><br/>${stop.address}`)
+        stopMarker.bindPopup(`<b>Stop #${idx + 1}: ${stop.name}</b> ${isFarthest ? '(First Pickup - Farthest)' : isNearest ? '(Last Pickup - Nearest to Hub)' : ''}<br/>${stop.address}`)
       })
 
-      // Draw polyline connecting route
-      const polyline = L.polyline(allPoints, {
-        color: '#0284c7',
-        weight: 4,
-        dashArray: '6, 8',
-        opacity: 0.85,
-      }).addTo(map)
+      // Fetch and draw real road navigation polyline
+      const waypoints = [
+        ...orderedStops.map((s) => ({ lat: s.lat, lng: s.lng })),
+        { lat: shift.hubCoords.lat, lng: shift.hubCoords.lng },
+      ]
 
-      map.fitBounds(polyline.getBounds(), { padding: [35, 35] })
+      fetchOSRMRoute(waypoints).then((roadCoords) => {
+        if (!shiftDrawerMapInstanceRef.current) return
+        const polyline = L.polyline(roadCoords, {
+          color: '#0284c7',
+          weight: 4,
+          opacity: 0.85,
+        }).addTo(map)
+        map.fitBounds(polyline.getBounds(), { padding: [35, 35] })
+      })
     }, 150)
 
     return () => clearTimeout(timer)
@@ -737,34 +737,82 @@ export const ETSDashboardPage: React.FC = () => {
                 </h4>
 
                 <div className="space-y-2">
-                  {selectedShiftForDrawer.stops.map((stop, idx) => (
-                    <div
-                      key={idx}
-                      className="p-3 rounded-xl border border-slate-200 bg-white flex items-center justify-between gap-3 text-xs shadow-2xs"
-                    >
-                      <div className="flex items-center gap-2.5 min-w-0">
-                        <span className="w-6 h-6 rounded-lg bg-sky-100 text-sky-800 font-extrabold text-[11px] flex items-center justify-center shrink-0">
-                          {idx + 1}
-                        </span>
-                        <div className="min-w-0">
-                          <p className="font-bold text-slate-900 truncate">{stop.name}</p>
-                          <p className="text-[11px] text-slate-500 truncate">{stop.address}</p>
-                        </div>
-                      </div>
-
-                      <span
-                        className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full shrink-0 ${
-                          stop.status === 'PICKED'
-                            ? 'bg-emerald-100 text-emerald-800'
-                            : stop.status === 'NEXT'
-                            ? 'bg-sky-100 text-sky-800'
-                            : 'bg-slate-100 text-slate-600'
+                  {sortStopsFarthestFirst(selectedShiftForDrawer.stops, selectedShiftForDrawer.hubCoords).map((stop, idx, arr) => {
+                    const isFarthest = idx === 0
+                    const isNearest = idx === arr.length - 1
+                    return (
+                      <div
+                        key={idx}
+                        className={`p-3 rounded-xl border flex items-center justify-between gap-3 text-xs shadow-2xs ${
+                          isFarthest
+                            ? 'border-rose-200 bg-rose-50/40'
+                            : isNearest
+                            ? 'border-sky-200 bg-sky-50/40'
+                            : 'border-slate-200 bg-white'
                         }`}
                       >
-                        {stop.status}
+                        <div className="flex items-center gap-2.5 min-w-0">
+                          <span
+                            className={`w-6 h-6 rounded-lg font-extrabold text-[11px] flex items-center justify-center shrink-0 ${
+                              isFarthest
+                                ? 'bg-rose-100 text-rose-800'
+                                : isNearest
+                                ? 'bg-sky-100 text-sky-800'
+                                : 'bg-amber-100 text-amber-800'
+                            }`}
+                          >
+                            {idx + 1}
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5 flex-wrap">
+                              <p className="font-bold text-slate-900 truncate">{stop.name}</p>
+                              {isFarthest && (
+                                <span className="bg-rose-100 text-rose-700 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                  Stop #1: First Pickup (Farthest)
+                                </span>
+                              )}
+                              {isNearest && (
+                                <span className="bg-sky-100 text-sky-700 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                                  Stop #{arr.length}: Last Pickup (Nearest to Office)
+                                </span>
+                              )}
+                            </div>
+                            <p className="text-[11px] text-slate-500 truncate">{stop.address}</p>
+                          </div>
+                        </div>
+
+                        <span
+                          className={`text-[9px] font-extrabold uppercase px-2 py-0.5 rounded-full shrink-0 ${
+                            stop.status === 'PICKED'
+                              ? 'bg-emerald-100 text-emerald-800'
+                              : stop.status === 'NEXT'
+                              ? 'bg-sky-100 text-sky-800'
+                              : 'bg-slate-100 text-slate-600'
+                          }`}
+                        >
+                          {stop.status}
+                        </span>
+                      </div>
+                    )
+                  })}
+
+                  {/* Destination Hub Terminal Step */}
+                  <div className="p-3 rounded-xl border border-emerald-200 bg-emerald-50/60 flex items-center justify-between gap-3 text-xs">
+                    <div className="flex items-center gap-2.5 min-w-0">
+                      <span className="w-6 h-6 rounded-lg bg-emerald-600 text-white font-extrabold text-[11px] flex items-center justify-center shrink-0">
+                        ✓
                       </span>
+                      <div className="min-w-0">
+                        <div className="flex items-center gap-1.5">
+                          <p className="font-bold text-slate-900 truncate">Destination: {selectedShiftForDrawer.hubName}</p>
+                          <span className="bg-emerald-100 text-emerald-800 text-[9px] font-bold px-1.5 py-0.5 rounded">
+                            Shortest Road Path Return
+                          </span>
+                        </div>
+                        <p className="text-[11px] text-slate-500 truncate">{selectedShiftForDrawer.hubAddress}</p>
+                      </div>
                     </div>
-                  ))}
+                  </div>
                 </div>
               </div>
             </div>

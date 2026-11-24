@@ -6,6 +6,7 @@ import { Modal } from '../ui/Modal'
 import { LocationMapModal } from './LocationMapModal'
 import { vendorApi } from '../../lib/api'
 import { formatCurrency } from '../../lib/utils'
+import { fetchOSRMRoute, sortStopsFarthestFirst, type LiveShiftCab } from '../../lib/routing'
 import type { Wallet } from '../../types'
 import {
   Car,
@@ -583,7 +584,7 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
         className: 'custom-hub-icon',
         html: `
           <div style="background-color: #0f172a; color: white; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 2px solid #38bdf8;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
           </div>
         `,
         iconSize: [32, 32],
@@ -592,16 +593,19 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
       const officeMarker = L.marker([matchedOffice.lat, matchedOffice.lng], { icon: officeIcon }).addTo(map)
       officeMarker.bindPopup(`<b>${matchedOffice.name}</b><br/>${matchedOffice.address}`)
 
-      // Route Polyline
-      const polyline = L.polyline(
-        [
-          [inspectedEmp.lat, inspectedEmp.lng],
-          [matchedOffice.lat, matchedOffice.lng],
-        ],
-        { color: '#0284c7', weight: 4, dashArray: '6, 8', opacity: 0.8 }
-      ).addTo(map)
-
-      map.fitBounds(polyline.getBounds(), { padding: [35, 35] })
+      // Real road route to corporate office using OSRM
+      fetchOSRMRoute([
+        { lat: inspectedEmp.lat, lng: inspectedEmp.lng },
+        { lat: matchedOffice.lat, lng: matchedOffice.lng },
+      ]).then((roadCoords) => {
+        if (!drawerMapInstanceRef.current) return
+        const polyline = L.polyline(roadCoords, {
+          color: '#0284c7',
+          weight: 4,
+          opacity: 0.85,
+        }).addTo(map)
+        map.fitBounds(polyline.getBounds(), { padding: [35, 35] })
+      })
     }, 150)
 
     return () => clearTimeout(timer)
@@ -664,13 +668,8 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
       return
     }
 
-    // Sort by optimal pickup distance from office hub (farthest first towards office)
-    const officeCoords = companyOfficeCoords
-    const sorted = [...empsToRoute].sort((a, b) => {
-      const distA = Math.hypot(a.lat - officeCoords.lat, a.lng - officeCoords.lng)
-      const distB = Math.hypot(b.lat - officeCoords.lat, b.lng - officeCoords.lng)
-      return distB - distA
-    })
+    // 1. Sort by optimal pickup distance from office hub (farthest first, nearest last)
+    const sorted = sortStopsFarthestFirst(empsToRoute, companyOfficeCoords)
 
     const capacity = sorted.length <= 3 ? 3 : 6
     const chosenVehicle: 'SEDAN' | 'SUV' = sorted.length <= 3 ? 'SEDAN' : 'SUV'
@@ -915,7 +914,20 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
       try {
         const requiredCount = vehicleChoice === 'SUV' ? 6 : 3
         const activeEmployees = employees.slice(0, requiredCount)
-        const newShift = {
+
+        // Sort active employees: Farthest from office hub is picked up first, nearest is picked up last
+        const orderedStops = sortStopsFarthestFirst(
+          activeEmployees.map((emp) => ({
+            name: emp.name,
+            address: emp.address,
+            lat: Number(emp.lat) || 12.95,
+            lng: Number(emp.lng) || 77.65,
+            status: 'PENDING' as const,
+          })),
+          companyOfficeCoords
+        )
+
+        const newShift: LiveShiftCab = {
           id: `ets-shift-${Date.now()}`,
           shiftCode: `ETS-${Math.floor(100 + Math.random() * 900)}`,
           vehicleType: vehicleChoice === 'SUV' ? 'SUV 6+1' : 'Sedan 4+1',
@@ -928,15 +940,12 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
           driverPhone: '+91 98450 00000',
           vehicleNo: vehicleChoice === 'SUV' ? 'KA-04-MK-1192' : 'KA-01-MJ-5821',
           status: 'BOARDING' as const,
-          currentCoords: { lat: companyOfficeCoords.lat, lng: companyOfficeCoords.lng },
+          currentCoords: {
+            lat: orderedStops[0]?.lat || companyOfficeCoords.lat,
+            lng: orderedStops[0]?.lng || companyOfficeCoords.lng,
+          },
           hubCoords: { lat: companyOfficeCoords.lat, lng: companyOfficeCoords.lng },
-          stops: activeEmployees.map((emp) => ({
-            name: emp.name,
-            address: emp.address,
-            lat: Number(emp.lat) || 12.95,
-            lng: Number(emp.lng) || 77.65,
-            status: 'PENDING' as const,
-          })),
+          stops: orderedStops,
         }
         const existingShifts = JSON.parse(localStorage.getItem('ETS_DISPATCHED_SHIFTS') || '[]')
         const updatedShifts = [newShift, ...existingShifts]
