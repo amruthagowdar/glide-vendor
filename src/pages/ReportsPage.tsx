@@ -1,11 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
-  BarChart3,
-  TrendingUp,
-  IndianRupee,
-  Users,
-  Download,
   FileSpreadsheet,
   Calendar,
   Search,
@@ -13,26 +8,10 @@ import {
 } from 'lucide-react'
 import * as XLSX from 'xlsx'
 import toast from 'react-hot-toast'
-import {
-  ResponsiveContainer,
-  BarChart,
-  Bar,
-  XAxis,
-  YAxis,
-  Tooltip,
-  CartesianGrid,
-  PieChart,
-  Pie,
-  Cell,
-  Legend,
-} from 'recharts'
 import { vendorApi } from '../lib/api'
-import { formatCurrency } from '../lib/utils'
-import { StatCard, LoadingState } from '../components/ui/LoadingState'
+import { LoadingState } from '../components/ui/LoadingState'
 import { StatusBadge } from '../components/ui/StatusBadge'
-import type { TripSummaryReport, FinancialSummaryReport, DriverPerformance, Trip } from '../types'
-
-const COLORS = ['#0c4a6e', '#0284c7', '#f59e0b', '#10b981', '#8b5cf6', '#ef4444']
+import type { Trip } from '../types'
 
 export const ReportsPage: React.FC = () => {
   const [startDate, setStartDate] = useState(
@@ -123,8 +102,8 @@ export const ReportsPage: React.FC = () => {
     })
   }, [allTrips, startDate, endDate, tripServiceFilter, tripStatusFilter, tripSearch])
 
-  // Export real report to Excel (.xlsx) or CSV (.csv)
-  const handleExport = (format: 'xlsx' | 'csv') => {
+  // Export real report to Excel (.xlsx)
+  const handleExport = () => {
     if (filteredTrips.length === 0) {
       toast.error('No trips available to export for the selected date range.')
       return
@@ -159,147 +138,34 @@ export const ReportsPage: React.FC = () => {
 
     const baseName = `Monthly_Trips_Report_${startDate}_to_${endDate}`
 
-    if (format === 'xlsx') {
-      const worksheet = XLSX.utils.json_to_sheet(rows)
-      worksheet['!cols'] = [
-        { wch: 8 },  // Sl No
-        { wch: 15 }, // Trip ID
-        { wch: 14 }, // Service Type
-        { wch: 14 }, // Scheduled Date
-        { wch: 12 }, // Scheduled Time
-        { wch: 22 }, // Passenger Name
-        { wch: 18 }, // Passenger Contact
-        { wch: 34 }, // Pickup Location
-        { wch: 34 }, // Drop Location
-        { wch: 24 }, // Vehicle Category / Type
-        { wch: 20 }, // Driver Assigned
-        { wch: 16 }, // Trip Status
-        { wch: 28 }, // Fare / Billing
-        { wch: 36 }, // Special Notes
-        { wch: 15 }, // Created Date
-      ]
-      const workbook = XLSX.utils.book_new()
-      XLSX.utils.book_append_sheet(workbook, worksheet, 'Trips Report')
-      XLSX.writeFile(workbook, `${baseName}.xlsx`)
-      toast.success(`Successfully exported ${rows.length} trips to Excel!`)
-    } else {
-      const worksheet = XLSX.utils.json_to_sheet(rows)
-      const csvOutput = XLSX.utils.sheet_to_csv(worksheet)
-      const blob = new Blob([csvOutput], { type: 'text/csv;charset=utf-8;' })
-      const link = document.createElement('a')
-      link.href = URL.createObjectURL(blob)
-      link.download = `${baseName}.csv`
-      link.click()
-      URL.revokeObjectURL(link.href)
-      toast.success(`Successfully exported ${rows.length} trips to CSV!`)
-    }
+    const worksheet = XLSX.utils.json_to_sheet(rows)
+    worksheet['!cols'] = [
+      { wch: 8 },  // Sl No
+      { wch: 15 }, // Trip ID
+      { wch: 14 }, // Service Type
+      { wch: 14 }, // Scheduled Date
+      { wch: 12 }, // Scheduled Time
+      { wch: 22 }, // Passenger Name
+      { wch: 18 }, // Passenger Contact
+      { wch: 34 }, // Pickup Location
+      { wch: 34 }, // Drop Location
+      { wch: 24 }, // Vehicle Category / Type
+      { wch: 20 }, // Driver Assigned
+      { wch: 16 }, // Trip Status
+      { wch: 28 }, // Fare / Billing
+      { wch: 36 }, // Special Notes
+      { wch: 15 }, // Created Date
+    ]
+    const workbook = XLSX.utils.book_new()
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Trips Report')
+    XLSX.writeFile(workbook, `${baseName}.xlsx`)
+    toast.success(`Successfully exported ${rows.length} trips to Excel!`)
   }
 
-  // Real Trip Summary Report
-  const { data: tripReport, isLoading: isTripLoading } = useQuery<TripSummaryReport>({
-    queryKey: ['report-trips', startDate, endDate],
-    queryFn: async () => {
-      try {
-        const res = await vendorApi.getTripReport({ startDate, endDate })
-        return res.data?.data || res.data || {
-          totalTrips: 0,
-          completedTrips: 0,
-          cancelledTrips: 0,
-          totalRevenue: 0,
-          byService: {
-            RAC: { count: 0, revenue: 0 },
-            EMERGENCY: { count: 0, revenue: 0 },
-            OUTSTATION: { count: 0, revenue: 0 },
-            PACKAGE: { count: 0, revenue: 0 },
-          },
-          byStatus: {
-            COMPLETED: 0,
-            CANCELLED: 0,
-            IN_PROGRESS: 0,
-            CONFIRMED: 0,
-            PENDING: 0,
-            DRIVER_ASSIGNED: 0,
-            EN_ROUTE: 0,
-            ARRIVED: 0,
-          },
-        }
-      } catch {
-        return {
-          totalTrips: 0,
-          completedTrips: 0,
-          cancelledTrips: 0,
-          totalRevenue: 0,
-          byService: {
-            RAC: { count: 0, revenue: 0 },
-            EMERGENCY: { count: 0, revenue: 0 },
-            OUTSTATION: { count: 0, revenue: 0 },
-            PACKAGE: { count: 0, revenue: 0 },
-          },
-          byStatus: {
-            COMPLETED: 0,
-            CANCELLED: 0,
-            IN_PROGRESS: 0,
-            CONFIRMED: 0,
-            PENDING: 0,
-            DRIVER_ASSIGNED: 0,
-            EN_ROUTE: 0,
-            ARRIVED: 0,
-          },
-        }
-      }
-    },
-  })
-
-  // Real Financial Report
-  const { data: financialReport, isLoading: isFinLoading } = useQuery<FinancialSummaryReport>({
-    queryKey: ['report-financial', startDate, endDate],
-    queryFn: async () => {
-      try {
-        const res = await vendorApi.getFinancialReport({ startDate, endDate })
-        return res.data?.data || res.data || {
-          totalRevenue: 0,
-          totalCommission: 0,
-          totalDriverPayable: 0,
-          netEarnings: 0,
-          byDate: [],
-        }
-      } catch {
-        return {
-          totalRevenue: 0,
-          totalCommission: 0,
-          totalDriverPayable: 0,
-          netEarnings: 0,
-          byDate: [],
-        }
-      }
-    },
-  })
-
-  // Real Driver Performance Report
-  const { data: driverPerf = [] } = useQuery<DriverPerformance[]>({
-    queryKey: ['report-driver-performance', startDate, endDate],
-    queryFn: async () => {
-      try {
-        const res = await vendorApi.getDriverPerformance({ startDate, endDate })
-        return res.data?.data || res.data || []
-      } catch {
-        return []
-      }
-    },
-  })
-
-  if (isTripLoading || isFinLoading || isTripsListLoading) {
-    return <LoadingState message="Loading real operational reports and trips..." />
+  if (isTripsListLoading) {
+    return <LoadingState message="Loading monthly trips register..." />
   }
 
-  // Format real data for service breakdown chart
-  const serviceChartData = Object.entries(tripReport?.byService || {}).map(([key, val]) => ({
-    name: key,
-    trips: val.count,
-    revenue: val.revenue,
-  }))
-
-  const totalServiceTrips = serviceChartData.reduce((acc, curr) => acc + curr.trips, 0)
   const completedCount = filteredTrips.filter((t) => t.tripStatus === 'COMPLETED').length
   const activeCount = filteredTrips.filter((t) =>
     ['CONFIRMED', 'IN_PROGRESS', 'DRIVER_ASSIGNED', 'EN_ROUTE', 'ARRIVED', 'PENDING'].includes(
@@ -314,10 +180,10 @@ export const ReportsPage: React.FC = () => {
       <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
         <div>
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">
-            Financial & Operational Reports
+            Monthly Trips Reports
           </h1>
           <p className="text-xs text-slate-500 mt-1">
-            Revenue trends, commission breakdown, driver fleet performance, and monthly trips export
+            Filter dispatch records by custom date range and download complete monthly trip statements
           </p>
         </div>
 
@@ -367,55 +233,15 @@ export const ReportsPage: React.FC = () => {
           {/* Export Monthly Report Buttons */}
           <div className="flex items-center gap-1.5">
             <button
-              onClick={() => handleExport('xlsx')}
+              onClick={handleExport}
               className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
               title="Download monthly trips report as Excel (.xlsx)"
             >
               <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
               <span>Install Report (.xlsx)</span>
             </button>
-            <button
-              onClick={() => handleExport('csv')}
-              className="px-2.5 py-2 rounded-xl bg-white hover:bg-slate-100 text-slate-700 text-xs font-semibold flex items-center gap-1 border border-slate-200 shadow-2xs transition"
-              title="Download as CSV"
-            >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
-              <span>CSV</span>
-            </button>
           </div>
         </div>
-      </div>
-
-      {/* KPI Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-        <StatCard
-          title="Total Gross Revenue"
-          value={formatCurrency(financialReport?.totalRevenue || 0)}
-          subtitle="All completed trips"
-          icon={<IndianRupee className="w-5 h-5" />}
-          colorClass="bg-sky-100 text-sky-800"
-        />
-        <StatCard
-          title="Platform Commission"
-          value={formatCurrency(financialReport?.totalCommission || 0)}
-          subtitle="Standard 10% platform fee"
-          icon={<TrendingUp className="w-5 h-5" />}
-          colorClass="bg-amber-100 text-amber-800"
-        />
-        <StatCard
-          title="Driver Payables"
-          value={formatCurrency(financialReport?.totalDriverPayable || 0)}
-          subtitle="Disbursed to driver fleet"
-          icon={<Users className="w-5 h-5" />}
-          colorClass="bg-indigo-100 text-indigo-800"
-        />
-        <StatCard
-          title="Net Vendor Margin"
-          value={formatCurrency(financialReport?.netEarnings || 0)}
-          subtitle="Net company profit"
-          icon={<BarChart3 className="w-5 h-5" />}
-          colorClass="bg-emerald-100 text-emerald-800"
-        />
       </div>
 
       {/* Final Monthly Trips Report Section */}
@@ -447,20 +273,12 @@ export const ReportsPage: React.FC = () => {
           {/* Direct Download Buttons */}
           <div className="flex items-center gap-2">
             <button
-              onClick={() => handleExport('xlsx')}
+              onClick={handleExport}
               className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
               title="Download final report as Excel (.xlsx)"
             >
               <FileSpreadsheet className="w-4 h-4" />
               <span>Download Excel Report (.xlsx)</span>
-            </button>
-            <button
-              onClick={() => handleExport('csv')}
-              className="px-3 py-2 rounded-xl bg-white hover:bg-slate-50 text-slate-700 text-xs font-semibold flex items-center gap-1.5 border border-slate-200 shadow-2xs transition"
-              title="Download as CSV"
-            >
-              <Download className="w-3.5 h-3.5 text-slate-500" />
-              <span>CSV</span>
             </button>
           </div>
         </div>
@@ -612,119 +430,6 @@ export const ReportsPage: React.FC = () => {
                     </tr>
                   )
                 })
-              )}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {/* Revenue & Service Charts */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Daily Revenue Trend */}
-        <div className="card p-6">
-          <h3 className="font-bold text-slate-800 text-sm mb-4">Daily Revenue Breakdown</h3>
-          <div className="h-64">
-            {(financialReport?.byDate || []).length === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                <BarChart3 className="w-8 h-8 text-slate-300 mb-2" />
-                <p className="text-xs font-semibold text-slate-600">No revenue data for this date range</p>
-                <p className="text-[11px] text-slate-400">Revenue activity will show here once trips are completed.</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={financialReport?.byDate || []}>
-                  <CartesianGrid strokeDasharray="3 3" stroke="#e0f2fe" />
-                  <XAxis dataKey="date" tick={{ fontSize: 11 }} />
-                  <YAxis tick={{ fontSize: 11 }} />
-                  <Tooltip
-                    formatter={(val: number) => formatCurrency(val)}
-                    contentStyle={{ backgroundColor: '#0c4a6e', color: '#fff', borderRadius: '8px' }}
-                  />
-                  <Legend />
-                  <Bar dataKey="revenue" name="Total Revenue" fill="#0369a1" radius={[4, 4, 0, 0]} />
-                  <Bar dataKey="driverPayable" name="Driver Payable" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-                </BarChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-
-        {/* Trips by Service Category */}
-        <div className="card p-6">
-          <h3 className="font-bold text-slate-800 text-sm mb-4">Trips by Service Category</h3>
-          <div className="h-64">
-            {totalServiceTrips === 0 ? (
-              <div className="h-full flex flex-col items-center justify-center text-slate-400">
-                <Car className="w-8 h-8 text-slate-300 mb-2" />
-                <p className="text-xs font-semibold text-slate-600">No trip categories recorded</p>
-                <p className="text-[11px] text-slate-400">Category split will appear once trips are scheduled.</p>
-              </div>
-            ) : (
-              <ResponsiveContainer width="100%" height="100%">
-                <PieChart>
-                  <Pie
-                    data={serviceChartData}
-                    dataKey="trips"
-                    nameKey="name"
-                    cx="50%"
-                    cy="50%"
-                    outerRadius={80}
-                    label={({ name, percent }) => `${name} ${(percent * 100).toFixed(0)}%`}
-                  >
-                    {serviceChartData.map((_, index) => (
-                      <Cell key={`cell-${index}`} fill={COLORS[index % COLORS.length]} />
-                    ))}
-                  </Pie>
-                  <Tooltip />
-                  <Legend />
-                </PieChart>
-              </ResponsiveContainer>
-            )}
-          </div>
-        </div>
-      </div>
-
-      {/* Driver Fleet Performance Table */}
-      <div className="card overflow-hidden">
-        <div className="p-4 border-b border-sky-100">
-          <h3 className="font-bold text-slate-800 text-sm">Driver Fleet Performance</h3>
-          <p className="text-xs text-slate-500">Trip execution metrics and total driver payouts</p>
-        </div>
-        <div className="overflow-x-auto">
-          <table className="w-full text-xs">
-            <thead>
-              <tr className="border-b border-sky-100 bg-sky-50 text-sky-900 font-semibold">
-                <th className="px-4 py-3 text-left">Driver Name</th>
-                <th className="px-4 py-3 text-center">Total Trips</th>
-                <th className="px-4 py-3 text-center">Completed</th>
-                <th className="px-4 py-3 text-center">Cancelled</th>
-                <th className="px-4 py-3 text-right">Total Earnings Disbursed</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-sky-50">
-              {driverPerf.length === 0 ? (
-                <tr>
-                  <td colSpan={5} className="px-4 py-8 text-center text-slate-400">
-                    <p className="text-xs font-semibold text-slate-600">No driver activity in this period</p>
-                    <p className="text-[11px] text-slate-400">Driver metrics appear when trips are assigned and completed.</p>
-                  </td>
-                </tr>
-              ) : (
-                driverPerf.map((d) => (
-                  <tr key={d.driverId} className="hover:bg-sky-50/50">
-                    <td className="px-4 py-3 font-semibold text-slate-800">{d.driverName}</td>
-                    <td className="px-4 py-3 text-center text-slate-600">{d.totalTrips}</td>
-                    <td className="px-4 py-3 text-center text-emerald-600 font-medium">
-                      {d.completedTrips}
-                    </td>
-                    <td className="px-4 py-3 text-center text-red-500 font-medium">
-                      {d.cancelledTrips}
-                    </td>
-                    <td className="px-4 py-3 text-right font-bold text-sky-900">
-                      {formatCurrency(d.totalEarnings)}
-                    </td>
-                  </tr>
-                ))
               )}
             </tbody>
           </table>
