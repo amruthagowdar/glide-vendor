@@ -927,11 +927,16 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
           companyOfficeCoords
         )
 
+        const driverHome = {
+          lat: companyOfficeCoords.lat + 0.076,
+          lng: companyOfficeCoords.lng - 0.067,
+        }
+
         const newShift: LiveShiftCab = {
           id: `ets-shift-${Date.now()}`,
           shiftCode: `ETS-${Math.floor(100 + Math.random() * 900)}`,
           vehicleType: vehicleChoice === 'SUV' ? 'SUV 6+1' : 'Sedan 4+1',
-          seatsUsed: requiredCount,
+          seatsUsed: 0,
           capacity: requiredCount,
           shiftType,
           hubName: currentOffice.name,
@@ -940,10 +945,9 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
           driverPhone: '+91 98450 00000',
           vehicleNo: vehicleChoice === 'SUV' ? 'KA-04-MK-1192' : 'KA-01-MJ-5821',
           status: 'BOARDING' as const,
-          currentCoords: {
-            lat: orderedStops[0]?.lat || companyOfficeCoords.lat,
-            lng: orderedStops[0]?.lng || companyOfficeCoords.lng,
-          },
+          driverHomeCoords: driverHome,
+          currentStepIndex: 0,
+          currentCoords: driverHome,
           hubCoords: { lat: companyOfficeCoords.lat, lng: companyOfficeCoords.lng },
           stops: orderedStops,
         }
