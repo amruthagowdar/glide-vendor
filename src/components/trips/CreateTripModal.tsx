@@ -122,7 +122,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 
   // Airport Transfer specific options
   const [airportDirection, setAirportDirection] = useState<'PICKUP' | 'DROP'>('PICKUP')
-  const [airportTerminal, setAirportTerminal] = useState<'T1' | 'T2'>('T1')
+  const [airportTerminal, setAirportTerminal] = useState<'T1' | 'T2' | null>(null)
 
   // Map Picker Modal state
   const [isMapModalOpen, setIsMapModalOpen] = useState(false)
@@ -171,7 +171,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     if (isOpen) {
       setStep(1)
       setServiceType(initialServiceType || null)
-      if (initialServiceType === 'RAC') {
+      setAirportTerminal(null)
+      if (initialServiceType === 'RAC' && airportTerminal) {
         setPickup(BLR_TERMINALS[airportTerminal])
       }
     }
@@ -179,12 +180,13 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 
   // Synchronize Airport Transfer Static/Dynamic Locations
   useEffect(() => {
-    if (serviceType === 'RAC') {
+    if (serviceType === 'RAC' && airportTerminal) {
+      const terminalLocation = BLR_TERMINALS[airportTerminal]
       if (airportDirection === 'PICKUP') {
-        setPickup(BLR_TERMINALS[airportTerminal])
+        setPickup(terminalLocation)
         if (drop.includes('Kempegowda')) setDrop('')
       } else {
-        setDrop(BLR_TERMINALS[airportTerminal])
+        setDrop(terminalLocation)
         if (pickup.includes('Kempegowda')) setPickup('')
       }
     }
@@ -262,7 +264,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     setStep(1)
     setServiceType(initialServiceType || null)
     setAirportDirection('PICKUP')
-    setAirportTerminal('T1')
+    setAirportTerminal(null)
     setPassengerName('')
     setPassengerPhone('')
     setPassengerEmail('')
@@ -270,7 +272,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     setVehicleType('Sedan')
     setPackageType('4 hrs')
     setTripType('One Way')
-    setPickup(BLR_TERMINALS.T1)
+    setPickup('')
     setDrop('')
     setCreatedDate(new Date().toISOString().split('T')[0])
     setFromDate(new Date().toISOString().split('T')[0])
@@ -307,9 +309,15 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   }
 
   const handleNext = () => {
-    if (step === 1 && !serviceType) {
-      toast.error('Please select a service type to continue')
-      return
+    if (step === 1) {
+      if (!serviceType) {
+        toast.error('Please select a service type to continue')
+        return
+      }
+      if (serviceType === 'RAC' && !airportTerminal) {
+        toast.error('Please select Kempegowda Airport Terminal 1 or Terminal 2 to continue')
+        return
+      }
     }
     if (step === 2 && !validateStep2()) return
     setStep((prev) => Math.min(prev + 1, 3) as 1 | 2 | 3)
@@ -407,7 +415,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
               {step < 3 ? (
                 <button
                   type="button"
-                  disabled={step === 1 && !serviceType}
+                  disabled={
+                    step === 1 &&
+                    (!serviceType || (serviceType === 'RAC' && !airportTerminal))
+                  }
                   onClick={handleNext}
                   className="btn-accent text-sm flex items-center gap-1.5 font-semibold shadow-sm disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -416,7 +427,9 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                       ? !serviceType
                         ? 'Select a Service to Continue'
                         : serviceType === 'RAC'
-                          ? 'Continue with Airport Transfer'
+                          ? !airportTerminal
+                            ? 'Select Terminal 1 or 2 to Continue'
+                            : 'Continue with Airport Transfer'
                           : `Continue with ${serviceType === 'OUTSTATION' ? 'Outstation' : 'Package'}`
                       : 'Continue'}
                   </span>
@@ -498,7 +511,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                     onClick={() => {
                       setServiceType(s)
                       if (s === 'RAC') {
-                        setPickup(BLR_TERMINALS[airportTerminal])
+                        setAirportTerminal(null)
                         setTripAmount('0')
                       }
                     }}
@@ -565,19 +578,33 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 
                   {/* Sub-Option 2: Terminal 1 vs Terminal 2 */}
                   <div>
-                    <label className="text-xs font-bold text-slate-700 block mb-2">
-                      2. Select BLR Airport Terminal *
-                    </label>
+                    <div className="flex items-center justify-between mb-2">
+                      <label className="text-xs font-bold text-slate-700">
+                        2. Select BLR Airport Terminal *
+                      </label>
+                      {!airportTerminal ? (
+                        <span className="text-[11px] font-bold text-rose-600 bg-rose-50 border border-rose-200 px-2 py-0.5 rounded-full animate-pulse">
+                          Required: Select Terminal
+                        </span>
+                      ) : (
+                        <span className="text-[11px] font-bold text-emerald-700 bg-emerald-50 border border-emerald-200 px-2 py-0.5 rounded-full flex items-center gap-1">
+                          <Check className="w-3 h-3" />
+                          {airportTerminal === 'T1' ? 'Terminal 1 Selected' : 'Terminal 2 Selected'}
+                        </span>
+                      )}
+                    </div>
                     <div className="grid grid-cols-2 gap-3">
                       <button
                         type="button"
                         onClick={() => setAirportTerminal('T1')}
                         className={`p-3 rounded-xl border-2 text-left flex items-start gap-3 transition-all ${airportTerminal === 'T1'
                           ? 'border-sky-600 bg-white shadow-md ring-2 ring-sky-600/20'
-                          : 'border-slate-200/80 bg-white/70 hover:bg-white text-slate-600'
+                          : 'border-slate-200/80 bg-white/70 hover:bg-white hover:border-slate-300 text-slate-600'
                           }`}
                       >
-                        <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 font-extrabold text-xs flex items-center justify-center flex-shrink-0">
+                        <div className={`w-8 h-8 rounded-lg font-extrabold text-xs flex items-center justify-center flex-shrink-0 ${
+                          airportTerminal === 'T1' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'
+                        }`}>
                           T1
                         </div>
                         <div>
@@ -591,10 +618,12 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                         onClick={() => setAirportTerminal('T2')}
                         className={`p-3 rounded-xl border-2 text-left flex items-start gap-3 transition-all ${airportTerminal === 'T2'
                           ? 'border-sky-600 bg-white shadow-md ring-2 ring-sky-600/20'
-                          : 'border-slate-200/80 bg-white/70 hover:bg-white text-slate-600'
+                          : 'border-slate-200/80 bg-white/70 hover:bg-white hover:border-slate-300 text-slate-600'
                           }`}
                       >
-                        <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 font-extrabold text-xs flex items-center justify-center flex-shrink-0">
+                        <div className={`w-8 h-8 rounded-lg font-extrabold text-xs flex items-center justify-center flex-shrink-0 ${
+                          airportTerminal === 'T2' ? 'bg-sky-600 text-white' : 'bg-slate-100 text-slate-700'
+                        }`}>
                           T2
                         </div>
                         <div>
@@ -662,7 +691,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                         {airportDirection === 'PICKUP' ? 'BLR Airport Pickup' : 'BLR Airport Drop'}
                       </p>
                       <p className="text-[11px] text-sky-800">
-                        Airport Location: <span className="font-semibold">{BLR_TERMINALS[airportTerminal]}</span>
+                        Airport Location: <span className="font-semibold">{airportTerminal ? BLR_TERMINALS[airportTerminal] : 'Terminal Not Selected'}</span>
                       </p>
                     </div>
                   </div>
