@@ -189,7 +189,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 
   const fareNum = parseFloat(tripAmount) || 0
   const walletBalance = wallet?.balance ?? 0
-  const isBalanceSufficient = walletBalance >= fareNum
+  // Wallet option is frozen across portal - direct billing active without wallet requirement
+  const isBalanceSufficient = true
 
   // Financial Breakdown calculations
   // Platform fee: ₹10 fixed on any trip
@@ -216,9 +217,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       return (await vendorApi.createTrip(payload)).data
     },
     onSuccess: () => {
-      toast.success('Trip created successfully! Wallet debited.')
+      toast.success('Trip created and confirmed successfully!')
       queryClient.invalidateQueries({ queryKey: ['trips'] })
-      queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       resetForm()
       onClose()
@@ -267,14 +267,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     }
     if (fareNum <= 0) {
       toast.error('Trip amount must be greater than ₹0')
-      return false
-    }
-    if (!isBalanceSufficient) {
-      toast.error(
-        `Insufficient wallet balance (${formatCurrency(walletBalance)}). A minimum balance of ${formatCurrency(
-          fareNum
-        )} is required to book this trip. Please recharge your wallet.`
-      )
       return false
     }
     return true
@@ -387,8 +379,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                       ? !serviceType
                         ? 'Select a Service to Continue'
                         : serviceType === 'RAC'
-                        ? 'Continue with Airport Transfer'
-                        : `Continue with ${serviceType === 'OUTSTATION' ? 'Outstation' : 'Package'}`
+                          ? 'Continue with Airport Transfer'
+                          : `Continue with ${serviceType === 'OUTSTATION' ? 'Outstation' : 'Package'}`
                       : 'Continue'}
                   </span>
                   <ArrowRight className="w-4 h-4" />
@@ -396,7 +388,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
               ) : (
                 <button
                   type="button"
-                  disabled={!isBalanceSufficient || createTripMutation.isPending}
+                  disabled={createTripMutation.isPending}
                   onClick={() => createTripMutation.mutate()}
                   className="btn-accent text-sm flex items-center gap-1.5 font-semibold"
                 >
@@ -887,35 +879,25 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   </div>
                 ) : (
                   <p className="text-[11px] text-slate-500 mt-1">
-                    Full amount is debited from your vendor prepaid wallet upon booking confirmation.
+                    Direct billing applied. Prepaid wallet deduction is suspended/frozen.
                   </p>
                 )}
               </div>
 
-              {/* Wallet Validation Banner */}
-              <div
-                className={`p-3.5 rounded-xl border flex items-center justify-between ${isBalanceSufficient
-                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                  : 'bg-red-50 border-red-200 text-red-900'
-                  }`}
-              >
+              {/* Direct Billing Notice (Wallet Frozen) */}
+              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 flex items-center justify-between text-xs">
                 <div>
-                  <p className="font-semibold text-xs sm:text-sm">
-                    {isBalanceSufficient ? 'Wallet Balance Sufficient' : 'Insufficient Wallet Balance'}
+                  <p className="font-semibold text-slate-900 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-slate-400" />
+                    Payment Method: Direct Corporate Billing
                   </p>
-                  <p className="text-[11px] mt-0.5">
-                    Current Balance: {formatCurrency(walletBalance)} · Required: {formatCurrency(fareNum)}
+                  <p className="text-[11px] text-slate-500 mt-0.5">
+                    Prepaid wallet option is frozen. Trip will be booked immediately without wallet balance.
                   </p>
                 </div>
-                {!isBalanceSufficient && (
-                  <button
-                    type="button"
-                    onClick={onOpenRechargeModal}
-                    className="btn-accent text-xs font-semibold px-3 py-1.5"
-                  >
-                    Recharge Wallet
-                  </button>
-                )}
+                <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-200 text-slate-600">
+                  Wallet Frozen
+                </span>
               </div>
 
               <div>

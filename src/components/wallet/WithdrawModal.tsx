@@ -32,11 +32,45 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
   const queryClient = useQueryClient()
   const [amount, setAmount] = useState<string>('')
   const [method, setMethod] = useState<'BANK' | 'UPI'>('BANK')
-  const [bankName, setBankName] = useState('HDFC Bank')
-  const [accountNumber, setAccountNumber] = useState('50200084920192')
-  const [ifsc, setIfsc] = useState('HDFC0000240')
-  const [accountHolder, setAccountHolder] = useState('Atharva Travels')
-  const [upiId, setUpiId] = useState('atharva.travels@okaxis')
+  const [bankName, setBankName] = useState(() => {
+    try {
+      const saved = localStorage.getItem('glide_payout_bank')
+      return saved ? JSON.parse(saved).bankName : 'HDFC Bank'
+    } catch {
+      return 'HDFC Bank'
+    }
+  })
+  const [accountNumber, setAccountNumber] = useState(() => {
+    try {
+      const saved = localStorage.getItem('glide_payout_bank')
+      return saved ? JSON.parse(saved).accountNumber : '50200084920192'
+    } catch {
+      return '50200084920192'
+    }
+  })
+  const [ifsc, setIfsc] = useState(() => {
+    try {
+      const saved = localStorage.getItem('glide_payout_bank')
+      return saved ? JSON.parse(saved).ifsc : 'HDFC0000240'
+    } catch {
+      return 'HDFC0000240'
+    }
+  })
+  const [accountHolder, setAccountHolder] = useState(() => {
+    try {
+      const saved = localStorage.getItem('glide_payout_bank')
+      return saved ? JSON.parse(saved).accountHolder : 'Atharva Travels'
+    } catch {
+      return 'Atharva Travels'
+    }
+  })
+  const [upiId, setUpiId] = useState(() => {
+    try {
+      return localStorage.getItem('glide_payout_upi') || 'atharva.travels@okaxis'
+    } catch {
+      return 'atharva.travels@okaxis'
+    }
+  })
 
   const hasOngoingTrips = ongoingTrips.length > 0
   const withdrawAmount = parseFloat(amount) || 0
@@ -80,11 +114,35 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
       toast.error(`Please enter a valid amount between ₹100 and ${formatCurrency(balance)}`)
       return
     }
+    if (method === 'BANK') {
+      if (!accountHolder.trim() || !bankName.trim() || !accountNumber.trim() || !ifsc.trim()) {
+        toast.error('Please fill in all bank account details.')
+        return
+      }
+      try {
+        localStorage.setItem(
+          'glide_payout_bank',
+          JSON.stringify({ bankName, accountNumber, ifsc, accountHolder })
+        )
+      } catch {
+        // ignore
+      }
+    } else {
+      if (!upiId.trim() || !upiId.includes('@')) {
+        toast.error('Please enter a valid UPI ID (e.g. yourname@upi).')
+        return
+      }
+      try {
+        localStorage.setItem('glide_payout_upi', upiId)
+      } catch {
+        // ignore
+      }
+    }
     withdrawMutation.mutate()
   }
 
   return (
-    <Modal isOpen={isOpen} onClose={onClose} title="Withdraw Wallet Funds" size="md">
+    <Modal isOpen={isOpen} onClose={onClose} title="Withdraw Wallet Funds" size="lg">
       <div className="space-y-5">
         {/* State A: Ongoing Trips Warning (Withdrawal Locked) */}
         {hasOngoingTrips ? (
@@ -228,43 +286,120 @@ export const WithdrawModal: React.FC<WithdrawModalProps> = ({
               </div>
 
               {method === 'BANK' ? (
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Account Holder:</span>
-                    <span className="font-semibold text-slate-800">{accountHolder}</span>
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <Building2 className="w-3.5 h-3.5 text-sky-600" />
+                      Enter Bank Account Details
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setAccountHolder('Atharva Travels')
+                        setBankName('HDFC Bank')
+                        setAccountNumber('50200084920192')
+                        setIfsc('HDFC0000240')
+                      }}
+                      className="text-[11px] font-semibold text-sky-600 hover:text-sky-800 cursor-pointer"
+                    >
+                      Reset Defaults
+                    </button>
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Bank Name:</span>
-                    <span className="font-semibold text-slate-800">{bankName}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">Account Number:</span>
-                    <span className="font-mono font-semibold text-slate-800">{accountNumber}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-slate-500">IFSC Code:</span>
-                    <span className="font-mono font-semibold text-slate-800">{ifsc}</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 mb-1 block">
+                        Account Holder Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={accountHolder}
+                        onChange={(e) => setAccountHolder(e.target.value)}
+                        placeholder="e.g. Atharva Travels"
+                        className="input text-xs py-2 bg-white"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 mb-1 block">
+                        Bank Name *
+                      </label>
+                      <input
+                        type="text"
+                        value={bankName}
+                        onChange={(e) => setBankName(e.target.value)}
+                        placeholder="e.g. HDFC Bank, ICICI Bank"
+                        className="input text-xs py-2 bg-white"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 mb-1 block">
+                        Account Number *
+                      </label>
+                      <input
+                        type="text"
+                        value={accountNumber}
+                        onChange={(e) => setAccountNumber(e.target.value)}
+                        placeholder="e.g. 50200084920192"
+                        className="input text-xs py-2 font-mono bg-white"
+                        required
+                      />
+                    </div>
+                    <div>
+                      <label className="text-[11px] font-semibold text-slate-600 mb-1 block">
+                        IFSC Code *
+                      </label>
+                      <input
+                        type="text"
+                        value={ifsc}
+                        onChange={(e) => setIfsc(e.target.value.toUpperCase())}
+                        placeholder="e.g. HDFC0000240"
+                        className="input text-xs py-2 font-mono uppercase bg-white"
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
               ) : (
-                <div className="p-3.5 rounded-xl bg-slate-50 border border-slate-200 space-y-2 text-xs">
-                  <div className="flex justify-between items-center">
-                    <span className="text-slate-500">Registered UPI ID:</span>
-                    <span className="font-mono font-bold text-slate-800">{upiId}</span>
+                <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                  <div className="flex items-center justify-between pb-1.5 border-b border-slate-200">
+                    <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                      <span className="text-sky-600 font-bold text-sm">@</span>
+                      Enter UPI ID / VPA Details
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setUpiId('atharva.travels@okaxis')}
+                      className="text-[11px] font-semibold text-sky-600 hover:text-sky-800 cursor-pointer"
+                    >
+                      Reset Default UPI
+                    </button>
                   </div>
-                  <p className="text-[11px] text-slate-500">
-                    Verified Atharva Travels Merchant VPA
-                  </p>
+                  <div>
+                    <label className="text-[11px] font-semibold text-slate-600 mb-1 block">
+                      Registered UPI ID / VPA *
+                    </label>
+                    <input
+                      type="text"
+                      value={upiId}
+                      onChange={(e) => setUpiId(e.target.value)}
+                      placeholder="e.g. atharva.travels@okaxis or name@upi"
+                      className="input text-xs py-2 font-mono bg-white"
+                      required
+                    />
+                    <p className="text-[11px] text-slate-500 mt-1">
+                      Direct merchant payout will be initiated to this Virtual Payment Address (VPA).
+                    </p>
+                  </div>
                 </div>
               )}
             </div>
 
-            {/* Booking Notice Reminder */}
+            {/* Settlement Policy Reminder */}
             <div className="p-3 rounded-xl bg-sky-50 border border-sky-200/80 text-[11px] text-sky-900 flex items-start gap-2">
               <ShieldCheck className="w-4 h-4 text-sky-700 flex-shrink-0 mt-0.5" />
               <span>
-                <strong>Important Policy:</strong> To book any future trips, sufficient wallet balance must be present.
-                If you withdraw all funds, you will need to recharge before confirming new customer bookings.
+                <strong>Instant Settlement:</strong> Withdrawals are credited directly to your specified account via IMPS or UPI transfer within 15–30 minutes.
               </span>
             </div>
 

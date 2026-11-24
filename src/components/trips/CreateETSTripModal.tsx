@@ -503,7 +503,8 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
   const driverPayable = Math.max(0, tripFare - platformFee - convenienceFee)
 
   const walletBalance = wallet?.balance ?? 0
-  const isBalanceSufficient = walletBalance >= tripFare
+  // Wallet option is frozen across portal - direct billing active without wallet requirement
+  const isBalanceSufficient = true
 
   // Filtered employee suggestions for auto-identification in create trip form
   const suggestions = useMemo(() => {
@@ -957,9 +958,8 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
         window.dispatchEvent(new Event('ets_shift_created'))
       } catch {}
 
-      toast.success('ETS Corporate Trip created successfully! Wallet debited.')
+      toast.success('ETS Corporate Trip created successfully!')
       queryClient.invalidateQueries({ queryKey: ['trips'] })
-      queryClient.invalidateQueries({ queryKey: ['wallet'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       onClose()
     },
@@ -1139,7 +1139,7 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
               {activeView === 'CREATE_TRIP' && step === 4 && (
                 <button
                   type="button"
-                  disabled={!isBalanceSufficient || createTripMutation.isPending}
+                  disabled={createTripMutation.isPending}
                   onClick={() => createTripMutation.mutate()}
                   className="btn-accent text-sm flex items-center gap-1.5 font-semibold shadow-sm disabled:opacity-50"
                 >
@@ -2195,7 +2195,7 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                         4. Review ETS Shift Manifest & Booking Confirmation
                       </h3>
                       <p className="text-xs text-slate-500 mt-0.5">
-                        Verify route manifest, employee roster, and wallet escrow deduction
+                        Verify route manifest, employee roster, and corporate billing details
                       </p>
                     </div>
                     <div className="text-right">
@@ -2298,41 +2298,19 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                       <span className="font-semibold text-slate-800">{formatCurrency(convenienceFee)}</span>
                     </div>
                     <div className="flex justify-between text-slate-600 pt-1 border-t border-slate-200">
-                      <span>Driver Payout (Escrow)</span>
+                      <span>Driver Payout</span>
                       <span className="font-semibold text-emerald-700">{formatCurrency(driverPayable)}</span>
                     </div>
 
-                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between">
-                      <div className="flex items-center gap-1.5">
-                        <span className="text-slate-500">Available Wallet Balance:</span>
-                        <span
-                          className={`font-bold ${
-                            isBalanceSufficient ? 'text-emerald-700' : 'text-red-600'
-                          }`}
-                        >
-                          {formatCurrency(walletBalance)}
-                        </span>
-                      </div>
-
-                      {!isBalanceSufficient && (
-                        <button
-                          type="button"
-                          onClick={onOpenRechargeModal}
-                          className="text-xs font-bold text-sky-800 hover:underline"
-                        >
-                          + Top-up Wallet
-                        </button>
-                      )}
+                    <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs">
+                      <span className="text-slate-600 font-semibold flex items-center gap-1.5">
+                        <span className="w-2 h-2 rounded-full bg-slate-400" />
+                        Billing: Direct Corporate Invoicing
+                      </span>
+                      <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-200 text-slate-600">
+                        Wallet Frozen
+                      </span>
                     </div>
-
-                    {!isBalanceSufficient && (
-                      <div className="p-2.5 rounded-lg bg-red-50 border border-red-200 text-[11px] text-red-700 flex items-center gap-2">
-                        <AlertCircle className="w-4 h-4 flex-shrink-0" />
-                        <span>
-                          Insufficient wallet balance to book this ETS shift ({formatCurrency(walletBalance)} &lt; {formatCurrency(tripFare)}). Please recharge before booking.
-                        </span>
-                      </div>
-                    )}
                   </div>
 
                   {/* Action Buttons: WhatsApp & Download */}

@@ -18,11 +18,17 @@ interface SidebarProps {
   onClose: () => void
 }
 
-const navItems = [
+const navItems: Array<{
+  name: string
+  path: string
+  icon: React.ComponentType<{ className?: string }>
+  badge?: boolean
+  tag?: string
+}> = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
   { name: 'ETS Command', path: '/ets', icon: Building2 },
   { name: 'Trips', path: '/trips', icon: Navigation },
-  { name: 'Wallet', path: '/wallet', icon: Wallet },
+  { name: 'Wallet', path: '/wallet', icon: Wallet, tag: 'Frozen' },
   { name: 'Notifications', path: '/notifications', icon: Bell, badge: true },
   { name: 'Reports', path: '/reports', icon: BarChart3 },
 ]
@@ -92,6 +98,11 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
             >
               <item.icon className="w-5 h-5 flex-shrink-0" />
               <span className="flex-1 tracking-tight">{item.name}</span>
+              {item.tag && (
+                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-slate-400 border border-slate-700">
+                  {item.tag}
+                </span>
+              )}
               {item.badge && unreadCount > 0 && (
                 <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-600 text-white">
                   {unreadCount > 99 ? '99+' : unreadCount}

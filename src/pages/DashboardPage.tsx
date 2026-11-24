@@ -132,8 +132,8 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Low Balance Warning Banner */}
-      {colorState !== 'green' && (
+      {/* Low Balance Warning Banner suppressed while wallet is frozen across portal */}
+      {false && colorState !== 'green' && (
         <div
           className={`p-4 rounded-xl border flex items-center justify-between ${colorState === 'red'
             ? 'bg-red-50 border-red-200 text-red-900'
@@ -191,13 +191,6 @@ export const DashboardPage: React.FC = () => {
             <Building2 className="w-4 h-4" />
             <span>ETS</span>
           </button>
-          <button
-            onClick={() => setRechargeOpen(true)}
-            className="btn-secondary text-xs sm:text-sm flex items-center gap-1.5"
-          >
-            <Wallet className="w-4 h-4 text-emerald-600" />
-            <span>Top-up Wallet</span>
-          </button>
         </div>
       </div>
 
@@ -214,13 +207,9 @@ export const DashboardPage: React.FC = () => {
         <StatCard
           title="Wallet Balance"
           value={formatCurrency(walletBalance)}
-          subtitle={colorState === 'green' ? 'Healthy balance' : 'Recharge recommended'}
+          subtitle="Frozen · Direct Billing"
           icon={<Wallet className="w-5 h-5" />}
-          colorClass={
-            colorState === 'green'
-              ? 'bg-emerald-100 text-emerald-800'
-              : 'bg-amber-100 text-amber-800'
-          }
+          colorClass="bg-slate-100 text-slate-700"
           onClick={() => navigate('/wallet')}
         />
         <StatCard
@@ -357,7 +346,12 @@ export const DashboardPage: React.FC = () => {
         <div className="card overflow-hidden flex flex-col">
           <div className="p-4 border-b border-sky-100 flex items-center justify-between">
             <div>
-              <h2 className="text-base font-bold text-slate-900">Wallet Activity</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold text-slate-900">Wallet Activity</h2>
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
+                  Frozen
+                </span>
+              </div>
               <p className="text-xs text-slate-500">Recent credits & debits</p>
             </div>
             <button
@@ -432,13 +426,11 @@ export const DashboardPage: React.FC = () => {
             )}
           </div>
 
-          <div className="p-3 bg-sky-50/50 border-t border-sky-100 text-center">
-            <button
-              onClick={() => setRechargeOpen(true)}
-              className="btn-accent text-xs w-full py-1.5 font-semibold"
-            >
-              Recharge Balance
-            </button>
+          <div className="p-3 bg-slate-50 border-t border-slate-200 text-center">
+            <span className="text-xs font-semibold text-slate-500 flex items-center justify-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-slate-400" />
+              Prepaid Wallet Frozen · Direct Billing Active
+            </span>
           </div>
         </div>
       </div>

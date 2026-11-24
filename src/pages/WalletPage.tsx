@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useQuery, useQueryClient } from '@tanstack/react-query'
-import { Filter, Download, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
+import { Filter, Download, ArrowUpRight, ArrowDownLeft, AlertTriangle } from 'lucide-react'
 import { vendorApi } from '../lib/api'
 import { WalletCard } from '../components/ui/WalletCard'
 import { DataTable, Pagination } from '../components/ui/DataTable'
@@ -113,6 +113,24 @@ export const WalletPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Vendor Wallet</h1>
           <p className="text-xs text-slate-500 mt-1">
             Prepaid balance for trip bookings and automated driver payout settlements
+          </p>
+        </div>
+      </div>
+
+      {/* Wallet Frozen Notice Banner */}
+      <div className="p-4 rounded-2xl bg-amber-50 border border-amber-200/90 text-amber-950 flex items-start gap-3.5 shadow-sm">
+        <div className="w-9 h-9 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center flex-shrink-0 mt-0.5">
+          <AlertTriangle className="w-5 h-5 text-amber-700" />
+        </div>
+        <div>
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-sm text-amber-950">Wallet System Frozen</h3>
+            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-amber-200 text-amber-900 uppercase tracking-wide">
+              Module Frozen
+            </span>
+          </div>
+          <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+            Wallet deductions and prepaid escrow requirements are currently frozen across the portal (including Rent A Cab and ETS). All trips and corporate shifts are dispatched under direct billing without requiring advance wallet balance or prepaid escrow.
           </p>
         </div>
       </div>

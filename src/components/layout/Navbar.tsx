@@ -80,16 +80,16 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, onOpenRechargeModal
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Unified Wallet Balance Pill with + Recharge Symbol */}
+        {/* Wallet Frozen Pill Indicator */}
         <button
-          onClick={onOpenRechargeModal || (() => navigate('/wallet'))}
-          className={`flex items-center gap-2 pl-3.5 pr-1.5 py-1.5 rounded-full border text-xs sm:text-sm font-bold shadow-sm transition-all duration-200 active:scale-[0.98] cursor-pointer ${walletBadgeStyle}`}
-          title="Recharge Wallet via Razorpay"
+          onClick={() => navigate('/wallet')}
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-slate-100/90 text-slate-600 text-xs font-semibold hover:bg-slate-200/85 transition-colors cursor-pointer"
+          title="Prepaid wallet is frozen across portal"
         >
-          <WalletIcon className="w-4 h-4 flex-shrink-0" />
-          <span>{formatCurrency(balance)}</span>
-          <span className="w-5 h-5 rounded-full bg-emerald-600 text-white flex items-center justify-center text-xs font-black shadow-sm ml-0.5 hover:bg-emerald-700 transition-colors">
-            +
+          <WalletIcon className="w-3.5 h-3.5 text-slate-400" />
+          <span>Wallet: {formatCurrency(balance)}</span>
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600">
+            Frozen
           </span>
         </button>
 
