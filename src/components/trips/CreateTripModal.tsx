@@ -568,46 +568,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   </div>
                 </div>
               )}
-
-              {/* Outstation Card */}
-              {serviceType === 'OUTSTATION' && (
-                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/90 space-y-2 animate-in fade-in slide-in-from-top-3 duration-300">
-                  <div className="flex items-center justify-between pb-2 border-b border-amber-200/60">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center">
-                        <Navigation className="w-4 h-4" />
-                      </div>
-                      <h4 className="text-sm font-bold text-amber-950">Outstation & Intercity Travel</h4>
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
-                      Outstation
-                    </span>
-                  </div>
-                  <p className="text-xs text-amber-900 leading-relaxed">
-                    Point-to-point and round-trip intercity bookings across South India with dedicated driver and toll management.
-                  </p>
-                </div>
-              )}
-
-              {/* Package Card */}
-              {serviceType === 'PACKAGE' && (
-                <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200/90 space-y-2 animate-in fade-in slide-in-from-top-3 duration-300">
-                  <div className="flex items-center justify-between pb-2 border-b border-purple-200/60">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center">
-                        <Building2 className="w-4 h-4" />
-                      </div>
-                      <h4 className="text-sm font-bold text-purple-950">Corporate & Hourly Rental Package (ETS)</h4>
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-200 text-purple-900">
-                      Package / ETS
-                    </span>
-                  </div>
-                  <p className="text-xs text-purple-900 leading-relaxed">
-                    Custom hourly packages for corporate employee transport, corporate shuttles, VIP events, and full-day charters.
-                  </p>
-                </div>
-              )}
             </div>
           )}
 
@@ -677,46 +637,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                       Terminal 2
                     </button>
                   </div>
-                </div>
-              )}
-
-              {/* Outstation Card */}
-              {serviceType === 'OUTSTATION' && (
-                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/90 space-y-2 animate-in fade-in slide-in-from-top-3 duration-300">
-                  <div className="flex items-center justify-between pb-2 border-b border-amber-200/60">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center">
-                        <Navigation className="w-4 h-4" />
-                      </div>
-                      <h4 className="text-sm font-bold text-amber-950">Outstation & Intercity Travel</h4>
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
-                      Outstation
-                    </span>
-                  </div>
-                  <p className="text-xs text-amber-900 leading-relaxed">
-                    Point-to-point and round-trip intercity bookings across South India with dedicated driver and toll management.
-                  </p>
-                </div>
-              )}
-
-              {/* Package Card */}
-              {serviceType === 'PACKAGE' && (
-                <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200/90 space-y-2 animate-in fade-in slide-in-from-top-3 duration-300">
-                  <div className="flex items-center justify-between pb-2 border-b border-purple-200/60">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center">
-                        <Building2 className="w-4 h-4" />
-                      </div>
-                      <h4 className="text-sm font-bold text-purple-950">Corporate & Hourly Rental Package (ETS)</h4>
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-200 text-purple-900">
-                      Package / ETS
-                    </span>
-                  </div>
-                  <p className="text-xs text-purple-900 leading-relaxed">
-                    Custom hourly packages for corporate employee transport, corporate shuttles, VIP events, and full-day charters.
-                  </p>
                 </div>
               )}
 
@@ -848,46 +768,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                       </button>
                     </div>
                   </div>
-                </div>
-              )}
-
-              {/* Outstation Card */}
-              {serviceType === 'OUTSTATION' && (
-                <div className="p-4 rounded-2xl bg-amber-50/70 border border-amber-200/90 space-y-2 animate-in fade-in slide-in-from-top-3 duration-300">
-                  <div className="flex items-center justify-between pb-2 border-b border-amber-200/60">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-amber-600 text-white flex items-center justify-center">
-                        <Navigation className="w-4 h-4" />
-                      </div>
-                      <h4 className="text-sm font-bold text-amber-950">Outstation & Intercity Travel</h4>
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-amber-200 text-amber-900">
-                      Outstation
-                    </span>
-                  </div>
-                  <p className="text-xs text-amber-900 leading-relaxed">
-                    Point-to-point and round-trip intercity bookings across South India with dedicated driver and toll management.
-                  </p>
-                </div>
-              )}
-
-              {/* Package Card */}
-              {serviceType === 'PACKAGE' && (
-                <div className="p-4 rounded-2xl bg-purple-50/70 border border-purple-200/90 space-y-2 animate-in fade-in slide-in-from-top-3 duration-300">
-                  <div className="flex items-center justify-between pb-2 border-b border-purple-200/60">
-                    <div className="flex items-center gap-2">
-                      <div className="w-7 h-7 rounded-lg bg-purple-600 text-white flex items-center justify-center">
-                        <Building2 className="w-4 h-4" />
-                      </div>
-                      <h4 className="text-sm font-bold text-purple-950">Corporate & Hourly Rental Package (ETS)</h4>
-                    </div>
-                    <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full bg-purple-200 text-purple-900">
-                      Package / ETS
-                    </span>
-                  </div>
-                  <p className="text-xs text-purple-900 leading-relaxed">
-                    Custom hourly packages for corporate employee transport, corporate shuttles, VIP events, and full-day charters.
-                  </p>
                 </div>
               )}
 
