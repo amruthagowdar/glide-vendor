@@ -304,11 +304,11 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       `*Drop:* ${drop}\n` +
       (serviceType === 'RAC'
         ? `*Booking Date & Time:* ${fromDate} at ${fromTime}\n`
-        : `*From:* ${fromDate} at ${fromTime}\n*To:* ${toDate} at ${toTime}\n`) +
-      `*Trip Fare:* ₹${fareNum.toLocaleString('en-IN')}${serviceType === 'RAC' ? ' (Frozen)' : ''}\n` +
-      `*Platform Fee:* ₹10\n` +
-      `*Convenience Fee (15%):* ₹${convenienceFee.toLocaleString('en-IN')}\n` +
-      `*Driver Payout:* ₹${driverPayable.toLocaleString('en-IN')}\n` +
+        : `*From:* ${fromDate} at ${fromTime}\n*To:* ${toDate} at ${toTime}\n` +
+          `*Trip Fare:* ₹${fareNum.toLocaleString('en-IN')}\n` +
+          `*Platform Fee:* ₹10\n` +
+          `*Convenience Fee (15%):* ₹${convenienceFee.toLocaleString('en-IN')}\n` +
+          `*Driver Payout:* ₹${driverPayable.toLocaleString('en-IN')}\n`) +
       (notes ? `*Notes:* ${notes}\n` : '') +
       `--------------------------------\n` +
       `Booked via Atharva Travels / Glide`
@@ -466,7 +466,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                       setServiceType(s)
                       if (s === 'RAC') {
                         setPickup(BLR_TERMINALS[airportTerminal])
-                        setTripAmount('1200')
+                        setTripAmount('0')
                       }
                     }}
                   />
@@ -890,50 +890,26 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 </div>
               )}
 
-              {/* Agreed Fare Section: Frozen and Greyed Out for Airport Transfer, unchanged for Outstation & Packages */}
-              <div>
-                <div className="flex items-center justify-between mb-1">
-                  <div className="flex items-center gap-2">
+              {/* Agreed Fare Section: Rendered ONLY for Outstation & Packages, completely removed for Airport Transfer */}
+              {serviceType !== 'RAC' && (
+                <div>
+                  <div className="flex items-center justify-between mb-1">
                     <label className="label mb-0">Agreed Trip Amount (₹) *</label>
-                    {serviceType === 'RAC' && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 border border-slate-300">
-                        Frozen
-                      </span>
-                    )}
                   </div>
-                  {serviceType === 'RAC' && estimatedKm !== null && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 border border-slate-300">
-                      ~{estimatedKm} km from BLR Airport
-                    </span>
-                  )}
-                </div>
-                <input
-                  type="number"
-                  min={serviceType === 'RAC' ? 0 : 1}
-                  step="10"
-                  value={serviceType === 'RAC' ? '0' : tripAmount}
-                  readOnly={serviceType === 'RAC'}
-                  disabled={serviceType === 'RAC'}
-                  onChange={(e) => setTripAmount(e.target.value)}
-                  className={`input text-lg font-bold ${
-                    serviceType === 'RAC'
-                      ? 'bg-slate-100 border-slate-300 text-slate-500 cursor-not-allowed select-none'
-                      : ''
-                  }`}
-                  required
-                />
-                {serviceType === 'RAC' ? (
-                  <div className="text-[11px] mt-1 space-y-0.5 text-slate-500">
-                    <p>
-                      Agreed trip fare is frozen at ₹0. Direct corporate billing active.
-                    </p>
-                  </div>
-                ) : (
+                  <input
+                    type="number"
+                    min={1}
+                    step="10"
+                    value={tripAmount}
+                    onChange={(e) => setTripAmount(e.target.value)}
+                    className="input text-lg font-bold"
+                    required
+                  />
                   <p className="text-[11px] text-slate-500 mt-1">
                     Direct billing applied. Prepaid wallet deduction is suspended/frozen.
                   </p>
-                )}
-              </div>
+                </div>
+              )}
 
               {/* Wallet Balance: Frozen and greyed out until admin portal connects for Airport Transfer, unchanged for Outstation & Packages */}
               {serviceType === 'RAC' ? (
@@ -1055,17 +1031,14 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                     </div>
                   </>
                 )}
-                <div className="flex justify-between border-b border-sky-100 pb-2">
-                  <span className="text-slate-500">Agreed Fare:</span>
-                  <span className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-                    {formatCurrency(fareNum)}
-                    {serviceType === 'RAC' && (
-                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 border border-slate-300">
-                        Frozen
-                      </span>
-                    )}
-                  </span>
-                </div>
+                {serviceType !== 'RAC' && (
+                  <div className="flex justify-between border-b border-sky-100 pb-2">
+                    <span className="text-slate-500">Agreed Fare:</span>
+                    <span className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                      {formatCurrency(fareNum)}
+                    </span>
+                  </div>
+                )}
                 {notes && (
                   <div className="flex justify-between pt-1">
                     <span className="text-slate-500">Notes:</span>
@@ -1147,26 +1120,28 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 </div>
               </div>
 
-              {/* Financial Breakdown Preview */}
-              <div className="card p-3 border-dashed text-xs space-y-1.5 bg-white">
-                <p className="font-semibold text-slate-700">Financial Breakdown Preview:</p>
-                <div className="flex justify-between text-slate-600">
-                  <span>Trip Fare:</span>
-                  <span className="font-medium">{formatCurrency(fareNum)}</span>
+              {/* Financial Breakdown Preview: for Outstation & Packages */}
+              {serviceType !== 'RAC' && (
+                <div className="card p-3 border-dashed text-xs space-y-1.5 bg-white">
+                  <p className="font-semibold text-slate-700">Financial Breakdown Preview:</p>
+                  <div className="flex justify-between text-slate-600">
+                    <span>Trip Fare:</span>
+                    <span className="font-medium">{formatCurrency(fareNum)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-500">
+                    <span>Platform Fee:</span>
+                    <span>- {formatCurrency(platformFee)}</span>
+                  </div>
+                  <div className="flex justify-between text-slate-500">
+                    <span>Convenience Fee (15%):</span>
+                    <span>- {formatCurrency(convenienceFee)}</span>
+                  </div>
+                  <div className="flex justify-between font-bold text-emerald-700 pt-1 border-t">
+                    <span>Driver Payout (Rest):</span>
+                    <span>{formatCurrency(driverPayable)}</span>
+                  </div>
                 </div>
-                <div className="flex justify-between text-slate-500">
-                  <span>Platform Fee:</span>
-                  <span>- {formatCurrency(platformFee)}</span>
-                </div>
-                <div className="flex justify-between text-slate-500">
-                  <span>Convenience Fee (15%):</span>
-                  <span>- {formatCurrency(convenienceFee)}</span>
-                </div>
-                <div className="flex justify-between font-bold text-emerald-700 pt-1 border-t">
-                  <span>Driver Payout (Rest):</span>
-                  <span>{formatCurrency(driverPayable)}</span>
-                </div>
-              </div>
+              )}
             </div>
           )}
         </div>
