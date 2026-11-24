@@ -430,7 +430,7 @@ export function getMockResponse(
         orderId: `order_${Date.now()}`,
         amount: 5000,
         currency: 'INR',
-        keyId: 'rzp_test_U3aar1McqHI7Wz',
+        keyId: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
       },
     }
   }
