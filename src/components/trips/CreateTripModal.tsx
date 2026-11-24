@@ -800,51 +800,46 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 </div>
               </div>
 
-              {/* From Date & Time */}
+              {/* From Date & Time and To Date & Time */}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="label">From Date *</label>
-                  <input
-                    type="date"
-                    value={fromDate}
-                    onChange={(e) => setFromDate(e.target.value)}
-                    className="input"
-                    required
-                  />
+                  <label className="label">From Date & Time *</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={fromDate}
+                      onChange={(e) => setFromDate(e.target.value)}
+                      className="input flex-1 min-w-0"
+                      required
+                    />
+                    <input
+                      type="time"
+                      value={fromTime}
+                      onChange={(e) => setFromTime(e.target.value)}
+                      className="input w-28 sm:w-32 flex-shrink-0"
+                      required
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="label">From Time *</label>
-                  <input
-                    type="time"
-                    value={fromTime}
-                    onChange={(e) => setFromTime(e.target.value)}
-                    className="input"
-                    required
-                  />
-                </div>
-              </div>
 
-              {/* To Date & Time */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
-                  <label className="label">To Date *</label>
-                  <input
-                    type="date"
-                    value={toDate}
-                    onChange={(e) => setToDate(e.target.value)}
-                    className="input"
-                    required
-                  />
-                </div>
-                <div>
-                  <label className="label">To Time *</label>
-                  <input
-                    type="time"
-                    value={toTime}
-                    onChange={(e) => setToTime(e.target.value)}
-                    className="input"
-                    required
-                  />
+                  <label className="label">To Date & Time *</label>
+                  <div className="flex items-center gap-2">
+                    <input
+                      type="date"
+                      value={toDate}
+                      onChange={(e) => setToDate(e.target.value)}
+                      className="input flex-1 min-w-0"
+                      required
+                    />
+                    <input
+                      type="time"
+                      value={toTime}
+                      onChange={(e) => setToTime(e.target.value)}
+                      className="input w-28 sm:w-32 flex-shrink-0"
+                      required
+                    />
+                  </div>
                 </div>
               </div>
 
