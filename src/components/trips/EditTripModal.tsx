@@ -111,7 +111,7 @@ export const EditTripModal: React.FC<EditTripModalProps> = ({
       isOpen={isOpen}
       onClose={onClose}
       title={`Edit Trip ${trip.tripNo} (${trip.serviceType})`}
-      size="lg"
+      size="xl"
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {/* Passenger Info */}

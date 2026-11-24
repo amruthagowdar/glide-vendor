@@ -6,11 +6,20 @@ interface ModalProps {
   onClose: () => void
   title: string
   children: React.ReactNode
-  size?: 'sm' | 'md' | 'lg' | 'xl'
+  size?: 'sm' | 'md' | 'lg' | 'xl' | '2xl' | '3xl'
+  className?: string
   footer?: React.ReactNode
 }
 
-export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, size = 'md', footer }) => {
+export const Modal: React.FC<ModalProps> = ({
+  isOpen,
+  onClose,
+  title,
+  children,
+  size = 'md',
+  className,
+  footer,
+}) => {
   if (!isOpen) return null
 
   const sizeClasses = {
@@ -18,14 +27,16 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
     md: 'max-w-lg',
     lg: 'max-w-2xl',
     xl: 'max-w-4xl',
+    '2xl': 'max-w-5xl',
+    '3xl': 'max-w-6xl',
   }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" role="dialog" aria-modal="true">
       <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={onClose} />
-      <div className={cn('relative bg-white rounded-xl shadow-2xl w-full', sizeClasses[size], 'max-h-[90vh] flex flex-col')}>
+      <div className={cn('relative bg-white rounded-2xl shadow-2xl w-full', sizeClasses[size], 'max-h-[92vh] flex flex-col', className)}>
         <div className="flex items-center justify-between p-6 border-b border-sky-100">
-          <h2 className="text-lg font-semibold text-sky-900">{title}</h2>
+          <h2 className="text-xl font-bold text-sky-950">{title}</h2>
           <button
             onClick={onClose}
             className="p-1.5 rounded-lg hover:bg-sky-50 text-slate-400 hover:text-slate-600 transition-colors"
@@ -35,9 +46,9 @@ export const Modal: React.FC<ModalProps> = ({ isOpen, onClose, title, children, 
             </svg>
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto p-6">{children}</div>
+        <div className="flex-1 overflow-y-auto p-6 sm:p-7">{children}</div>
         {footer && (
-          <div className="p-6 border-t border-sky-100 bg-sky-50/50 rounded-b-xl">{footer}</div>
+          <div className="p-6 border-t border-sky-100 bg-sky-50/50 rounded-b-2xl">{footer}</div>
         )}
       </div>
     </div>

@@ -229,8 +229,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         serviceType === 'RAC'
           ? `[Created: ${createdDate}] [Booking: ${fromDate} ${fromTime}] [Vehicle: ${vehicleDesc}]${passengerEmail ? ` [Email: ${passengerEmail}]` : ''} ${notes}`.trim()
           : serviceType === 'PACKAGE'
-            ? `[Date: ${fromDate} ${fromTime}] [Package: ${packageType}] [Vehicle: ${vehicleDesc}] ${notes}`.trim()
-            : `[Trip Type: ${tripType}] [From: ${fromDate} ${fromTime} | To: ${toDate} ${toTime}] [Vehicle: ${vehicleDesc}] ${notes}`.trim()
+            ? `[Date: ${fromDate} ${fromTime}] [Package: ${packageType}] [Vehicle: ${vehicleDesc}]${passengerEmail ? ` [Email: ${passengerEmail}]` : ''} ${notes}`.trim()
+            : `[Trip Type: ${tripType}] [From: ${fromDate} ${fromTime} | To: ${toDate} ${toTime}] [Vehicle: ${vehicleDesc}]${passengerEmail ? ` [Email: ${passengerEmail}]` : ''} ${notes}`.trim()
 
       const payload = {
         serviceType,
@@ -291,6 +291,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       toast.error('Please enter passenger phone number')
       return false
     }
+    if (!passengerEmail.trim()) {
+      toast.error('Please enter passenger email address')
+      return false
+    }
     if (!pickup.trim()) {
       toast.error('Please enter pickup location')
       return false
@@ -330,7 +334,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       (serviceType === 'RAC' ? `*Created Date:* ${createdDate}\n` : '') +
       `*Vehicle Category:* ${vehicleCategory}\n` +
       `*Vehicle Type:* ${vehicleType}\n` +
-      `*Passenger:* ${passengerName} (${passengerPhone})${serviceType === 'RAC' && passengerEmail ? `\n*Email:* ${passengerEmail}` : ''}\n` +
+      `*Passenger:* ${passengerName} (${passengerPhone})${passengerEmail ? `\n*Email:* ${passengerEmail}` : ''}\n` +
       `*Pickup:* ${pickup}\n` +
       `*Drop:* ${drop || ((serviceType === 'PACKAGE' || serviceType === 'OUTSTATION') ? 'As Directed' : '')}\n` +
       (serviceType === 'RAC'
@@ -374,7 +378,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         isOpen={isOpen}
         onClose={onClose}
         title="Rent A Cab"
-        size="lg"
+        size="xl"
         footer={
           <div className="flex items-center justify-between w-full">
             <div>
@@ -633,20 +637,18 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 </div>
               </div>
 
-              {/* Airport Transfer Only: Email ID Input Box Under Passenger Contact Number */}
-              {serviceType === 'RAC' && (
-                <div>
-                  <label className="label">Passenger Email ID *</label>
-                  <input
-                    type="email"
-                    placeholder="e.g. passenger@company.com"
-                    value={passengerEmail}
-                    onChange={(e) => setPassengerEmail(e.target.value)}
-                    className="input"
-                    required
-                  />
-                </div>
-              )}
+              {/* Passenger Email ID Input Box */}
+              <div>
+                <label className="label">Passenger Email ID *</label>
+                <input
+                  type="email"
+                  placeholder="e.g. passenger@company.com"
+                  value={passengerEmail}
+                  onChange={(e) => setPassengerEmail(e.target.value)}
+                  className="input"
+                  required
+                />
+              </div>
 
               {/* Airport Transfer Mode Banner with Terminal Switcher */}
               {serviceType === 'RAC' && (
@@ -1090,7 +1092,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                     {passengerName} ({passengerPhone})
                   </span>
                 </div>
-                {serviceType === 'RAC' && passengerEmail && (
+                {passengerEmail && (
                   <div className="flex justify-between border-b border-sky-100 pb-2">
                     <span className="text-slate-500">Email ID:</span>
                     <span className="font-semibold text-slate-800 font-mono">

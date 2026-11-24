@@ -90,8 +90,8 @@ export const TripsPage: React.FC = () => {
       const list = Array.isArray(res.data?.data)
         ? res.data.data
         : Array.isArray(res.data)
-        ? res.data
-        : []
+          ? res.data
+          : []
       return {
         data: list,
         total: res.data?.total || list.length,
@@ -115,8 +115,8 @@ export const TripsPage: React.FC = () => {
       const vehicleInfo = vehicleMatch
         ? vehicleMatch[1]
         : t.vehicleRegNo
-        ? `${t.vehicleRegNo}`
-        : 'Sedan'
+          ? `${t.vehicleRegNo}`
+          : 'Sedan'
 
       return {
         'Sl No': idx + 1,
