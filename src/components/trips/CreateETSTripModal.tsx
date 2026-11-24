@@ -211,12 +211,10 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
 
   // Step 2: Shift Direction (LOGIN vs LOGOUT) & Corporate Landmark
   const [shiftType, setShiftType] = useState<'LOGIN' | 'LOGOUT'>('LOGIN')
-  const [selectedOfficeId, setSelectedOfficeId] = useState<string>(CORPORATE_OFFICES[0].id)
-  const [customOfficeName, setCustomOfficeName] = useState('')
-  const [customOfficeAddress, setCustomOfficeAddress] = useState('')
-  const [customOfficeCoords, setCustomOfficeCoords] = useState<{ lat: number; lng: number }>({
-    lat: 12.9716,
-    lng: 77.5946,
+  const [companyOfficeAddress, setCompanyOfficeAddress] = useState(CORPORATE_OFFICES[0].address)
+  const [companyOfficeCoords, setCompanyOfficeCoords] = useState<{ lat: number; lng: number }>({
+    lat: CORPORATE_OFFICES[0].lat,
+    lng: CORPORATE_OFFICES[0].lng,
   })
 
   // Date and Time
@@ -344,6 +342,8 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
       setVehicleChoice(null)
       setShiftType('LOGIN')
       setScheduledTime('08:30')
+      setCompanyOfficeAddress(CORPORATE_OFFICES[0].address)
+      setCompanyOfficeCoords({ lat: CORPORATE_OFFICES[0].lat, lng: CORPORATE_OFFICES[0].lng })
       setEmployees([
         { name: '', phone: '', address: '', lat: '', lng: '' },
         { name: '', phone: '', address: '', lat: '', lng: '' },
@@ -354,19 +354,19 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
 
   // Get active office details
   const currentOffice = useMemo(() => {
-    if (selectedOfficeId === 'custom') {
-      return {
-        id: 'custom',
-        name: customOfficeName.trim() || 'Custom Client Office',
-        address: customOfficeAddress.trim() || 'Client Corporate Campus, Bengaluru',
-        lat: customOfficeCoords.lat,
-        lng: customOfficeCoords.lng,
-      }
-    }
-    return (
-      CORPORATE_OFFICES.find((o) => o.id === selectedOfficeId) || CORPORATE_OFFICES[0]
+    const matched = CORPORATE_OFFICES.find(
+      (o) => o.address.toLowerCase() === companyOfficeAddress.toLowerCase()
     )
-  }, [selectedOfficeId, customOfficeName, customOfficeAddress, customOfficeCoords])
+    const name = matched
+      ? matched.name
+      : companyOfficeAddress.split(',')[0]?.trim() || 'Company Office'
+    return {
+      name,
+      address: companyOfficeAddress.trim(),
+      lat: companyOfficeCoords.lat,
+      lng: companyOfficeCoords.lng,
+    }
+  }, [companyOfficeAddress, companyOfficeCoords])
 
   // Data fetching: Wallet balance
   const { data: wallet } = useQuery<Wallet>({
@@ -1283,13 +1283,13 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                     </div>
                   </div>
 
-                  {/* Static Company Office Selection */}
+                  {/* Static Company Office Input with Location GMaps Picker */}
                   <div className="p-4 rounded-2xl bg-slate-50 border border-slate-200 space-y-3">
                     <div className="flex items-center justify-between">
                       <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                         <Building2 className="w-3.5 h-3.5 text-sky-800" />
                         <span>
-                          Static Company Office ({shiftType === 'LOGIN' ? 'Destination / Drop' : 'Origin / Pickup'}) *
+                          Company Office ({shiftType === 'LOGIN' ? 'Destination / Drop' : 'Origin / Pickup'}) *
                         </span>
                       </label>
                       <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-sky-100 text-sky-800">
@@ -1297,55 +1297,52 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                       </span>
                     </div>
 
-                    <select
-                      value={selectedOfficeId}
-                      onChange={(e) => setSelectedOfficeId(e.target.value)}
-                      className="input text-xs font-semibold"
-                    >
-                      {CORPORATE_OFFICES.map((off) => (
-                        <option key={off.id} value={off.id}>
-                          {off.name} — {off.address.substring(0, 48)}...
-                        </option>
-                      ))}
-                      <option value="custom">+ Custom Client Office Address</option>
-                    </select>
+                    <div className="relative">
+                      <input
+                        type="text"
+                        placeholder="Enter company office address or landmark..."
+                        value={companyOfficeAddress}
+                        onChange={(e) => setCompanyOfficeAddress(e.target.value)}
+                        className="input text-xs pr-10 font-medium text-slate-800 bg-white shadow-sm"
+                        required
+                      />
+                      <button
+                        type="button"
+                        onClick={() => setMapPickerSlotIndex(-1)}
+                        className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 rounded-lg text-sky-600 hover:text-sky-800 hover:bg-sky-50 transition-colors"
+                        title="Pick Company Office on Google Maps"
+                      >
+                        <MapPin className="w-4 h-4" />
+                      </button>
+                    </div>
 
-                    {selectedOfficeId === 'custom' && (
-                      <div className="space-y-2 pt-2 border-t border-slate-200">
-                        <input
-                          type="text"
-                          placeholder="Company / Campus Name (e.g. Atharva Tech Hub)"
-                          value={customOfficeName}
-                          onChange={(e) => setCustomOfficeName(e.target.value)}
-                          className="input text-xs"
-                        />
-                        <div className="flex items-center gap-2">
-                          <input
-                            type="text"
-                            placeholder="Full Office Address & Landmark"
-                            value={customOfficeAddress}
-                            onChange={(e) => setCustomOfficeAddress(e.target.value)}
-                            className="input text-xs flex-1"
-                          />
-                          <button
-                            type="button"
-                            onClick={() => setMapPickerSlotIndex(-1)}
-                            className="btn-secondary text-xs flex items-center gap-1 whitespace-nowrap"
-                          >
-                            <MapPin className="w-3.5 h-3.5 text-sky-700" />
-                            <span>Pin Office</span>
-                          </button>
-                        </div>
+                    {/* Quick Suggestions for Corporate Hubs */}
+                    <div className="flex items-center gap-1.5 overflow-x-auto pb-1 text-[11px] text-slate-500">
+                      <span className="text-[10px] text-slate-400 font-semibold whitespace-nowrap">Suggested:</span>
+                      {CORPORATE_OFFICES.slice(0, 4).map((off) => (
+                        <button
+                          key={off.id}
+                          type="button"
+                          onClick={() => {
+                            setCompanyOfficeAddress(off.address)
+                            setCompanyOfficeCoords({ lat: off.lat, lng: off.lng })
+                          }}
+                          className="px-2 py-0.5 rounded-full bg-white border border-slate-200 hover:border-sky-400 text-slate-700 whitespace-nowrap text-[10px] transition-colors"
+                        >
+                          {off.name.split('(')[0].trim()}
+                        </button>
+                      ))}
+                    </div>
+
+                    {companyOfficeAddress && (
+                      <div className="text-[11px] text-slate-600 flex items-center gap-1.5 pt-0.5">
+                        <MapPin className="w-3 h-3 text-sky-700 flex-shrink-0" />
+                        <span className="truncate">{companyOfficeAddress}</span>
+                        <span className="text-[10px] text-slate-400 font-mono flex-shrink-0">
+                          ({companyOfficeCoords.lat.toFixed(4)}, {companyOfficeCoords.lng.toFixed(4)})
+                        </span>
                       </div>
                     )}
-
-                    <div className="text-[11px] text-slate-600 flex items-center gap-1.5 pt-1">
-                      <MapPin className="w-3 h-3 text-sky-700 flex-shrink-0" />
-                      <span className="truncate">{currentOffice.address}</span>
-                      <span className="text-[10px] text-slate-400 font-mono">
-                        ({currentOffice.lat.toFixed(4)}, {currentOffice.lng.toFixed(4)})
-                      </span>
-                    </div>
                   </div>
 
                   {/* Shift Schedule Timing */}
@@ -1775,18 +1772,18 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
           onClose={() => setMapPickerSlotIndex(null)}
           title={
             mapPickerSlotIndex === -1
-              ? 'Select Custom Company Office on Map'
+              ? 'Select Company Office Location on Map'
               : `Select Geo-Code for Employee #${mapPickerSlotIndex + 1}`
           }
           initialAddress={
             mapPickerSlotIndex === -1
-              ? customOfficeAddress
+              ? companyOfficeAddress
               : employees[mapPickerSlotIndex]?.address || ''
           }
           onSelectLocation={(address, lat, lng) => {
             if (mapPickerSlotIndex === -1) {
-              setCustomOfficeAddress(address)
-              if (lat && lng) setCustomOfficeCoords({ lat, lng })
+              setCompanyOfficeAddress(address)
+              if (lat && lng) setCompanyOfficeCoords({ lat, lng })
             } else if (mapPickerSlotIndex >= 0) {
               updateEmployeeField(mapPickerSlotIndex, 'address', address)
               if (lat) updateEmployeeField(mapPickerSlotIndex, 'lat', lat)
