@@ -52,6 +52,9 @@ const VEHICLE_CATEGORY_TYPES: Record<VehicleCategory, string[]> = {
 const PACKAGE_TYPES = ['4 hrs', '8 hrs', '12 hrs', '24 hrs'] as const
 type PackageType = (typeof PACKAGE_TYPES)[number]
 
+const TRIP_TYPES = ['One Way', 'Round Trip'] as const
+type TripType = (typeof TRIP_TYPES)[number]
+
 const BLR_TERMINALS = {
   T1: 'Kempegowda Intl Airport - Terminal 1 (T1)',
   T2: 'Kempegowda Intl Airport - Terminal 2 (T2)',
@@ -132,6 +135,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   const [vehicleCategory, setVehicleCategory] = useState<VehicleCategory>('Sedan')
   const [vehicleType, setVehicleType] = useState<string>('Sedan')
   const [packageType, setPackageType] = useState<PackageType>('4 hrs')
+  const [tripType, setTripType] = useState<TripType>('One Way')
   const [pickup, setPickup] = useState('')
   const [drop, setDrop] = useState('')
   const [createdDate, setCreatedDate] = useState(
@@ -216,7 +220,9 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   const createTripMutation = useMutation({
     mutationFn: async () => {
       const finalDrop =
-        serviceType === 'PACKAGE' && !drop.trim() ? 'As Directed' : drop
+        (serviceType === 'PACKAGE' || serviceType === 'OUTSTATION') && !drop.trim()
+          ? 'As Directed'
+          : drop
 
       const vehicleDesc = `${vehicleCategory} (${vehicleType})`
       const scheduleNotes =
@@ -224,7 +230,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
           ? `[Created: ${createdDate}] [Booking: ${fromDate} ${fromTime}] [Vehicle: ${vehicleDesc}]${passengerEmail ? ` [Email: ${passengerEmail}]` : ''} ${notes}`.trim()
           : serviceType === 'PACKAGE'
             ? `[Date: ${fromDate} ${fromTime}] [Package: ${packageType}] [Vehicle: ${vehicleDesc}] ${notes}`.trim()
-            : `[From: ${fromDate} ${fromTime} | To: ${toDate} ${toTime}] [Vehicle: ${vehicleDesc}] ${notes}`.trim()
+            : `[Trip Type: ${tripType}] [From: ${fromDate} ${fromTime} | To: ${toDate} ${toTime}] [Vehicle: ${vehicleDesc}] ${notes}`.trim()
 
       const payload = {
         serviceType,
@@ -263,6 +269,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     setVehicleCategory('Sedan')
     setVehicleType('Sedan')
     setPackageType('4 hrs')
+    setTripType('One Way')
     setPickup(BLR_TERMINALS.T1)
     setDrop('')
     setCreatedDate(new Date().toISOString().split('T')[0])
@@ -288,7 +295,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       toast.error('Please enter pickup location')
       return false
     }
-    if (serviceType !== 'PACKAGE' && !drop.trim()) {
+    if (serviceType !== 'PACKAGE' && serviceType !== 'OUTSTATION' && !drop.trim()) {
       toast.error('Please enter drop location')
       return false
     }
@@ -312,7 +319,9 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     const serviceName =
       serviceType === 'RAC'
         ? `Airport Transfer (${airportDirection === 'PICKUP' ? 'Pickup' : 'Drop'} - Terminal ${airportTerminal})`
-        : serviceType
+        : serviceType === 'OUTSTATION'
+          ? `Outstation (${tripType})`
+          : serviceType
 
     return (
       `*Glide Trip Booking Confirmation*\n` +
@@ -323,12 +332,12 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       `*Vehicle Type:* ${vehicleType}\n` +
       `*Passenger:* ${passengerName} (${passengerPhone})${serviceType === 'RAC' && passengerEmail ? `\n*Email:* ${passengerEmail}` : ''}\n` +
       `*Pickup:* ${pickup}\n` +
-      `*Drop:* ${drop || (serviceType === 'PACKAGE' ? 'As Directed' : '')}\n` +
+      `*Drop:* ${drop || ((serviceType === 'PACKAGE' || serviceType === 'OUTSTATION') ? 'As Directed' : '')}\n` +
       (serviceType === 'RAC'
         ? `*Booking Date & Time:* ${fromDate} at ${fromTime}\n`
         : serviceType === 'PACKAGE'
           ? `*Date & Time:* ${fromDate} at ${fromTime}\n*Package Type:* ${packageType}\n`
-          : `*From:* ${fromDate} at ${fromTime}\n*To:* ${toDate} at ${toTime}\n`) +
+          : `*Trip Type:* ${tripType}\n*From:* ${fromDate} at ${fromTime}\n*To:* ${toDate} at ${toTime}\n`) +
       (notes ? `*Notes:* ${notes}\n` : '') +
       `--------------------------------\n` +
       `Booked via Atharva Travels / Glide`
@@ -786,20 +795,22 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   </div>
                   <div>
                     <label className="label">
-                      {serviceType === 'PACKAGE' ? 'Drop Location (Optional)' : 'Drop Location *'}
+                      {serviceType === 'PACKAGE' || serviceType === 'OUTSTATION'
+                        ? 'Drop Location (Optional)'
+                        : 'Drop Location *'}
                     </label>
                     <div className="relative">
                       <input
                         type="text"
                         placeholder={
-                          serviceType === 'PACKAGE'
+                          serviceType === 'PACKAGE' || serviceType === 'OUTSTATION'
                             ? 'Enter destination address (optional - as directed)'
                             : 'Enter destination address'
                         }
                         value={drop}
                         onChange={(e) => setDrop(e.target.value)}
                         className="input text-xs sm:text-sm pr-9"
-                        required={serviceType !== 'PACKAGE'}
+                        required={serviceType !== 'PACKAGE' && serviceType !== 'OUTSTATION'}
                       />
                       <button
                         type="button"
@@ -939,45 +950,66 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   </div>
                 </div>
               ) : (
-                /* Outstation: keep unchanged From Date & Time and To Date & Time */
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                /* Outstation: Trip Type dropdown (One Way / Round Trip), From Date & Time and To Date & Time */
+                <div className="space-y-4">
                   <div>
-                    <label className="label">From Date & Time *</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="date"
-                        value={fromDate}
-                        onChange={(e) => setFromDate(e.target.value)}
-                        className="input flex-1 min-w-0"
+                    <label className="label">Trip Type *</label>
+                    <div className="relative">
+                      <select
+                        value={tripType}
+                        onChange={(e) => setTripType(e.target.value as TripType)}
+                        className="input appearance-none pr-10 cursor-pointer font-semibold text-slate-800 bg-white"
                         required
-                      />
-                      <input
-                        type="time"
-                        value={fromTime}
-                        onChange={(e) => setFromTime(e.target.value)}
-                        className="input w-28 sm:w-32 flex-shrink-0"
-                        required
-                      />
+                      >
+                        {TRIP_TYPES.map((t) => (
+                          <option key={t} value={t}>
+                            {t}
+                          </option>
+                        ))}
+                      </select>
+                      <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                     </div>
                   </div>
 
-                  <div>
-                    <label className="label">To Date & Time *</label>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="date"
-                        value={toDate}
-                        onChange={(e) => setToDate(e.target.value)}
-                        className="input flex-1 min-w-0"
-                        required
-                      />
-                      <input
-                        type="time"
-                        value={toTime}
-                        onChange={(e) => setToTime(e.target.value)}
-                        className="input w-28 sm:w-32 flex-shrink-0"
-                        required
-                      />
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                    <div>
+                      <label className="label">From Date & Time *</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={fromDate}
+                          onChange={(e) => setFromDate(e.target.value)}
+                          className="input flex-1 min-w-0"
+                          required
+                        />
+                        <input
+                          type="time"
+                          value={fromTime}
+                          onChange={(e) => setFromTime(e.target.value)}
+                          className="input w-28 sm:w-32 flex-shrink-0"
+                          required
+                        />
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="label">To Date & Time *</label>
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="date"
+                          value={toDate}
+                          onChange={(e) => setToDate(e.target.value)}
+                          className="input flex-1 min-w-0"
+                          required
+                        />
+                        <input
+                          type="time"
+                          value={toTime}
+                          onChange={(e) => setToTime(e.target.value)}
+                          className="input w-28 sm:w-32 flex-shrink-0"
+                          required
+                        />
+                      </div>
                     </div>
                   </div>
                 </div>
@@ -1075,7 +1107,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 <div className="flex justify-between border-b border-sky-100 pb-2">
                   <span className="text-slate-500">Drop:</span>
                   <span className="font-semibold text-slate-800 text-right max-w-[280px] truncate">
-                    {drop || (serviceType === 'PACKAGE' ? 'As Directed' : '-')}
+                    {drop || (serviceType === 'PACKAGE' || serviceType === 'OUTSTATION' ? 'As Directed' : '-')}
                   </span>
                 </div>
                 {serviceType === 'RAC' ? (
@@ -1110,6 +1142,12 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   </>
                 ) : (
                   <>
+                    <div className="flex justify-between border-b border-sky-100 pb-2">
+                      <span className="text-slate-500">Trip Type:</span>
+                      <span className="font-bold text-sky-900 bg-sky-50 px-2 py-0.5 rounded border border-sky-200">
+                        {tripType}
+                      </span>
+                    </div>
                     <div className="flex justify-between border-b border-sky-100 pb-2">
                       <span className="text-slate-500">From:</span>
                       <span className="font-semibold text-slate-800">
