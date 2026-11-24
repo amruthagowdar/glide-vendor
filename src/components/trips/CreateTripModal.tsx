@@ -18,9 +18,6 @@ import {
   Download,
   Share2,
   ChevronDown,
-  Download,
-  Share2,
-  ChevronDown,
 } from 'lucide-react'
 
 interface CreateTripModalProps {
