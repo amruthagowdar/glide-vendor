@@ -114,13 +114,16 @@ export const TripsPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => navigate('/ets')}
-            className="btn-primary text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm"
+          <div
+            className="px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-100 text-slate-500 text-xs sm:text-sm font-semibold flex items-center gap-1.5 select-none cursor-not-allowed opacity-80 shadow-none"
+            title="ETS module is frozen and cannot be opened"
           >
-            <Building2 className="w-4 h-4" />
+            <Building2 className="w-4 h-4 text-slate-400" />
             <span>ETS</span>
-          </button>
+            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 border border-slate-300">
+              Frozen
+            </span>
+          </div>
           <button
             onClick={() => setCreateModalOpen(true)}
             className="btn-accent text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm"
