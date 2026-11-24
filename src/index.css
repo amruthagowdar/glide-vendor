@@ -44,10 +44,10 @@
 
   /* Navigation Links with Apple Pill Curves */
   .sidebar-link {
-    @apply flex items-center gap-3 px-4 py-2.5 text-slate-400 rounded-full hover:bg-white/10 hover:text-white transition-all duration-200 text-sm font-medium;
+    @apply flex items-center gap-3 px-4 py-2.5 text-slate-600 rounded-full hover:bg-blue-50/80 hover:text-blue-600 transition-all duration-200 text-sm font-medium;
   }
   .sidebar-link.active {
-    @apply bg-white text-slate-900 shadow-md font-semibold;
+    @apply bg-blue-600 text-white shadow-md shadow-blue-500/25 font-semibold;
   }
 }
 

@@ -69,31 +69,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
       )}
 
       <aside
-        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col w-64 bg-[#09090b] text-white border-r border-slate-800/80 transition-transform duration-200 ease-in-out ${
+        className={`fixed top-0 bottom-0 left-0 z-50 flex flex-col w-64 bg-white text-slate-800 border-r border-slate-200/90 shadow-[4px_0_24px_rgba(0,0,0,0.03)] transition-transform duration-200 ease-in-out ${
           isOpen ? 'translate-x-0' : '-translate-x-full'
         }`}
       >
         {/* Brand header */}
-        <div className="flex items-center justify-between h-20 px-5 border-b border-slate-800/60 bg-[#09090b]">
+        <div className="flex items-center justify-between h-20 px-5 border-b border-slate-100 bg-white">
           <div className="flex items-center gap-2.5 min-w-0">
-            <div className="flex items-center justify-center w-10 h-10 rounded-2xl bg-white shadow-lg p-1.5 flex-shrink-0">
+            <div className="flex items-center justify-center w-10 h-10 rounded-2xl bg-white shadow-sm border border-slate-200/80 p-1.5 flex-shrink-0">
               <img src="/logo.png" alt="Glide Logo" className="w-full h-full object-contain" />
             </div>
             <div className="min-w-0">
               <div className="flex items-center gap-1.5">
-                <span className="font-extrabold tracking-tight text-xl text-white">Glide</span>
+                <span className="font-extrabold tracking-tight text-xl text-slate-900">Glide</span>
                 <span className="text-[10px] uppercase tracking-wider font-bold px-1.5 py-0.5 rounded-full bg-blue-600 text-white">
                   Vendor
                 </span>
               </div>
-              <p className="text-xs text-slate-400 truncate max-w-[110px]">
+              <p className="text-xs text-slate-500 font-medium truncate max-w-[110px]">
                 {user?.companyName || 'Fleet Partner'}
               </p>
             </div>
           </div>
           <button
             onClick={onClose}
-            className="p-1.5 rounded-lg text-slate-400 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0 ml-1"
+            className="p-1.5 rounded-lg text-slate-400 hover:text-slate-700 hover:bg-slate-100 transition-colors flex-shrink-0 ml-1"
             title="Close sidebar"
             aria-label="Close sidebar"
           >
@@ -102,17 +102,17 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* Navigation links */}
-        <div className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto">
+        <div className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto bg-white">
           {navItems.map((item) =>
             item.tag === 'Frozen' ? (
               <div
                 key={item.path}
-                className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-500 cursor-not-allowed select-none opacity-60 bg-white/[0.02]"
+                className="flex items-center gap-3 px-3.5 py-2.5 rounded-full text-sm font-medium text-slate-400 cursor-not-allowed select-none bg-slate-50 border border-slate-100"
                 title={`${item.name} is frozen and cannot be opened`}
               >
-                <item.icon className="w-5 h-5 flex-shrink-0 text-slate-500" />
+                <item.icon className="w-5 h-5 flex-shrink-0 text-slate-400" />
                 <span className="flex-1 tracking-tight">{item.name}</span>
-                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-slate-400 border border-slate-700">
+                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-200/80 text-slate-500 border border-slate-300/60">
                   Frozen
                 </span>
               </div>
@@ -126,12 +126,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
                   `sidebar-link ${isActive ? 'active' : ''}`
                 }
               >
-                <item.icon className="w-5 h-5 flex-shrink-0" />
-                <span className="flex-1 tracking-tight">{item.name}</span>
-                {item.badge && unreadCount > 0 && (
-                  <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-600 text-white">
-                    {unreadCount > 99 ? '99+' : unreadCount}
-                  </span>
+                {({ isActive }) => (
+                  <>
+                    <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-blue-600'}`} />
+                    <span className="flex-1 tracking-tight">{item.name}</span>
+                    {item.badge && unreadCount > 0 && (
+                      <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${
+                        isActive ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'
+                      }`}>
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </span>
+                    )}
+                  </>
                 )}
               </NavLink>
             )
@@ -139,18 +145,18 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
         </div>
 
         {/* User profile & Logout */}
-        <div className="p-4 border-t border-slate-800/80 bg-[#09090b]/80">
+        <div className="p-4 border-t border-slate-100 bg-slate-50/80">
           <div className="flex items-center justify-between gap-3 mb-3 px-2">
             <div className="truncate">
-              <p className="text-sm font-semibold text-white truncate">
+              <p className="text-sm font-bold text-slate-900 truncate">
                 {user?.name || 'Vendor Admin'}
               </p>
-              <p className="text-xs text-slate-400 truncate">{user?.email}</p>
+              <p className="text-xs text-slate-500 font-medium truncate">{user?.email}</p>
             </div>
           </div>
           <button
             onClick={handleLogoutClick}
-            className="w-full flex items-center justify-center gap-2 px-4 py-2 rounded-full text-xs font-semibold text-rose-400 hover:text-white hover:bg-rose-600/20 transition-all border border-rose-500/20 active:scale-[0.98]"
+            className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-full text-xs font-semibold text-rose-600 hover:text-white hover:bg-rose-600 transition-all border border-rose-200 bg-white hover:border-rose-600 shadow-sm active:scale-[0.98]"
           >
             <LogOut className="w-4 h-4" />
             <span>Sign Out</span>
