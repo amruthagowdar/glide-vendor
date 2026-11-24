@@ -132,7 +132,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     new Date().toISOString().split('T')[0]
   )
   const [toTime, setToTime] = useState('18:00')
-  const [tripAmount, setTripAmount] = useState<string>('1200')
+  const [tripAmount, setTripAmount] = useState<string>('0')
   const [estimatedKm, setEstimatedKm] = useState<number | null>(null)
   const [notes, setNotes] = useState('')
 
@@ -144,13 +144,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     }
     if (serviceType === 'RAC') {
       const km = estimateDistanceFromName(val)
-      if (km !== null) {
-        setEstimatedKm(km)
-        setTripAmount(String(calculateAirportFare(km)))
-      } else if (!val.trim()) {
-        setEstimatedKm(null)
-        setTripAmount('1200')
-      }
+      setEstimatedKm(km)
+      setTripAmount('0')
     }
   }
 
@@ -191,7 +186,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     },
   })
 
-  const fareNum = parseFloat(tripAmount) || 0
+  const fareNum = serviceType === 'RAC' ? 0 : (parseFloat(tripAmount) || 0)
   const walletBalance = wallet?.balance ?? 0
   // Wallet option is frozen across portal - direct billing active without wallet requirement
   const isBalanceSufficient = true
@@ -254,7 +249,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     setFromTime('10:00')
     setToDate(new Date().toISOString().split('T')[0])
     setToTime('18:00')
-    setTripAmount('1200')
+    setTripAmount(initialServiceType === 'RAC' ? '0' : '1200')
     setEstimatedKm(null)
     setNotes('')
   }
@@ -272,11 +267,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       toast.error('Please enter both pickup and drop locations')
       return false
     }
-    if (serviceType === 'RAC' && fareNum < 1200) {
-      toast.error('Airport Transfer fare cannot be less than ₹1,200 (fixed minimum)')
-      return false
-    }
-    if (fareNum <= 0) {
+    if (serviceType !== 'RAC' && fareNum <= 0) {
       toast.error('Trip amount must be greater than ₹0')
       return false
     }
@@ -918,18 +909,12 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 </div>
                 <input
                   type="number"
-                  min={serviceType === 'RAC' ? 1200 : 1}
+                  min={serviceType === 'RAC' ? 0 : 1}
                   step="10"
-                  value={tripAmount}
+                  value={serviceType === 'RAC' ? '0' : tripAmount}
                   readOnly={serviceType === 'RAC'}
                   disabled={serviceType === 'RAC'}
                   onChange={(e) => setTripAmount(e.target.value)}
-                  onBlur={() => {
-                    if (serviceType === 'RAC' && (parseFloat(tripAmount) || 0) < 1200) {
-                      setTripAmount('1200')
-                      toast.error('Airport Transfer fare cannot be less than ₹1,200 (fixed minimum)')
-                    }
-                  }}
                   className={`input text-lg font-bold ${
                     serviceType === 'RAC'
                       ? 'bg-slate-100 border-slate-300 text-slate-500 cursor-not-allowed select-none'
@@ -940,15 +925,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 {serviceType === 'RAC' ? (
                   <div className="text-[11px] mt-1 space-y-0.5 text-slate-500">
                     <p>
-                      Fixed ₹1,200 up to 30 km radius from BLR Airport; beyond 30 km charged at ₹28/km. Minimum fare is ₹1,200 (Frozen Rate).
+                      Agreed trip fare is frozen at ₹0. Direct corporate billing active.
                     </p>
-                    {estimatedKm !== null && (
-                      <p className="font-semibold text-slate-700">
-                        {estimatedKm <= 30
-                          ? '✓ Within 30 km airport radius: Standard ₹1,200 fixed fare applied.'
-                          : `✓ Exceeds 30 km (~${estimatedKm} km): ₹1,200 base (30 km) + ${estimatedKm - 30} km extra @ ₹28/km = ₹${fareNum}.`}
-                      </p>
-                    )}
                   </div>
                 ) : (
                   <p className="text-[11px] text-slate-500 mt-1">
