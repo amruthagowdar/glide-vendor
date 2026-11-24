@@ -446,6 +446,50 @@ export function getMockResponse(
     }
   }
 
+  // Wallet Withdrawal (Only allowed if NO ongoing trips)
+  if (cleanUrl.endsWith('/vendor/wallet/withdraw') && m === 'post') {
+    const trips = getStored<Trip[]>('glide_mock_trips', INITIAL_TRIPS)
+    const ongoing = trips.filter((t) =>
+      ['PENDING', 'CONFIRMED', 'DRIVER_ASSIGNED', 'EN_ROUTE', 'ARRIVED', 'IN_PROGRESS'].includes(t.tripStatus)
+    )
+    if (ongoing.length > 0) {
+      throw new Error(`Cannot withdraw funds while ${ongoing.length} active trip(s) are currently ongoing.`)
+    }
+
+    const payload = (typeof requestData === 'string' ? JSON.parse(requestData) : requestData) || {}
+    const amountToWithdraw = Number(payload.amount) || 0
+    const currentBalance = getStored<number>('glide_mock_wallet_balance', 24850)
+
+    if (amountToWithdraw <= 0 || amountToWithdraw > currentBalance) {
+      throw new Error('Invalid withdrawal amount.')
+    }
+
+    const newBalance = currentBalance - amountToWithdraw
+    setStored('glide_mock_wallet_balance', newBalance)
+
+    const txs = getStored<WalletTransaction[]>('glide_mock_txs', INITIAL_TRANSACTIONS)
+    const newTx: WalletTransaction = {
+      id: `tx_${Date.now()}`,
+      type: 'DEBIT',
+      amount: amountToWithdraw,
+      previousBalance: currentBalance,
+      newBalance,
+      description: `Vendor Wallet Settlement Withdrawal (${payload.method === 'UPI' ? 'UPI' : 'Bank Account IMPS'})`,
+      reference: `WTH-${Math.floor(100000 + Math.random() * 900000)}`,
+      createdAt: new Date().toISOString(),
+    }
+    setStored('glide_mock_txs', [newTx, ...txs])
+
+    return {
+      status: 'success',
+      data: {
+        newBalance,
+        withdrawnAmount: amountToWithdraw,
+        transaction: newTx,
+      },
+    }
+  }
+
   // 8. Vendor Trips
   if (cleanUrl.endsWith('/vendor/trips/create') && m === 'post') {
     const trips = getStored<Trip[]>('glide_mock_trips', INITIAL_TRIPS)

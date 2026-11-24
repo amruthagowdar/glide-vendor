@@ -53,9 +53,9 @@ function calculateBLRDistanceKm(lat: number, lng: number): number {
   const a =
     Math.sin(dLat / 2) * Math.sin(dLat / 2) +
     Math.cos((BLR_AIRPORT_COORDS.lat * Math.PI) / 180) *
-      Math.cos((lat * Math.PI) / 180) *
-      Math.sin(dLng / 2) *
-      Math.sin(dLng / 2)
+    Math.cos((lat * Math.PI) / 180) *
+    Math.sin(dLng / 2) *
+    Math.sin(dLng / 2)
   const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a))
   return Math.max(1, Math.round(R * c * 1.25))
 }
@@ -160,7 +160,14 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   // Data fetching
   const { data: wallet } = useQuery<Wallet>({
     queryKey: ['wallet'],
-    queryFn: async () => (await vendorApi.getWallet()).data,
+    queryFn: async () => {
+      const res = await vendorApi.getWallet()
+      const data = res.data?.data || res.data || {}
+      return {
+        ...data,
+        balance: parseFloat(data.balance ?? 0),
+      }
+    },
   })
 
   const fareNum = parseFloat(tripAmount) || 0
@@ -239,6 +246,14 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     }
     if (fareNum <= 0) {
       toast.error('Trip amount must be greater than ₹0')
+      return false
+    }
+    if (!isBalanceSufficient) {
+      toast.error(
+        `Insufficient wallet balance (${formatCurrency(walletBalance)}). A minimum balance of ${formatCurrency(
+          fareNum
+        )} is required to book this trip. Please recharge your wallet.`
+      )
       return false
     }
     return true
@@ -378,20 +393,18 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
               return (
                 <div key={s.num} className="flex flex-col items-center relative z-10">
                   <div
-                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${
-                      isDone
-                        ? 'bg-emerald-500 text-white'
-                        : isCurrent
+                    className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold transition-all ${isDone
+                      ? 'bg-emerald-500 text-white'
+                      : isCurrent
                         ? 'bg-sky-900 text-white ring-4 ring-sky-100'
                         : 'bg-white border-2 border-sky-200 text-slate-400'
-                    }`}
+                      }`}
                   >
                     {isDone ? <Check className="w-4 h-4" /> : s.num}
                   </div>
                   <span
-                    className={`text-[11px] mt-1 hidden sm:block ${
-                      isCurrent ? 'font-semibold text-sky-900' : 'text-slate-400'
-                    }`}
+                    className={`text-[11px] mt-1 hidden sm:block ${isCurrent ? 'font-semibold text-sky-900' : 'text-slate-400'
+                      }`}
                   >
                     {s.label}
                   </span>
@@ -447,11 +460,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setAirportDirection('PICKUP')}
-                        className={`p-3.5 rounded-2xl border-2 text-left flex items-start gap-3 transition-all ${
-                          airportDirection === 'PICKUP'
-                            ? 'border-sky-600 bg-white shadow-md ring-2 ring-sky-600/20'
-                            : 'border-slate-200/80 bg-white/70 hover:bg-white text-slate-600'
-                        }`}
+                        className={`p-3.5 rounded-2xl border-2 text-left flex items-start gap-3 transition-all ${airportDirection === 'PICKUP'
+                          ? 'border-sky-600 bg-white shadow-md ring-2 ring-sky-600/20'
+                          : 'border-slate-200/80 bg-white/70 hover:bg-white text-slate-600'
+                          }`}
                       >
                         <div className="w-9 h-9 rounded-xl bg-sky-100 flex items-center justify-center text-sky-700 flex-shrink-0">
                           <PlaneLanding className="w-5 h-5" />
@@ -465,11 +477,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setAirportDirection('DROP')}
-                        className={`p-3.5 rounded-2xl border-2 text-left flex items-start gap-3 transition-all ${
-                          airportDirection === 'DROP'
-                            ? 'border-sky-600 bg-white shadow-md ring-2 ring-sky-600/20'
-                            : 'border-slate-200/80 bg-white/70 hover:bg-white text-slate-600'
-                        }`}
+                        className={`p-3.5 rounded-2xl border-2 text-left flex items-start gap-3 transition-all ${airportDirection === 'DROP'
+                          ? 'border-sky-600 bg-white shadow-md ring-2 ring-sky-600/20'
+                          : 'border-slate-200/80 bg-white/70 hover:bg-white text-slate-600'
+                          }`}
                       >
                         <div className="w-9 h-9 rounded-xl bg-sky-100 flex items-center justify-center text-sky-700 flex-shrink-0">
                           <PlaneTakeoff className="w-5 h-5" />
@@ -491,11 +502,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setAirportTerminal('T1')}
-                        className={`p-3 rounded-xl border-2 text-left flex items-start gap-3 transition-all ${
-                          airportTerminal === 'T1'
-                            ? 'border-sky-600 bg-white shadow-md ring-2 ring-sky-600/20'
-                            : 'border-slate-200/80 bg-white/70 hover:bg-white text-slate-600'
-                        }`}
+                        className={`p-3 rounded-xl border-2 text-left flex items-start gap-3 transition-all ${airportTerminal === 'T1'
+                          ? 'border-sky-600 bg-white shadow-md ring-2 ring-sky-600/20'
+                          : 'border-slate-200/80 bg-white/70 hover:bg-white text-slate-600'
+                          }`}
                       >
                         <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 font-extrabold text-xs flex items-center justify-center flex-shrink-0">
                           T1
@@ -509,11 +519,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                       <button
                         type="button"
                         onClick={() => setAirportTerminal('T2')}
-                        className={`p-3 rounded-xl border-2 text-left flex items-start gap-3 transition-all ${
-                          airportTerminal === 'T2'
-                            ? 'border-sky-600 bg-white shadow-md ring-2 ring-sky-600/20'
-                            : 'border-slate-200/80 bg-white/70 hover:bg-white text-slate-600'
-                        }`}
+                        className={`p-3 rounded-xl border-2 text-left flex items-start gap-3 transition-all ${airportTerminal === 'T2'
+                          ? 'border-sky-600 bg-white shadow-md ring-2 ring-sky-600/20'
+                          : 'border-slate-200/80 bg-white/70 hover:bg-white text-slate-600'
+                          }`}
                       >
                         <div className="w-8 h-8 rounded-lg bg-emerald-100 text-emerald-800 font-extrabold text-xs flex items-center justify-center flex-shrink-0">
                           T2
@@ -578,22 +587,20 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                     <button
                       type="button"
                       onClick={() => setAirportTerminal('T1')}
-                      className={`px-2.5 py-1 text-[11px] rounded-lg font-bold transition-all ${
-                        airportTerminal === 'T1'
-                          ? 'bg-sky-700 text-white shadow-sm'
-                          : 'bg-white text-slate-700 border border-slate-200'
-                      }`}
+                      className={`px-2.5 py-1 text-[11px] rounded-lg font-bold transition-all ${airportTerminal === 'T1'
+                        ? 'bg-sky-700 text-white shadow-sm'
+                        : 'bg-white text-slate-700 border border-slate-200'
+                        }`}
                     >
                       Terminal 1
                     </button>
                     <button
                       type="button"
                       onClick={() => setAirportTerminal('T2')}
-                      className={`px-2.5 py-1 text-[11px] rounded-lg font-bold transition-all ${
-                        airportTerminal === 'T2'
-                          ? 'bg-sky-700 text-white shadow-sm'
-                          : 'bg-white text-slate-700 border border-slate-200'
-                      }`}
+                      className={`px-2.5 py-1 text-[11px] rounded-lg font-bold transition-all ${airportTerminal === 'T2'
+                        ? 'bg-sky-700 text-white shadow-sm'
+                        : 'bg-white text-slate-700 border border-slate-200'
+                        }`}
                     >
                       Terminal 2
                     </button>
@@ -800,11 +807,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   <label className="label mb-0">Agreed Trip Amount (₹) *</label>
                   {serviceType === 'RAC' && estimatedKm !== null && (
                     <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
-                        estimatedKm <= 30
-                          ? 'bg-emerald-100 text-emerald-800'
-                          : 'bg-amber-100 text-amber-900'
-                      }`}
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${estimatedKm <= 30
+                        ? 'bg-emerald-100 text-emerald-800'
+                        : 'bg-amber-100 text-amber-900'
+                        }`}
                     >
                       ~{estimatedKm} km from BLR Airport
                     </span>
@@ -847,11 +853,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 
               {/* Wallet Validation Banner */}
               <div
-                className={`p-3.5 rounded-xl border flex items-center justify-between ${
-                  isBalanceSufficient
-                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
-                    : 'bg-red-50 border-red-200 text-red-900'
-                }`}
+                className={`p-3.5 rounded-xl border flex items-center justify-between ${isBalanceSufficient
+                  ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                  : 'bg-red-50 border-red-200 text-red-900'
+                  }`}
               >
                 <div>
                   <p className="font-semibold text-xs sm:text-sm">

@@ -6,11 +6,13 @@ import { WalletCard } from '../components/ui/WalletCard'
 import { DataTable, Pagination } from '../components/ui/DataTable'
 import { TransactionBadge } from '../components/ui/StatusBadge'
 import { RechargeModal } from '../components/wallet/RechargeModal'
+import { WithdrawModal } from '../components/wallet/WithdrawModal'
 import { formatCurrency, formatDateTime } from '../lib/utils'
-import type { Wallet, WalletTransaction } from '../types'
+import type { Wallet, WalletTransaction, Trip } from '../types'
 
 export const WalletPage: React.FC = () => {
   const [rechargeOpen, setRechargeOpen] = useState(false)
+  const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [typeFilter, setTypeFilter] = useState<string>('')
   const [page, setPage] = useState<number>(1)
 
@@ -26,6 +28,25 @@ export const WalletPage: React.FC = () => {
       }
     },
   })
+
+  // Fetch Trips to verify ongoing trip status for withdrawal eligibility
+  const { data: tripsData } = useQuery<{ data: Trip[] }>({
+    queryKey: ['trips', 'wallet-check'],
+    queryFn: async () => {
+      const res = await vendorApi.getTrips()
+      const list = Array.isArray(res.data)
+        ? res.data
+        : Array.isArray(res.data?.data)
+        ? res.data.data
+        : []
+      return { data: list }
+    },
+  })
+
+  const allTrips = tripsData?.data || []
+  const ongoingTrips = allTrips.filter((t) =>
+    ['PENDING', 'CONFIRMED', 'DRIVER_ASSIGNED', 'EN_ROUTE', 'ARRIVED', 'IN_PROGRESS'].includes(t.tripStatus)
+  )
 
   // Fetch Wallet Transactions
   const { data: txData, isLoading: isTxLoading } = useQuery<{
@@ -81,6 +102,9 @@ export const WalletPage: React.FC = () => {
             balance={balance}
             threshold={1000}
             onRecharge={() => setRechargeOpen(true)}
+            onWithdraw={() => setWithdrawOpen(true)}
+            hasOngoingTrips={ongoingTrips.length > 0}
+            ongoingTripsCount={ongoingTrips.length}
           />
         </div>
 
@@ -218,6 +242,14 @@ export const WalletPage: React.FC = () => {
       <RechargeModal
         isOpen={rechargeOpen}
         onClose={() => setRechargeOpen(false)}
+      />
+
+      {/* Withdraw Modal */}
+      <WithdrawModal
+        isOpen={withdrawOpen}
+        onClose={() => setWithdrawOpen(false)}
+        balance={balance}
+        ongoingTrips={ongoingTrips}
       />
     </div>
   )

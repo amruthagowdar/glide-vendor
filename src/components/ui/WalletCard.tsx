@@ -1,15 +1,26 @@
 import React from 'react'
 import { cn, formatCurrency, getWalletColor } from '../../lib/utils'
-import { Wallet, TrendingUp, TrendingDown, AlertTriangle, Plus } from 'lucide-react'
+import { Wallet, TrendingUp, TrendingDown, AlertTriangle, Plus, ArrowDownToLine } from 'lucide-react'
 
 interface WalletCardProps {
   balance: number
   threshold?: number
   onRecharge?: () => void
+  onWithdraw?: () => void
+  hasOngoingTrips?: boolean
+  ongoingTripsCount?: number
   compact?: boolean
 }
 
-export const WalletCard: React.FC<WalletCardProps> = ({ balance, threshold = 1000, onRecharge, compact }) => {
+export const WalletCard: React.FC<WalletCardProps> = ({
+  balance,
+  threshold = 1000,
+  onRecharge,
+  onWithdraw,
+  hasOngoingTrips = false,
+  ongoingTripsCount = 0,
+  compact,
+}) => {
   const colorState = getWalletColor(balance, threshold)
   const colorMap = {
     green: { bg: 'from-emerald-600 to-emerald-700', text: 'text-emerald-100', icon: TrendingUp },
@@ -57,17 +68,44 @@ export const WalletCard: React.FC<WalletCardProps> = ({ balance, threshold = 100
             </span>
           </div>
         )}
-        {onRecharge && (
-          <div className="mt-5 flex items-center justify-between pt-4 border-t border-white/20">
-            <span className="text-white/80 text-xs font-medium">Instant credit via Razorpay</span>
-            <button
-              type="button"
-              onClick={onRecharge}
-              className="px-4 py-2 rounded-full bg-white text-emerald-800 hover:bg-emerald-50 text-xs font-bold shadow-md hover:shadow-lg transition-all active:scale-[0.98] flex items-center gap-1.5"
-            >
-              <Plus className="w-3.5 h-3.5" />
-              <span>Recharge Wallet</span>
-            </button>
+        {(onRecharge || onWithdraw) && (
+          <div className="mt-5 flex flex-wrap items-center justify-between gap-3 pt-4 border-t border-white/20">
+            <span className="text-white/80 text-xs font-medium">Instant settlement & credit</span>
+            <div className="flex items-center gap-2.5">
+              {onWithdraw && (
+                <button
+                  type="button"
+                  onClick={onWithdraw}
+                  className={`px-3.5 py-2 rounded-full text-xs font-bold shadow-md transition-all active:scale-[0.98] flex items-center gap-1.5 cursor-pointer ${
+                    hasOngoingTrips
+                      ? 'bg-white/25 text-white hover:bg-white/35 backdrop-blur-sm border border-white/20'
+                      : 'bg-white/90 text-slate-900 hover:bg-white hover:shadow-lg'
+                  }`}
+                  title={
+                    hasOngoingTrips
+                      ? `Withdrawal locked: ${ongoingTripsCount} ongoing trips active`
+                      : 'Withdraw available funds'
+                  }
+                >
+                  <ArrowDownToLine className="w-3.5 h-3.5" />
+                  <span>Withdraw</span>
+                  {hasOngoingTrips && (
+                    <span className="w-1.5 h-1.5 rounded-full bg-amber-300 ml-0.5 animate-pulse" />
+                  )}
+                </button>
+              )}
+
+              {onRecharge && (
+                <button
+                  type="button"
+                  onClick={onRecharge}
+                  className="px-4 py-2 rounded-full bg-white text-emerald-800 hover:bg-emerald-50 text-xs font-bold shadow-md hover:shadow-lg transition-all active:scale-[0.98] flex items-center gap-1.5 cursor-pointer"
+                >
+                  <Plus className="w-3.5 h-3.5" />
+                  <span>+ Recharge Wallet</span>
+                </button>
+              )}
+            </div>
           </div>
         )}
       </div>

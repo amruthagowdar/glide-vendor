@@ -198,6 +198,8 @@ export const vendorApi = {
   createRechargeOrder: (amount: number) => api.post('/vendor/wallet/recharge-order', { amount }),
   verifyRecharge: (data: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string; orderId: string }) =>
     api.post('/vendor/wallet/recharge-verify', data),
+  withdrawWallet: (data: { amount: number; method: string; details?: unknown }) =>
+    api.post('/vendor/wallet/withdraw', data),
   // Notifications
   getNotifications: (params?: Record<string, string>) => api.get('/vendor/notifications', { params }),
   markNotificationRead: (id: string) => api.patch(`/vendor/notifications/${id}/read`),
