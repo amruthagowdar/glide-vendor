@@ -1290,7 +1290,7 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                     className="btn-secondary text-xs flex items-center gap-1 font-semibold"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>{isAddingNewEmp ? 'Cancel' : '+ Add'}</span>
+                    <span>{isAddingNewEmp ? 'Cancel' : 'Add'}</span>
                   </button>
                 </div>
               </div>
