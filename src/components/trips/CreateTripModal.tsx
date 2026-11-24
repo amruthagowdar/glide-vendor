@@ -911,26 +911,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 </div>
               </div>
 
-              {/* Vehicle Type Selection */}
-              <div>
-                <label className="label">Vehicle Type *</label>
-                <div className="relative">
-                  <select
-                    value={vehicleType}
-                    onChange={(e) => setVehicleType(e.target.value as VehicleTypeOption)}
-                    className="input appearance-none pr-10 cursor-pointer font-semibold text-slate-800 bg-white"
-                    required
-                  >
-                    {VEHICLE_TYPES.map((v) => (
-                      <option key={v} value={v}>
-                        {v}
-                      </option>
-                    ))}
-                  </select>
-                  <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-                </div>
-              </div>
-
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div>
                   <label className="label">Scheduled Date *</label>
