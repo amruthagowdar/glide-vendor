@@ -44,15 +44,20 @@ export const WalletPage: React.FC = () => {
       if (Array.isArray(res.data)) {
         return { data: res.data, total: res.data.length, totalPages: 1 }
       }
+      const list = Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data)
+        ? res.data
+        : []
       return {
-        data: res.data?.data || [],
-        total: res.data?.total || 0,
+        data: list,
+        total: res.data?.total || list.length,
         totalPages: res.data?.totalPages || 1,
       }
     },
   })
 
-  const transactions = txData?.data || []
+  const transactions = Array.isArray(txData?.data) ? txData.data : (Array.isArray(txData) ? txData : [])
   const total = txData?.total || transactions.length
   const totalPages = txData?.totalPages || 1
   const balance = wallet?.balance ?? 0

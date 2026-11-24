@@ -19,9 +19,14 @@ export const NotificationsPage: React.FC = () => {
       if (Array.isArray(res.data)) {
         return { data: res.data, total: res.data.length }
       }
+      const list = Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data)
+        ? res.data
+        : []
       return {
-        data: res.data?.data || [],
-        total: res.data?.total || 0,
+        data: list,
+        total: res.data?.total || list.length,
       }
     },
   })
@@ -45,7 +50,7 @@ export const NotificationsPage: React.FC = () => {
     },
   })
 
-  const notifications = data?.data || []
+  const notifications = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : [])
 
   return (
     <div className="space-y-6">

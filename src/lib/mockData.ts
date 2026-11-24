@@ -413,12 +413,10 @@ export function getMockResponse(
     const txs = getStored<WalletTransaction[]>('glide_mock_txs', INITIAL_TRANSACTIONS)
     return {
       status: 'success',
-      data: {
-        data: txs,
-        total: txs.length,
-        page: 1,
-        totalPages: 1,
-      },
+      data: txs,
+      total: txs.length,
+      page: 1,
+      totalPages: 1,
     }
   }
 
@@ -504,12 +502,10 @@ export function getMockResponse(
     const trips = getStored<Trip[]>('glide_mock_trips', INITIAL_TRIPS)
     return {
       status: 'success',
-      data: {
-        data: trips,
-        total: trips.length,
-        page: 1,
-        totalPages: 1,
-      },
+      data: trips,
+      total: trips.length,
+      page: 1,
+      totalPages: 1,
     }
   }
 
@@ -518,10 +514,8 @@ export function getMockResponse(
     const drivers = getStored<Driver[]>('glide_mock_drivers', INITIAL_DRIVERS)
     return {
       status: 'success',
-      data: {
-        data: drivers,
-        total: drivers.length,
-      },
+      data: drivers,
+      total: drivers.length,
     }
   }
 
@@ -530,10 +524,8 @@ export function getMockResponse(
     const vehicles = getStored<Vehicle[]>('glide_mock_vehicles', INITIAL_VEHICLES)
     return {
       status: 'success',
-      data: {
-        data: vehicles,
-        total: vehicles.length,
-      },
+      data: vehicles,
+      total: vehicles.length,
     }
   }
 
@@ -542,10 +534,8 @@ export function getMockResponse(
     const notifs = getStored<Notification[]>('glide_mock_notifs', INITIAL_NOTIFICATIONS)
     return {
       status: 'success',
-      data: {
-        data: notifs,
-        total: notifs.length,
-      },
+      data: notifs,
+      total: notifs.length,
     }
   }
 
@@ -558,13 +548,62 @@ export function getMockResponse(
   }
 
   // 12. Reports
-  if (cleanUrl.includes('/vendor/reports/')) {
+  if (cleanUrl.includes('/vendor/reports/trips')) {
     return {
       status: 'success',
       data: {
-        summary: { totalTrips: 184, totalRevenue: 284500, averageRating: 4.8 },
-        breakdown: [],
+        totalTrips: 184,
+        completedTrips: 172,
+        cancelledTrips: 4,
+        totalRevenue: 284500,
+        byService: {
+          RAC: { count: 120, revenue: 168000 },
+          OUTSTATION: { count: 48, revenue: 96500 },
+          PACKAGE: { count: 16, revenue: 20000 },
+        },
+        byStatus: {
+          COMPLETED: 172,
+          CANCELLED: 4,
+          IN_PROGRESS: 5,
+          CONFIRMED: 3,
+          PENDING: 0,
+          DRIVER_ASSIGNED: 0,
+          EN_ROUTE: 0,
+          ARRIVED: 0,
+        },
       },
+    }
+  }
+
+  if (cleanUrl.includes('/vendor/reports/financial')) {
+    return {
+      status: 'success',
+      data: {
+        totalRevenue: 284500,
+        totalCommission: 42675,
+        totalDriverPayable: 239985,
+        netEarnings: 42675,
+        byDate: [
+          { date: '19 Nov', revenue: 38000, commission: 5700, driverPayable: 32050 },
+          { date: '20 Nov', revenue: 42000, commission: 6300, driverPayable: 35430 },
+          { date: '21 Nov', revenue: 46000, commission: 6900, driverPayable: 38810 },
+          { date: '22 Nov', revenue: 49000, commission: 7350, driverPayable: 41340 },
+          { date: '23 Nov', revenue: 53000, commission: 7950, driverPayable: 44710 },
+          { date: '24 Nov', revenue: 56500, commission: 8475, driverPayable: 47645 },
+        ],
+      },
+    }
+  }
+
+  if (cleanUrl.includes('/vendor/reports/driver-performance')) {
+    return {
+      status: 'success',
+      data: [
+        { driverId: 'drv_01', driverName: 'Rajesh Kumar', totalTrips: 58, completedTrips: 56, cancelledTrips: 1, totalEarnings: 68400, rating: 4.9 },
+        { driverId: 'drv_02', driverName: 'Suresh Patil', totalTrips: 46, completedTrips: 44, cancelledTrips: 1, totalEarnings: 54200, rating: 4.8 },
+        { driverId: 'drv_03', driverName: 'Manjunath Gowda', totalTrips: 52, completedTrips: 50, cancelledTrips: 2, totalEarnings: 61800, rating: 4.9 },
+        { driverId: 'drv_04', driverName: 'Anand Kumar', totalTrips: 28, completedTrips: 27, cancelledTrips: 0, totalEarnings: 35848, rating: 4.7 },
+      ],
     }
   }
 

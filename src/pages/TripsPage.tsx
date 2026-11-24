@@ -64,15 +64,20 @@ export const TripsPage: React.FC = () => {
       if (Array.isArray(res.data)) {
         return { data: res.data, total: res.data.length, totalPages: 1 }
       }
+      const list = Array.isArray(res.data?.data)
+        ? res.data.data
+        : Array.isArray(res.data)
+        ? res.data
+        : []
       return {
-        data: res.data?.data || [],
-        total: res.data?.total || 0,
+        data: list,
+        total: res.data?.total || list.length,
         totalPages: res.data?.totalPages || 1,
       }
     },
   })
 
-  const trips = data?.data || []
+  const trips = Array.isArray(data?.data) ? data.data : (Array.isArray(data) ? data : [])
   const total = data?.total || trips.length
   const totalPages = data?.totalPages || 1
 
