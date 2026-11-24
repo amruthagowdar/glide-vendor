@@ -157,13 +157,13 @@ export const ETSDashboardPage: React.FC = () => {
 
     layer.clearLayers()
 
-    // 1. Render Corporate IT Hubs
+    // 1. Render Corporate IT Hubs (Car Marker)
     CORPORATE_OFFICES.forEach((hub) => {
       const hubIcon = L.divIcon({
         className: 'custom-hub-icon',
         html: `
           <div style="background-color: #0f172a; color: white; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 2px solid #38bdf8;">
-            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4"/><path d="M10 10h4"/><path d="M10 14h4"/><path d="M10 18h4"/></svg>
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
           </div>
         `,
         iconSize: [32, 32],
@@ -500,6 +500,7 @@ export const ETSDashboardPage: React.FC = () => {
       {/* CONNECTED MODALS (CREATE TRIP, EMPLOYEE LOG, ROUTING RULES) */}
       {/* ======================================================== */}
       <CreateETSTripModal
+        key={`${modalInitialView}-${isModalOpen ? 'open' : 'closed'}`}
         isOpen={isModalOpen}
         initialView={modalInitialView}
         onClose={() => setIsModalOpen(false)}

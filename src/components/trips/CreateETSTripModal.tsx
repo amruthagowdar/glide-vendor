@@ -37,6 +37,13 @@ import {
   Lock,
   FileSpreadsheet,
   UploadCloud,
+  Trash2,
+  X,
+  Eye,
+  CheckSquare,
+  Square,
+  Route,
+  ExternalLink,
 } from 'lucide-react'
 
 export interface CorporateEmployee {
@@ -169,6 +176,17 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
   const [newEmpAddress, setNewEmpAddress] = useState('')
   const [newEmpLat, setNewEmpLat] = useState('12.9298')
   const [newEmpLng, setNewEmpLng] = useState('77.6743')
+
+  // Checkbox selections for bulk actions in Employee Log
+  const [selectedEmpIds, setSelectedEmpIds] = useState<string[]>([])
+
+  // Specific employee inspected in right-side slide drawer
+  const [inspectedEmp, setInspectedEmp] = useState<CorporateEmployee | null>(null)
+  const drawerMapContainerRef = useRef<HTMLDivElement>(null)
+  const drawerMapInstanceRef = useRef<any>(null)
+
+  // Direct Excel upload from Employee Log
+  const logFileInputRef = useRef<HTMLInputElement>(null)
 
   // Load and persist corporate employee directory
   const [directory, setDirectory] = useState<CorporateEmployee[]>(() => {
@@ -514,6 +532,278 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
         emp.address.toLowerCase().includes(q)
     )
   }, [logFilterQuery, directory])
+
+  // Initialize and render Leaflet Map in Employee Details Slide Drawer
+  useEffect(() => {
+    if (!inspectedEmp) {
+      if (drawerMapInstanceRef.current) {
+        drawerMapInstanceRef.current.remove()
+        drawerMapInstanceRef.current = null
+      }
+      return
+    }
+
+    const timer = setTimeout(() => {
+      const L = (window as any).L
+      if (!L || !drawerMapContainerRef.current) return
+
+      if (drawerMapInstanceRef.current) {
+        drawerMapInstanceRef.current.remove()
+        drawerMapInstanceRef.current = null
+      }
+
+      const map = L.map(drawerMapContainerRef.current).setView([inspectedEmp.lat, inspectedEmp.lng], 13)
+      drawerMapInstanceRef.current = map
+
+      L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+        maxZoom: 19,
+        attribution: '&copy; OpenStreetMap contributors',
+      }).addTo(map)
+
+      // Employee Marker (Car Icon)
+      const empIcon = L.divIcon({
+        className: 'custom-emp-icon',
+        html: `
+          <div style="background-color: #059669; color: white; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 2px solid white;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      })
+      const empMarker = L.marker([inspectedEmp.lat, inspectedEmp.lng], { icon: empIcon }).addTo(map)
+      empMarker.bindPopup(`<b>${inspectedEmp.name}</b><br/>${inspectedEmp.address}`).openPopup()
+
+      // Target Corporate Office Hub Marker
+      const matchedOffice = CORPORATE_OFFICES.find(
+        (o) => o.name.toLowerCase() === (inspectedEmp.company || '').toLowerCase()
+      ) || CORPORATE_OFFICES[0]
+
+      const officeIcon = L.divIcon({
+        className: 'custom-hub-icon',
+        html: `
+          <div style="background-color: #0f172a; color: white; width: 32px; height: 32px; border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 6px rgba(0,0,0,0.3); border: 2px solid #38bdf8;">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 17h2c.6 0 1-.4 1-1v-3c0-.9-.7-1.7-1.5-1.9C18.7 10.6 16 10 16 10s-1.3-1.4-2.2-2.3c-.5-.4-1.1-.7-1.8-.7H5c-.6 0-1.1.4-1.4.9l-1.4 2.9A3.7 3.7 0 0 0 2 12v4c0 .6.4 1 1 1h2"/><circle cx="7" cy="17" r="2"/><path d="M9 17h6"/><circle cx="17" cy="17" r="2"/></svg>
+          </div>
+        `,
+        iconSize: [32, 32],
+        iconAnchor: [16, 16],
+      })
+      const officeMarker = L.marker([matchedOffice.lat, matchedOffice.lng], { icon: officeIcon }).addTo(map)
+      officeMarker.bindPopup(`<b>${matchedOffice.name}</b><br/>${matchedOffice.address}`)
+
+      // Route Polyline
+      const polyline = L.polyline(
+        [
+          [inspectedEmp.lat, inspectedEmp.lng],
+          [matchedOffice.lat, matchedOffice.lng],
+        ],
+        { color: '#0284c7', weight: 4, dashArray: '6, 8', opacity: 0.8 }
+      ).addTo(map)
+
+      map.fitBounds(polyline.getBounds(), { padding: [35, 35] })
+    }, 150)
+
+    return () => clearTimeout(timer)
+  }, [inspectedEmp])
+
+  // Toggle selection for an employee
+  const toggleSelectEmp = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    setSelectedEmpIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    )
+  }
+
+  // Toggle select all employees in current filtered log
+  const toggleSelectAll = () => {
+    if (selectedEmpIds.length === filteredLogEmployees.length && filteredLogEmployees.length > 0) {
+      setSelectedEmpIds([])
+    } else {
+      setSelectedEmpIds(filteredLogEmployees.map((e) => e.id))
+    }
+  }
+
+  // Delete Individual Employee (Normal Delete)
+  const handleDeleteEmployee = (id: string, e?: React.MouseEvent) => {
+    e?.stopPropagation()
+    setDirectory((prev) => {
+      const updated = prev.filter((emp) => emp.id !== id)
+      try {
+        localStorage.setItem('ETS_SAVED_EMPLOYEES', JSON.stringify(updated))
+      } catch {}
+      return updated
+    })
+    setSelectedEmpIds((prev) => prev.filter((x) => x !== id))
+    if (inspectedEmp?.id === id) setInspectedEmp(null)
+    toast.success('Employee removed from log')
+  }
+
+  // Bulk Delete Selected Employees
+  const handleBulkDelete = () => {
+    if (selectedEmpIds.length === 0) return
+    const count = selectedEmpIds.length
+    setDirectory((prev) => {
+      const selectedSet = new Set(selectedEmpIds)
+      const updated = prev.filter((emp) => !selectedSet.has(emp.id))
+      try {
+        localStorage.setItem('ETS_SAVED_EMPLOYEES', JSON.stringify(updated))
+      } catch {}
+      return updated
+    })
+    setSelectedEmpIds([])
+    if (inspectedEmp && selectedEmpIds.includes(inspectedEmp.id)) setInspectedEmp(null)
+    toast.success(`${count} employees deleted from log`)
+  }
+
+  // Auto Routing based on employee routes / locations
+  const handleAutoRoute = (targetEmployees?: CorporateEmployee[]) => {
+    const empsToRoute = targetEmployees || directory.filter((e) => selectedEmpIds.includes(e.id))
+    if (empsToRoute.length === 0) {
+      toast.error('Please select at least 1 employee to auto route')
+      return
+    }
+
+    // Sort by optimal pickup distance from office hub (farthest first towards office)
+    const officeCoords = companyOfficeCoords
+    const sorted = [...empsToRoute].sort((a, b) => {
+      const distA = Math.hypot(a.lat - officeCoords.lat, a.lng - officeCoords.lng)
+      const distB = Math.hypot(b.lat - officeCoords.lat, b.lng - officeCoords.lng)
+      return distB - distA
+    })
+
+    const capacity = sorted.length <= 3 ? 3 : 6
+    const chosenVehicle: 'SEDAN' | 'SUV' = sorted.length <= 3 ? 'SEDAN' : 'SUV'
+    setVehicleChoice(chosenVehicle)
+
+    const routedSlice = sorted.slice(0, capacity)
+    const slots: EmployeeSlot[] = routedSlice.map((e) => ({
+      name: e.name,
+      phone: e.phone,
+      address: e.address,
+      lat: e.lat,
+      lng: e.lng,
+      company: e.company,
+      isIdentified: true,
+    }))
+
+    while (slots.length < capacity) {
+      slots.push({ name: '', phone: '', address: '', lat: '', lng: '' })
+    }
+
+    setEmployees(slots)
+    setActiveView('CREATE_TRIP')
+    setStep(3)
+    toast.success(`Auto-routed ${routedSlice.length} employees into ${chosenVehicle} shift!`)
+  }
+
+  // Manual Routing based on location
+  const handleManualRoute = (targetEmployees?: CorporateEmployee[]) => {
+    const empsToRoute = targetEmployees || directory.filter((e) => selectedEmpIds.includes(e.id))
+    if (empsToRoute.length === 0) {
+      toast.error('Please select at least 1 employee for manual routing')
+      return
+    }
+
+    const capacity = empsToRoute.length <= 3 ? 3 : 6
+    const chosenVehicle: 'SEDAN' | 'SUV' = empsToRoute.length <= 3 ? 'SEDAN' : 'SUV'
+    setVehicleChoice(chosenVehicle)
+
+    const slots: EmployeeSlot[] = empsToRoute.slice(0, capacity).map((e) => ({
+      name: e.name,
+      phone: e.phone,
+      address: e.address,
+      lat: e.lat,
+      lng: e.lng,
+      company: e.company,
+      isIdentified: true,
+    }))
+
+    while (slots.length < capacity) {
+      slots.push({ name: '', phone: '', address: '', lat: '', lng: '' })
+    }
+
+    setEmployees(slots)
+    setActiveView('CREATE_TRIP')
+    setStep(1)
+    toast.success(`Loaded ${Math.min(empsToRoute.length, capacity)} employees for manual route setup`)
+  }
+
+  // Direct Excel upload from Employee Log view
+  const handleLogExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      try {
+        const bstr = evt.target?.result
+        const wb = XLSX.read(bstr, { type: 'binary' })
+        const wsname = wb.SheetNames[0]
+        const ws = wb.Sheets[wsname]
+        const data = XLSX.utils.sheet_to_json<Record<string, any>>(ws)
+
+        if (!data || data.length === 0) {
+          toast.error('The selected Excel file contains no records')
+          return
+        }
+
+        const parsed: CorporateEmployee[] = data
+          .map((row, index) => {
+            const name =
+              row['Employee Name'] || row['Name'] || row['employee_name'] || row['name'] || `Employee ${index + 1}`
+            const phone =
+              row['Contact Number'] || row['Phone'] || row['phone'] || row['Mobile'] || '+91 98000 00000'
+            const address =
+              row['Home Address'] || row['Address'] || row['address'] || 'Bengaluru, Karnataka'
+            const company =
+              row['Company Office'] || row['Company'] || row['company'] || currentOffice.name
+            const department =
+              row['Department'] || row['department'] || row['Dept'] || 'Operations'
+            const lat =
+              Number(row['Latitude'] || row['latitude'] || row['Lat'] || row['lat']) || 12.9716
+            const lng =
+              Number(row['Longitude'] || row['longitude'] || row['Lng'] || row['lng'] || row['Long']) || 77.5946
+
+            return {
+              id: `emp-excel-${Date.now()}-${index}`,
+              name: String(name).trim(),
+              phone: String(phone).trim(),
+              address: String(address).trim(),
+              company: String(company).trim(),
+              department: String(department).trim(),
+              lat,
+              lng,
+            }
+          })
+          .filter((emp) => emp.name.length > 0)
+
+        setDirectory((prev) => {
+          const existingPhones = new Set(prev.map((e) => e.phone.replace(/\D/g, '')).filter(Boolean))
+          const existingNames = new Set(prev.map((e) => e.name.toLowerCase().trim()))
+
+          const toAdd = parsed.filter(
+            (e) =>
+              (!e.phone || !existingPhones.has(e.phone.replace(/\D/g, ''))) &&
+              !existingNames.has(e.name.toLowerCase().trim())
+          )
+
+          const updated = [...toAdd, ...prev]
+          try {
+            localStorage.setItem('ETS_SAVED_EMPLOYEES', JSON.stringify(updated))
+          } catch {}
+
+          toast.success(`Imported ${toAdd.length} employees directly into Employee Log!`)
+          return updated
+        })
+      } catch (err) {
+        console.error(err)
+        toast.error('Failed to parse Excel file. Please use a valid .xlsx, .xls, or .csv file.')
+      }
+    }
+    reader.readAsBinaryString(file)
+    e.target.value = ''
+  }
 
   // Handle selecting an identified employee
   const handleSelectEmployee = (slotIndex: number, emp: CorporateEmployee) => {
@@ -977,18 +1267,22 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                     <Users className="w-4 h-4 text-emerald-700" />
                     <span>Corporate Employee Roster & Log</span>
                   </h3>
-                  <p className="text-xs text-slate-500 mt-0.5">
-                    Saved employee records used for instant auto-identification when booking shifts.
-                  </p>
                 </div>
                 <div className="flex items-center gap-2">
+                  <input
+                    ref={logFileInputRef}
+                    type="file"
+                    accept=".xlsx, .xls, .csv"
+                    className="hidden"
+                    onChange={handleLogExcelUpload}
+                  />
                   <button
                     type="button"
-                    onClick={() => setActiveView('ROUTING_RULES')}
+                    onClick={() => logFileInputRef.current?.click()}
                     className="btn-secondary text-xs flex items-center gap-1.5 font-semibold text-emerald-800 border-emerald-200 hover:bg-emerald-50"
                   >
-                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
-                    <span>Upload Excel</span>
+                    <UploadCloud className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Upload</span>
                   </button>
                   <button
                     type="button"
@@ -996,7 +1290,7 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                     className="btn-secondary text-xs flex items-center gap-1 font-semibold"
                   >
                     <Plus className="w-3.5 h-3.5" />
-                    <span>{isAddingNewEmp ? 'Cancel' : 'Add Employee'}</span>
+                    <span>{isAddingNewEmp ? 'Cancel' : '+ Add'}</span>
                   </button>
                 </div>
               </div>
@@ -1090,16 +1384,90 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                 </form>
               )}
 
-              {/* Search Bar */}
-              <div className="relative">
-                <input
-                  type="text"
-                  placeholder="Search employees by name, phone, department, or company..."
-                  value={logFilterQuery}
-                  onChange={(e) => setLogFilterQuery(e.target.value)}
-                  className="input text-xs pl-8"
-                />
-                <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+              {/* Search Bar & Bulk Selection Toolbar */}
+              <div className="space-y-2">
+                <div className="flex items-center gap-2">
+                  <div className="relative flex-1">
+                    <input
+                      type="text"
+                      placeholder="Search employees by name, phone, department, or company..."
+                      value={logFilterQuery}
+                      onChange={(e) => setLogFilterQuery(e.target.value)}
+                      className="input text-xs pl-8 w-full"
+                    />
+                    <Search className="w-3.5 h-3.5 text-slate-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
+                  </div>
+                  {filteredLogEmployees.length > 0 && (
+                    <button
+                      type="button"
+                      onClick={toggleSelectAll}
+                      className="btn-secondary text-xs px-3 py-2 flex items-center gap-1.5 shrink-0"
+                    >
+                      {selectedEmpIds.length === filteredLogEmployees.length && filteredLogEmployees.length > 0 ? (
+                        <CheckSquare className="w-3.5 h-3.5 text-emerald-600" />
+                      ) : (
+                        <Square className="w-3.5 h-3.5 text-slate-400" />
+                      )}
+                      <span>
+                        {selectedEmpIds.length === filteredLogEmployees.length && filteredLogEmployees.length > 0
+                          ? 'Deselect All'
+                          : 'Select All'}
+                      </span>
+                    </button>
+                  )}
+                </div>
+
+                {/* Bulk Actions Bar when employees are selected */}
+                {selectedEmpIds.length > 0 && (
+                  <div className="p-2.5 rounded-xl bg-slate-900 text-white flex flex-wrap items-center justify-between gap-2 shadow-lg animate-in fade-in duration-150">
+                    <div className="flex items-center gap-2 pl-1">
+                      <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+                      <span className="text-xs font-bold font-mono">
+                        {selectedEmpIds.length} Selected
+                      </span>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => handleAutoRoute()}
+                        className="bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm transition-colors"
+                        title="Auto-route selected employees into optimal shift"
+                      >
+                        <Sparkles className="w-3.5 h-3.5" />
+                        <span>Auto Route ({selectedEmpIds.length})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => handleManualRoute()}
+                        className="bg-sky-600 hover:bg-sky-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm transition-colors"
+                        title="Manually configure route with selected members"
+                      >
+                        <Car className="w-3.5 h-3.5" />
+                        <span>Manual Route ({selectedEmpIds.length})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={handleBulkDelete}
+                        className="bg-rose-600 hover:bg-rose-500 text-white text-xs font-bold px-3 py-1.5 rounded-lg flex items-center gap-1.5 shadow-sm transition-colors"
+                        title="Delete selected employees from log"
+                      >
+                        <Trash2 className="w-3.5 h-3.5" />
+                        <span>Delete ({selectedEmpIds.length})</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => setSelectedEmpIds([])}
+                        className="text-xs text-slate-400 hover:text-white px-2 py-1 font-semibold"
+                      >
+                        Clear
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               {/* Employee Directory List */}
@@ -1109,27 +1477,41 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                     <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
                     <p className="text-xs font-bold text-slate-700">No corporate employees in log yet</p>
                     <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
-                      Upload an employee Excel sheet in Auto Routing, or add an employee manually using the button above.
+                      Click Upload above to import from Excel, or add an employee manually.
                     </p>
-                    <button
-                      type="button"
-                      onClick={() => setActiveView('ROUTING_RULES')}
-                      className="btn-accent text-xs font-semibold mt-3 px-3.5 py-1.5 inline-flex items-center gap-1.5"
-                    >
-                      <FileSpreadsheet className="w-3.5 h-3.5" />
-                      <span>Upload Employee Excel</span>
-                    </button>
                   </div>
                 ) : (
                   filteredLogEmployees.map((emp) => (
                     <div
                       key={emp.id}
-                      className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-300 hover:shadow-sm transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                      onClick={() => setInspectedEmp(emp)}
+                      className={`p-3.5 rounded-xl border transition-all cursor-pointer flex flex-col sm:flex-row sm:items-center justify-between gap-2.5 group ${
+                        selectedEmpIds.includes(emp.id)
+                          ? 'border-emerald-500 bg-emerald-50/40 shadow-sm'
+                          : 'border-slate-200 bg-white hover:border-emerald-300 hover:shadow-sm'
+                      }`}
                     >
-                      <div className="flex items-start gap-3 min-w-0">
+                      <div className="flex items-center gap-3 min-w-0">
+                        {/* Checkbox */}
+                        <button
+                          type="button"
+                          onClick={(e) => toggleSelectEmp(emp.id, e)}
+                          className="p-1 cursor-pointer text-slate-400 hover:text-emerald-600 transition-colors"
+                          title={selectedEmpIds.includes(emp.id) ? 'Deselect employee' : 'Select employee'}
+                        >
+                          {selectedEmpIds.includes(emp.id) ? (
+                            <CheckSquare className="w-4 h-4 text-emerald-600" />
+                          ) : (
+                            <Square className="w-4 h-4 text-slate-400" />
+                          )}
+                        </button>
+
+                        {/* Avatar */}
                         <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center flex-shrink-0">
                           {emp.name.charAt(0)}
                         </div>
+
+                        {/* Details */}
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="font-bold text-xs text-slate-900 truncate">{emp.name}</p>
@@ -1146,13 +1528,25 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                         </div>
                       </div>
 
-                      <div className="text-right sm:self-center flex-shrink-0">
-                        <span className="text-[10px] font-semibold text-slate-700 block truncate max-w-[160px]">
-                          {emp.company}
-                        </span>
-                        <span className="text-[10px] font-mono text-slate-400 block mt-0.5">
-                          Geo: {emp.lat.toFixed(4)}, {emp.lng.toFixed(4)}
-                        </span>
+                      <div className="flex items-center justify-between sm:justify-end gap-3 shrink-0">
+                        <div className="text-right">
+                          <span className="text-[10px] font-semibold text-slate-700 block truncate max-w-[150px]">
+                            {emp.company}
+                          </span>
+                          <span className="text-[10px] font-mono text-slate-400 block mt-0.5">
+                            Geo: {emp.lat.toFixed(4)}, {emp.lng.toFixed(4)}
+                          </span>
+                        </div>
+
+                        {/* Normal Delete button */}
+                        <button
+                          type="button"
+                          title="Delete employee"
+                          onClick={(e) => handleDeleteEmployee(emp.id, e)}
+                          className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                        </button>
                       </div>
                     </div>
                   ))
@@ -1990,6 +2384,150 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
             toast.success('Address and Geo-code captured!')
           }}
         />
+      )}
+      {/* Right Side Slide Drawer: Full Employee Details + GMaps */}
+      {inspectedEmp && (
+        <div className="fixed inset-0 z-50 overflow-hidden flex justify-end">
+          {/* Backdrop */}
+          <div
+            className="fixed inset-0 bg-slate-900/40 backdrop-blur-sm transition-opacity"
+            onClick={() => setInspectedEmp(null)}
+          />
+
+          {/* Drawer Panel */}
+          <div className="relative w-full max-w-lg bg-white h-full shadow-2xl flex flex-col z-10 border-l border-slate-200 animate-in slide-in-from-right duration-300">
+            {/* Drawer Header */}
+            <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
+              <div className="flex items-center gap-3">
+                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-sm flex items-center justify-center">
+                  {inspectedEmp.name.charAt(0)}
+                </div>
+                <div>
+                  <div className="flex items-center gap-2">
+                    <h3 className="text-sm font-bold text-slate-900">{inspectedEmp.name}</h3>
+                    <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-800">
+                      Verified
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 font-medium">
+                    {inspectedEmp.department || 'Operations'} &bull; {inspectedEmp.company}
+                  </p>
+                </div>
+              </div>
+
+              <button
+                type="button"
+                onClick={() => setInspectedEmp(null)}
+                className="p-2 rounded-xl text-slate-400 hover:text-slate-700 hover:bg-slate-200 transition-colors"
+                title="Close Profile"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Drawer Body (Scrollable) */}
+            <div className="flex-1 overflow-y-auto p-4 sm:p-5 space-y-4">
+              {/* GMaps / Leaflet Map Container */}
+              <div className="space-y-1.5">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-bold text-slate-900 flex items-center gap-1.5">
+                    <MapPin className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Live GMaps Location & Route</span>
+                  </span>
+                  <span className="text-[10px] font-mono font-bold text-slate-500">
+                    {inspectedEmp.lat.toFixed(4)}, {inspectedEmp.lng.toFixed(4)}
+                  </span>
+                </div>
+
+                <div
+                  ref={drawerMapContainerRef}
+                  className="w-full h-56 rounded-xl border border-slate-200 shadow-inner z-0"
+                  style={{ minHeight: '220px' }}
+                />
+
+                <p className="text-[11px] text-slate-500 italic">
+                  Pin shows employee pickup location with transit connection to destination office hub.
+                </p>
+              </div>
+
+              {/* Employee Full Details Card */}
+              <div className="p-4 rounded-xl bg-slate-50 border border-slate-200 space-y-3">
+                <div>
+                  <span className="text-[10px] font-bold uppercase text-slate-400 block">Home Pickup Address</span>
+                  <p className="text-xs font-semibold text-slate-900 mt-0.5">{inspectedEmp.address}</p>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Phone Number</span>
+                    <a
+                      href={`tel:${inspectedEmp.phone}`}
+                      className="text-xs font-mono font-bold text-emerald-700 hover:underline flex items-center gap-1 mt-0.5"
+                    >
+                      <Phone className="w-3 h-3" />
+                      <span>{inspectedEmp.phone}</span>
+                    </a>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Assigned Office</span>
+                    <p className="text-xs font-semibold text-slate-900 truncate mt-0.5">{inspectedEmp.company}</p>
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-2 gap-3 pt-2 border-t border-slate-200">
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Geo Latitude</span>
+                    <p className="text-xs font-mono text-slate-700 mt-0.5">{inspectedEmp.lat}</p>
+                  </div>
+
+                  <div>
+                    <span className="text-[10px] font-bold uppercase text-slate-400 block">Geo Longitude</span>
+                    <p className="text-xs font-mono text-slate-700 mt-0.5">{inspectedEmp.lng}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Drawer Footer Actions */}
+            <div className="p-4 border-t border-slate-200 flex items-center justify-between gap-3 bg-slate-50">
+              <button
+                type="button"
+                onClick={() => handleDeleteEmployee(inspectedEmp.id)}
+                className="btn-secondary text-xs text-rose-600 hover:bg-rose-50 border-rose-200 flex items-center gap-1.5 py-2 px-3 font-semibold"
+              >
+                <Trash2 className="w-3.5 h-3.5" />
+                <span>Delete</span>
+              </button>
+
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleManualRoute([inspectedEmp])
+                    setInspectedEmp(null)
+                  }}
+                  className="btn-secondary text-xs font-bold px-3 py-2 flex items-center gap-1.5"
+                >
+                  <Car className="w-3.5 h-3.5 text-sky-600" />
+                  <span>Manual Route</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    handleAutoRoute([inspectedEmp])
+                    setInspectedEmp(null)
+                  }}
+                  className="btn-accent text-xs font-bold px-4 py-2 flex items-center gap-1.5 shadow-sm"
+                >
+                  <Sparkles className="w-3.5 h-3.5" />
+                  <span>Auto Route</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
       )}
     </>
   )
