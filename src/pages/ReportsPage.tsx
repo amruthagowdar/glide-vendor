@@ -52,8 +52,8 @@ export const ReportsPage: React.FC = () => {
         const list = Array.isArray(res.data?.data)
           ? res.data.data
           : Array.isArray(res.data)
-          ? res.data
-          : []
+            ? res.data
+            : []
         return list
       } catch {
         return []
@@ -114,8 +114,8 @@ export const ReportsPage: React.FC = () => {
       const vehicleInfo = vehicleMatch
         ? vehicleMatch[1]
         : t.vehicleRegNo
-        ? `${t.vehicleRegNo}`
-        : 'Sedan'
+          ? `${t.vehicleRegNo}`
+          : 'Sedan'
 
       return {
         'Sl No': idx + 1,
@@ -306,7 +306,6 @@ export const ReportsPage: React.FC = () => {
               <option value="RAC">RAC</option>
               <option value="OUTSTATION">Outstation</option>
               <option value="PACKAGE">Package</option>
-              <option value="EMERGENCY">Emergency</option>
             </select>
 
             <select
