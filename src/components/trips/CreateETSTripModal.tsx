@@ -379,7 +379,10 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
   }
 
   const handleCommitExcelUpload = () => {
-    if (excelPreviewList.length === 0) return
+    if (excelPreviewList.length === 0) {
+      toast.error('Please upload an employee Excel file first')
+      return
+    }
 
     setDirectory((prev) => {
       const existingPhones = new Set(prev.map((e) => e.phone.replace(/\D/g, '')).filter(Boolean))
@@ -731,7 +734,7 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
             ? 'Create ETS Trip (Sedan 3-seater / SUV 6-seater)'
             : activeView === 'EMPLOYEE_LOG'
             ? 'ETS Employee Log & Directory'
-            : 'ETS Shift Routing & Compliance Rules'
+            : 'Auto Routing'
         }
         size="lg"
         footer={
@@ -769,8 +772,8 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
               {/* View = HUB: no forward button needed */}
               {activeView === 'HUB' && null}
 
-              {/* View = EMPLOYEE_LOG or ROUTING_RULES: shortcut to Create a Trip */}
-              {(activeView === 'EMPLOYEE_LOG' || activeView === 'ROUTING_RULES') && (
+              {/* View = EMPLOYEE_LOG: shortcut to Create a Trip */}
+              {activeView === 'EMPLOYEE_LOG' && (
                 <button
                   type="button"
                   onClick={() => {
@@ -1165,44 +1168,24 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
             <div className="space-y-4 animate-in fade-in duration-200">
               <div className="pb-2 border-b border-slate-200">
                 <h3 className="text-sm font-bold text-slate-900 flex items-center gap-2">
-                  <ShieldCheck className="w-4 h-4 text-amber-700" />
-                  <span>ETS Corporate Shift Routing & Safety Compliance Rules</span>
+                  <Sliders className="w-4 h-4 text-amber-700" />
+                  <span>Auto Routing</span>
                 </h3>
-                <p className="text-xs text-slate-500 mt-0.5">
-                  Automated checks enforced on every employee transport shift across Bangalore.
-                </p>
               </div>
 
               {/* Bulk Excel Upload Section for Auto Routing */}
-              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-amber-50/90 via-white to-sky-50/90 border-2 border-amber-300/90 shadow-sm space-y-4">
-                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-                  <div>
-                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 font-mono">
-                      Bulk Import
-                    </span>
-                    <h4 className="text-sm sm:text-base font-bold text-slate-900 mt-1 flex items-center gap-2">
-                      <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
-                      <span>Upload Employee Excel for Auto Routing & Log</span>
-                    </h4>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Upload an Excel or CSV file to bulk import employees directly into the <strong>Employee Log</strong> and auto-cluster their shifts.
-                    </p>
-                  </div>
-
-                  <button
-                    type="button"
-                    onClick={handleDownloadTemplate}
-                    className="btn-secondary text-xs font-semibold flex items-center gap-1.5 self-start sm:self-center shrink-0 border-amber-200 hover:bg-amber-50 text-slate-800"
-                  >
-                    <Download className="w-3.5 h-3.5 text-amber-700" />
-                    <span>Download Excel Template</span>
-                  </button>
+              <div className="p-4 sm:p-5 rounded-2xl bg-white border border-slate-200 shadow-sm space-y-4">
+                <div className="flex items-center justify-between">
+                  <h4 className="text-sm sm:text-base font-bold text-slate-900 flex items-center gap-2">
+                    <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+                    <span>Upload Employee Excel for Auto Routing</span>
+                  </h4>
                 </div>
 
                 {/* File Upload Dropzone */}
                 <div
                   onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-amber-300 hover:border-amber-500 bg-white/90 hover:bg-amber-50/50 rounded-xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 group"
+                  className="border-2 border-dashed border-amber-300 hover:border-amber-500 bg-amber-50/20 hover:bg-amber-50/50 rounded-xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 group"
                 >
                   <input
                     ref={fileInputRef}
@@ -1219,9 +1202,21 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                       Click to browse or drag & drop Employee Excel File
                     </p>
                     <p className="text-[11px] text-slate-500 mt-0.5">
-                      Supports .xlsx, .xls, and .csv (Columns: Employee Name, Phone, Address, Lat, Lng, Company)
+                      Supports .xlsx, .xls, and .csv
                     </p>
                   </div>
+                </div>
+
+                {/* Save button right after uploading button */}
+                <div className="flex items-center justify-end pt-1">
+                  <button
+                    type="button"
+                    onClick={handleCommitExcelUpload}
+                    className="btn-accent text-xs sm:text-sm font-bold px-6 py-2.5 flex items-center gap-2 shadow-sm"
+                  >
+                    <Check className="w-4 h-4" />
+                    <span>Save{excelPreviewList.length > 0 ? ` (${excelPreviewList.length} Employees)` : ''}</span>
+                  </button>
                 </div>
 
                 {/* Parsed Excel Records Preview */}

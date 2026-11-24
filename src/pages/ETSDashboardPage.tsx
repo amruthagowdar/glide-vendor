@@ -310,7 +310,6 @@ export const ETSDashboardPage: React.FC = () => {
             >
               <Car className="w-4 h-4" />
               <span>Create Trip</span>
-              <span className="text-[10px] bg-white/20 px-1.5 py-0.5 rounded-full font-extrabold">Sedan & SUV</span>
             </button>
 
             {/* Button 2: Employee Log */}
