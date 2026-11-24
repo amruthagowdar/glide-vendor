@@ -8,6 +8,7 @@ import type {
   Notification,
   DashboardData,
 } from '../types'
+import { logAuditEvent } from './auditLogger'
 
 const DEMO_USER: User = {
   id: 'usr_harish_atharva',
@@ -290,6 +291,115 @@ export function getMockResponse(
       page: 1,
       totalPages: 1,
     }
+  }
+
+  // Delete Trip
+  if (cleanUrl.includes('/vendor/trips/') && m === 'delete') {
+    const id = cleanUrl.split('/vendor/trips/')[1]?.split('/')[0]
+    const trips = getStored<Trip[]>('glide_mock_trips', INITIAL_TRIPS)
+    const target = trips.find((t) => t.id === id || t.tripNo === id)
+    const updated = trips.filter((t) => t.id !== id && t.tripNo !== id)
+    setStored('glide_mock_trips', updated)
+
+    if (target) {
+      logAuditEvent({
+        action: 'TRIP_DELETED',
+        entityType: 'TRIP',
+        entityId: target.id,
+        entityTitle: `Trip ${target.tripNo} (${target.serviceType})`,
+        performedBy: 'Vendor Admin',
+        summary: `Deleted trip ${target.tripNo} for passenger ${target.passengerName}`,
+        details: { deleted: target },
+      })
+    }
+
+    return { status: 'success', data: { id, deleted: true } }
+  }
+
+  // Update / Edit Trip
+  if (cleanUrl.includes('/vendor/trips/') && (m === 'patch' || m === 'put')) {
+    const id = cleanUrl.split('/vendor/trips/')[1]?.split('/')[0]
+    const trips = getStored<Trip[]>('glide_mock_trips', INITIAL_TRIPS)
+    const index = trips.findIndex((t) => t.id === id || t.tripNo === id)
+    const payload = (typeof requestData === 'string' ? JSON.parse(requestData) : requestData) || {}
+
+    if (index !== -1) {
+      const prev = trips[index]
+      const updatedTrip = {
+        ...prev,
+        ...payload,
+        updatedAt: new Date().toISOString(),
+      }
+      trips[index] = updatedTrip
+      setStored('glide_mock_trips', trips)
+
+      logAuditEvent({
+        action: 'TRIP_EDITED',
+        entityType: 'TRIP',
+        entityId: updatedTrip.id,
+        entityTitle: `Trip ${updatedTrip.tripNo} (${updatedTrip.serviceType})`,
+        performedBy: 'Vendor Admin',
+        summary: `Updated trip ${updatedTrip.tripNo} details`,
+        details: { previous: prev, updated: updatedTrip },
+      })
+
+      return { status: 'success', data: updatedTrip }
+    }
+    return { status: 'error', message: 'Trip not found' }
+  }
+
+  // Delete Wallet Transaction
+  if (cleanUrl.includes('/vendor/wallet/transactions/') && m === 'delete') {
+    const id = cleanUrl.split('/vendor/wallet/transactions/')[1]?.split('/')[0]
+    const txs = getStored<WalletTransaction[]>('glide_mock_txs', INITIAL_TRANSACTIONS)
+    const target = txs.find((t) => t.id === id)
+    const updated = txs.filter((t) => t.id !== id)
+    setStored('glide_mock_txs', updated)
+
+    if (target) {
+      logAuditEvent({
+        action: 'WALLET_TX_DELETED',
+        entityType: 'WALLET_TRANSACTION',
+        entityId: target.id,
+        entityTitle: `Transaction ${target.reference || target.id}`,
+        performedBy: 'Vendor Admin',
+        summary: `Deleted wallet transaction: ${target.description}`,
+        details: { deleted: target },
+      })
+    }
+
+    return { status: 'success', data: { id, deleted: true } }
+  }
+
+  // Update / Edit Wallet Transaction
+  if (cleanUrl.includes('/vendor/wallet/transactions/') && (m === 'patch' || m === 'put')) {
+    const id = cleanUrl.split('/vendor/wallet/transactions/')[1]?.split('/')[0]
+    const txs = getStored<WalletTransaction[]>('glide_mock_txs', INITIAL_TRANSACTIONS)
+    const index = txs.findIndex((t) => t.id === id)
+    const payload = (typeof requestData === 'string' ? JSON.parse(requestData) : requestData) || {}
+
+    if (index !== -1) {
+      const prev = txs[index]
+      const updatedTx = {
+        ...prev,
+        ...payload,
+      }
+      txs[index] = updatedTx
+      setStored('glide_mock_txs', txs)
+
+      logAuditEvent({
+        action: 'WALLET_TX_EDITED',
+        entityType: 'WALLET_TRANSACTION',
+        entityId: updatedTx.id,
+        entityTitle: `Transaction ${updatedTx.reference || updatedTx.id}`,
+        performedBy: 'Vendor Admin',
+        summary: `Updated wallet transaction: ${updatedTx.description}`,
+        details: { previous: prev, updated: updatedTx },
+      })
+
+      return { status: 'success', data: updatedTx }
+    }
+    return { status: 'error', message: 'Transaction not found' }
   }
 
   // 9. Vendor Drivers

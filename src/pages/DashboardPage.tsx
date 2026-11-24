@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useNavigate } from 'react-router-dom'
 import {
   Navigation,
@@ -19,16 +19,54 @@ import { CreateTripModal } from '../components/trips/CreateTripModal'
 import { RechargeModal } from '../components/wallet/RechargeModal'
 import { DriverModal } from '../components/drivers/DriverModal'
 import { TripDetailDrawer } from '../components/trips/TripDetailDrawer'
+import { SlideDeleteAction } from '../components/ui/SlideDeleteAction'
+import { SlideDeleteModal } from '../components/ui/SlideDeleteModal'
+import { SlideToDeleteItem } from '../components/ui/SlideToDeleteItem'
+import { EditTripModal } from '../components/trips/EditTripModal'
+import { EditTransactionModal } from '../components/wallet/EditTransactionModal'
 import { formatCurrency, formatDateTime, getWalletColor } from '../lib/utils'
 import type { DashboardData, Trip, WalletTransaction, ServiceType } from '../types'
+import toast from 'react-hot-toast'
 
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [createTripOpen, setCreateTripOpen] = useState(false)
   const [rechargeOpen, setRechargeOpen] = useState(false)
   const [addDriverOpen, setAddDriverOpen] = useState(false)
   const [tripServiceType, setTripServiceType] = useState<ServiceType | undefined>(undefined)
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null)
+
+  // Edit & Slide Delete States
+  const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
+  const [editingTx, setEditingTx] = useState<WalletTransaction | null>(null)
+  const [deletingItem, setDeletingItem] = useState<{
+    type: 'TRIP' | 'TRANSACTION'
+    id: string
+    title: string
+    details?: string
+  } | null>(null)
+
+  const handleConfirmDelete = async () => {
+    if (!deletingItem) return
+    try {
+      if (deletingItem.type === 'TRIP') {
+        await vendorApi.deleteTrip(deletingItem.id)
+        toast.success(`${deletingItem.title} deleted successfully`)
+      } else {
+        await vendorApi.deleteTransaction(deletingItem.id)
+        toast.success(`Transaction deleted successfully`)
+      }
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['trips'] })
+      queryClient.invalidateQueries({ queryKey: ['wallet'] })
+      queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] })
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete record')
+    } finally {
+      setDeletingItem(null)
+    }
+  }
 
   const { data, isLoading } = useQuery<DashboardData>({
     queryKey: ['dashboard'],
@@ -279,6 +317,33 @@ export const DashboardPage: React.FC = () => {
                   </span>
                 ),
               },
+              {
+                key: 'actions',
+                header: 'Actions',
+                className: 'text-right',
+                render: (row) => (
+                  <SlideDeleteAction
+                    itemLabel="trip"
+                    onEdit={() => setEditingTrip(row)}
+                    onDelete={() =>
+                      setDeletingItem({
+                        type: 'TRIP',
+                        id: row.id,
+                        title: `Trip ${row.tripNo}`,
+                        details: `${row.passengerName} (${row.serviceType}) • ${row.pickup} → ${row.drop}`,
+                      })
+                    }
+                    onSlideDelete={() =>
+                      setDeletingItem({
+                        type: 'TRIP',
+                        id: row.id,
+                        title: `Trip ${row.tripNo}`,
+                        details: `${row.passengerName} (${row.serviceType}) • ${row.pickup} → ${row.drop}`,
+                      })
+                    }
+                  />
+                ),
+              },
             ]}
             data={data?.recentTrips || []}
             keyExtractor={(t) => t.id}
@@ -311,23 +376,58 @@ export const DashboardPage: React.FC = () => {
               </div>
             ) : (
               (data?.recentTransactions || []).slice(0, 6).map((tx: WalletTransaction) => (
-                <div key={tx.id} className="p-3 text-xs flex items-center justify-between">
-                  <div className="min-w-0 pr-2">
-                    <p className="font-medium text-slate-800 truncate">{tx.description}</p>
-                    <p className="text-[11px] text-slate-400">{formatDateTime(tx.createdAt)}</p>
-                  </div>
-                  <div className="text-right flex-shrink-0">
-                    <span
-                      className={`font-semibold text-xs ${tx.type === 'CREDIT' ? 'text-emerald-600' : 'text-red-600'
-                        }`}
-                    >
-                      {tx.type === 'CREDIT' ? '+' : '-'} {formatCurrency(tx.amount)}
-                    </span>
-                    <div className="mt-0.5">
-                      <TransactionBadge type={tx.type} />
+                <SlideToDeleteItem
+                  key={tx.id}
+                  onDelete={() =>
+                    setDeletingItem({
+                      type: 'TRANSACTION',
+                      id: tx.id,
+                      title: tx.description,
+                      details: `Amount: ${formatCurrency(tx.amount)} • Ref: ${tx.reference || 'N/A'}`,
+                    })
+                  }
+                >
+                  <div className="p-3 text-xs flex items-center justify-between w-full group">
+                    <div className="min-w-0 pr-2">
+                      <p className="font-medium text-slate-800 truncate">{tx.description}</p>
+                      <p className="text-[11px] text-slate-400">{formatDateTime(tx.createdAt)}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="text-right">
+                        <span
+                          className={`font-semibold text-xs ${
+                            tx.type === 'CREDIT' ? 'text-emerald-600' : 'text-red-600'
+                          }`}
+                        >
+                          {tx.type === 'CREDIT' ? '+' : '-'} {formatCurrency(tx.amount)}
+                        </span>
+                        <div className="mt-0.5">
+                          <TransactionBadge type={tx.type} />
+                        </div>
+                      </div>
+                      <SlideDeleteAction
+                        itemLabel="transaction"
+                        onEdit={() => setEditingTx(tx)}
+                        onDelete={() =>
+                          setDeletingItem({
+                            type: 'TRANSACTION',
+                            id: tx.id,
+                            title: tx.description,
+                            details: `Amount: ${formatCurrency(tx.amount)} • Ref: ${tx.reference || 'N/A'}`,
+                          })
+                        }
+                        onSlideDelete={() =>
+                          setDeletingItem({
+                            type: 'TRANSACTION',
+                            id: tx.id,
+                            title: tx.description,
+                            details: `Amount: ${formatCurrency(tx.amount)} • Ref: ${tx.reference || 'N/A'}`,
+                          })
+                        }
+                      />
                     </div>
                   </div>
-                </div>
+                </SlideToDeleteItem>
               ))
             )}
           </div>
@@ -368,6 +468,39 @@ export const DashboardPage: React.FC = () => {
         trip={selectedTrip}
         isOpen={!!selectedTrip}
         onClose={() => setSelectedTrip(null)}
+      />
+
+      {/* Edit Trip Modal */}
+      <EditTripModal
+        trip={editingTrip}
+        isOpen={!!editingTrip}
+        onClose={() => setEditingTrip(null)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+          queryClient.invalidateQueries({ queryKey: ['trips'] })
+        }}
+      />
+
+      {/* Edit Transaction Modal */}
+      <EditTransactionModal
+        transaction={editingTx}
+        isOpen={!!editingTx}
+        onClose={() => setEditingTx(null)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+          queryClient.invalidateQueries({ queryKey: ['wallet'] })
+          queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] })
+        }}
+      />
+
+      {/* Slide to Delete Modal */}
+      <SlideDeleteModal
+        isOpen={!!deletingItem}
+        onClose={() => setDeletingItem(null)}
+        onConfirmDelete={handleConfirmDelete}
+        title={`Delete ${deletingItem?.type === 'TRIP' ? 'Trip' : 'Transaction'}`}
+        entityName={deletingItem?.title || ''}
+        entityDetails={deletingItem?.details}
       />
     </div>
   )

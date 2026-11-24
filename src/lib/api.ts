@@ -192,9 +192,13 @@ export const vendorApi = {
   getTrips: (params?: Record<string, string>) => api.get('/vendor/trips', { params }),
   getTrip: (id: string) => api.get(`/vendor/trips/${id}`),
   createTrip: (data: unknown) => api.post('/vendor/trips/create', data),
+  updateTrip: (id: string, data: unknown) => api.patch(`/vendor/trips/${id}`, data),
+  deleteTrip: (id: string) => api.delete(`/vendor/trips/${id}`),
   // Wallet
   getWallet: () => api.get('/vendor/wallet'),
   getTransactions: (params?: Record<string, string>) => api.get('/vendor/wallet/transactions', { params }),
+  updateTransaction: (id: string, data: unknown) => api.patch(`/vendor/wallet/transactions/${id}`, data),
+  deleteTransaction: (id: string) => api.delete(`/vendor/wallet/transactions/${id}`),
   createRechargeOrder: (amount: number) => api.post('/vendor/wallet/recharge-order', { amount }),
   verifyRecharge: (data: { razorpay_payment_id: string; razorpay_order_id: string; razorpay_signature: string; orderId: string }) =>
     api.post('/vendor/wallet/recharge-verify', data),

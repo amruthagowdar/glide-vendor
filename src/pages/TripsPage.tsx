@@ -1,15 +1,19 @@
 import React, { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { useSearchParams, useNavigate } from 'react-router-dom'
 import { PlusCircle, Filter, Download, Building2, Car } from 'lucide-react'
 import { vendorApi } from '../lib/api'
 import { DataTable, Pagination } from '../components/ui/DataTable'
 import { StatusBadge, PaymentBadge } from '../components/ui/StatusBadge'
 import { CreateTripModal } from '../components/trips/CreateTripModal'
+import { EditTripModal } from '../components/trips/EditTripModal'
 import { RechargeModal } from '../components/wallet/RechargeModal'
 import { TripDetailDrawer } from '../components/trips/TripDetailDrawer'
+import { SlideDeleteAction } from '../components/ui/SlideDeleteAction'
+import { SlideDeleteModal } from '../components/ui/SlideDeleteModal'
 import { formatCurrency, formatDateTime } from '../lib/utils'
 import type { Trip, ServiceType, TripStatus, Driver } from '../types'
+import toast from 'react-hot-toast'
 
 const SERVICES: ServiceType[] = ['RAC', 'EMERGENCY', 'OUTSTATION', 'PACKAGE']
 const STATUSES: TripStatus[] = [
@@ -25,12 +29,15 @@ const STATUSES: TripStatus[] = [
 
 export const TripsPage: React.FC = () => {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
   const [searchParams, setSearchParams] = useSearchParams()
   const [createModalOpen, setCreateModalOpen] = useState(
     searchParams.get('action') === 'create'
   )
   const [rechargeModalOpen, setRechargeModalOpen] = useState(false)
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null)
+  const [editingTrip, setEditingTrip] = useState<Trip | null>(null)
+  const [deletingTrip, setDeletingTrip] = useState<Trip | null>(null)
 
   // Filters
   const [statusFilter, setStatusFilter] = useState<string>('')
@@ -38,6 +45,20 @@ export const TripsPage: React.FC = () => {
   const [driverFilter, setDriverFilter] = useState<string>('')
   const [dateFilter, setDateFilter] = useState<string>('')
   const [page, setPage] = useState<number>(1)
+
+  const handleConfirmDelete = async () => {
+    if (!deletingTrip) return
+    try {
+      await vendorApi.deleteTrip(deletingTrip.id)
+      toast.success(`Trip ${deletingTrip.tripNo} deleted successfully`)
+      queryClient.invalidateQueries({ queryKey: ['trips'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete trip.')
+    } finally {
+      setDeletingTrip(null)
+    }
+  }
 
   // Fetch Drivers for dropdown filter
   const { data: drivers = [] } = useQuery<Driver[]>({
@@ -271,6 +292,19 @@ export const TripsPage: React.FC = () => {
                 </span>
               ),
             },
+            {
+              key: 'actions',
+              header: 'Actions',
+              className: 'text-right',
+              render: (row) => (
+                <SlideDeleteAction
+                  itemLabel="trip"
+                  onEdit={() => setEditingTrip(row)}
+                  onDelete={() => setDeletingTrip(row)}
+                  onSlideDelete={() => setDeletingTrip(row)}
+                />
+              ),
+            },
           ]}
           data={trips}
           isLoading={isLoading}
@@ -303,6 +337,29 @@ export const TripsPage: React.FC = () => {
           setCreateModalOpen(false)
           setRechargeModalOpen(true)
         }}
+      />
+
+      <EditTripModal
+        trip={editingTrip}
+        isOpen={!!editingTrip}
+        onClose={() => setEditingTrip(null)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['trips'] })
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+        }}
+      />
+
+      <SlideDeleteModal
+        isOpen={!!deletingTrip}
+        onClose={() => setDeletingTrip(null)}
+        onConfirmDelete={handleConfirmDelete}
+        title="Delete Trip"
+        entityName={deletingTrip ? `Trip ${deletingTrip.tripNo}` : ''}
+        entityDetails={
+          deletingTrip
+            ? `${deletingTrip.passengerName} (${deletingTrip.serviceType}) • ${deletingTrip.pickup} → ${deletingTrip.drop}`
+            : undefined
+        }
       />
 
       <RechargeModal

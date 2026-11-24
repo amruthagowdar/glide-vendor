@@ -1,5 +1,5 @@
 import React, { useState } from 'react'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import { Filter, Download, ArrowUpRight, ArrowDownLeft } from 'lucide-react'
 import { vendorApi } from '../lib/api'
 import { WalletCard } from '../components/ui/WalletCard'
@@ -7,14 +7,36 @@ import { DataTable, Pagination } from '../components/ui/DataTable'
 import { TransactionBadge } from '../components/ui/StatusBadge'
 import { RechargeModal } from '../components/wallet/RechargeModal'
 import { WithdrawModal } from '../components/wallet/WithdrawModal'
+import { EditTransactionModal } from '../components/wallet/EditTransactionModal'
+import { SlideDeleteAction } from '../components/ui/SlideDeleteAction'
+import { SlideDeleteModal } from '../components/ui/SlideDeleteModal'
 import { formatCurrency, formatDateTime } from '../lib/utils'
 import type { Wallet, WalletTransaction, Trip } from '../types'
+import toast from 'react-hot-toast'
 
 export const WalletPage: React.FC = () => {
+  const queryClient = useQueryClient()
   const [rechargeOpen, setRechargeOpen] = useState(false)
   const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [typeFilter, setTypeFilter] = useState<string>('')
   const [page, setPage] = useState<number>(1)
+  const [editingTx, setEditingTx] = useState<WalletTransaction | null>(null)
+  const [deletingTx, setDeletingTx] = useState<WalletTransaction | null>(null)
+
+  const handleConfirmDelete = async () => {
+    if (!deletingTx) return
+    try {
+      await vendorApi.deleteTransaction(deletingTx.id)
+      toast.success('Wallet transaction deleted successfully')
+      queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] })
+      queryClient.invalidateQueries({ queryKey: ['wallet'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    } catch (err: any) {
+      toast.error(err?.message || 'Failed to delete transaction.')
+    } finally {
+      setDeletingTx(null)
+    }
+  }
 
   // Fetch Wallet Balance
   const { data: wallet, isLoading: isWalletLoading } = useQuery<Wallet>({
@@ -218,6 +240,19 @@ export const WalletPage: React.FC = () => {
                   </span>
                 ),
               },
+              {
+                key: 'actions',
+                header: 'Actions',
+                className: 'text-right',
+                render: (row) => (
+                  <SlideDeleteAction
+                    itemLabel="transaction"
+                    onEdit={() => setEditingTx(row)}
+                    onDelete={() => setDeletingTx(row)}
+                    onSlideDelete={() => setDeletingTx(row)}
+                  />
+                ),
+              },
             ]}
             data={transactions}
             isLoading={isTxLoading}
@@ -237,6 +272,32 @@ export const WalletPage: React.FC = () => {
           )}
         </div>
       </div>
+
+      {/* Edit Transaction Modal */}
+      <EditTransactionModal
+        transaction={editingTx}
+        isOpen={!!editingTx}
+        onClose={() => setEditingTx(null)}
+        onSuccess={() => {
+          queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] })
+          queryClient.invalidateQueries({ queryKey: ['wallet'] })
+          queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+        }}
+      />
+
+      {/* Slide to Delete Modal */}
+      <SlideDeleteModal
+        isOpen={!!deletingTx}
+        onClose={() => setDeletingTx(null)}
+        onConfirmDelete={handleConfirmDelete}
+        title="Delete Wallet Transaction"
+        entityName={deletingTx ? deletingTx.description : ''}
+        entityDetails={
+          deletingTx
+            ? `Amount: ${formatCurrency(deletingTx.amount)} • Type: ${deletingTx.type} • Ref: ${deletingTx.reference || 'N/A'}`
+            : undefined
+        }
+      />
 
       {/* Recharge Modal */}
       <RechargeModal
