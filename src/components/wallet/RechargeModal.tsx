@@ -11,7 +11,36 @@ interface RechargeModalProps {
   onClose: () => void
 }
 
-const PRESET_AMOUNTS = [1000, 2500, 5000, 10000, 25000]
+const PRESET_AMOUNTS = [1000, 2500, 5000, 10000, 25000, 100000]
+const DAILY_LIMIT = 100000
+
+function getTodayRecharged(): number {
+  try {
+    const today = new Date().toISOString().split('T')[0]
+    const raw = localStorage.getItem('GLIDE_DAILY_RECHARGE')
+    if (raw) {
+      const parsed = JSON.parse(raw)
+      if (parsed.date === today) {
+        return Number(parsed.total) || 0
+      }
+    }
+  } catch {}
+  return 0
+}
+
+function recordRechargeToday(addedAmount: number): void {
+  try {
+    const today = new Date().toISOString().split('T')[0]
+    const current = getTodayRecharged()
+    localStorage.setItem(
+      'GLIDE_DAILY_RECHARGE',
+      JSON.stringify({
+        date: today,
+        total: current + addedAmount,
+      })
+    )
+  } catch {}
+}
 
 export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose }) => {
   const [amount, setAmount] = useState<number>(2500)
@@ -20,6 +49,10 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose })
   const queryClient = useQueryClient()
 
   const finalAmount = customAmount ? parseFloat(customAmount) || 0 : amount
+  const todayRecharged = getTodayRecharged()
+  const remainingDailyLimit = Math.max(0, DAILY_LIMIT - todayRecharged)
+  const isOverDailyLimit = finalAmount > remainingDailyLimit
+  const isExceedingAbsoluteDaily = finalAmount > DAILY_LIMIT
 
   const loadRazorpayScript = () => {
     return new Promise((resolve) => {
@@ -38,6 +71,18 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose })
   const handleRecharge = async () => {
     if (finalAmount <= 0) {
       toast.error('Please enter a valid amount greater than ₹0')
+      return
+    }
+
+    if (finalAmount > DAILY_LIMIT) {
+      toast.error('Maximum recharge limit is ₹1,00,000 per day')
+      return
+    }
+
+    if (finalAmount > remainingDailyLimit) {
+      toast.error(
+        `Exceeds daily recharge limit. Remaining limit for today is ₹${remainingDailyLimit.toLocaleString('en-IN')}`
+      )
       return
     }
 
@@ -71,6 +116,7 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose })
               orderId,
             })
 
+            recordRechargeToday(finalAmount)
             toast.success(`Wallet successfully recharged with ${formatCurrency(finalAmount)}!`)
             queryClient.invalidateQueries({ queryKey: ['wallet'] })
             queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] })
@@ -118,10 +164,20 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose })
           </button>
           <button
             onClick={handleRecharge}
-            disabled={isLoading || finalAmount <= 0}
-            className="btn-accent text-sm font-semibold whitespace-nowrap px-4 py-2"
+            disabled={isLoading || finalAmount <= 0 || isOverDailyLimit}
+            className={`text-sm font-semibold whitespace-nowrap px-4 py-2 rounded-lg transition-all ${
+              isOverDailyLimit
+                ? 'bg-rose-100 text-rose-700 cursor-not-allowed border border-rose-300'
+                : 'btn-accent'
+            }`}
           >
-            {isLoading ? <span>Processing...</span> : <span>Pay {formatCurrency(finalAmount)}</span>}
+            {isLoading ? (
+              <span>Processing...</span>
+            ) : isOverDailyLimit ? (
+              <span>Limit Exceeded (Max ₹1,00,000)</span>
+            ) : (
+              <span>Pay {formatCurrency(finalAmount)}</span>
+            )}
           </button>
         </div>
       }
@@ -151,7 +207,12 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose })
         </div>
 
         <div>
-          <label className="label">Or Enter Custom Amount (₹)</label>
+          <div className="flex items-center justify-between">
+            <label className="label mb-0">Or Enter Custom Amount (₹)</label>
+            <span className="text-[11px] font-semibold text-slate-500">
+              Limit: ₹1,00,000 / day {todayRecharged > 0 ? `(Remaining: ₹${remainingDailyLimit.toLocaleString('en-IN')})` : ''}
+            </span>
+          </div>
           <div className="relative mt-1">
             <span className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none text-slate-400">
               ₹
@@ -159,16 +220,27 @@ export const RechargeModal: React.FC<RechargeModalProps> = ({ isOpen, onClose })
             <input
               type="number"
               min="100"
+              max={remainingDailyLimit}
               step="100"
-              placeholder="e.g. 15000"
+              placeholder="e.g. 15000 (Max ₹1,00,000/day)"
               value={customAmount}
               onChange={(e) => {
                 setCustomAmount(e.target.value)
                 setAmount(0)
               }}
-              className="input pl-8"
+              className={`input pl-8 ${isOverDailyLimit ? 'border-rose-400 focus:ring-rose-400' : ''}`}
             />
           </div>
+          {isOverDailyLimit && (
+            <p className="text-xs text-rose-600 font-semibold mt-1.5 flex items-center gap-1">
+              <AlertCircle className="w-3.5 h-3.5" />
+              <span>
+                {isExceedingAbsoluteDaily
+                  ? 'Maximum recharge limit is ₹1,00,000 per day.'
+                  : `Amount exceeds remaining daily limit of ₹${remainingDailyLimit.toLocaleString('en-IN')}.`}
+              </span>
+            </p>
+          )}
         </div>
 
         <div className="p-3.5 bg-sky-50 border border-sky-200 rounded-lg text-xs text-sky-800 space-y-1">

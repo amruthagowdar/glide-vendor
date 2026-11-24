@@ -153,11 +153,18 @@ export function getMockResponse(
 
   // 7. Wallet Recharge Order & Verify
   if (cleanUrl.endsWith('/vendor/wallet/recharge-order')) {
+    const amount = Number((requestData as any)?.amount) || 5000
+    if (amount > 100000) {
+      return {
+        status: 'error',
+        message: 'Daily recharge limit of ₹1,00,000 exceeded',
+      }
+    }
     return {
       status: 'success',
       data: {
         orderId: `order_${Date.now()}`,
-        amount: 5000,
+        amount,
         currency: 'INR',
         keyId: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
       },
@@ -165,8 +172,9 @@ export function getMockResponse(
   }
 
   if (cleanUrl.endsWith('/vendor/wallet/recharge-verify')) {
-    const currentBalance = getStored<number>('glide_mock_wallet_balance', 24850)
-    const newBalance = currentBalance + 5000
+    const currentBalance = getStored<number>('glide_mock_wallet_balance', 0)
+    const amount = Number((requestData as any)?.amount) || 2500
+    const newBalance = currentBalance + amount
     setStored('glide_mock_wallet_balance', newBalance)
     return {
       status: 'success',
