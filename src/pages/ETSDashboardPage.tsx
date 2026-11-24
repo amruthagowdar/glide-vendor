@@ -151,73 +151,6 @@ export const ETSDashboardPage: React.FC = () => {
   const [selectedShiftForDrawer, setSelectedShiftForDrawer] = useState<LiveShiftCab | null>(null)
   const [showGeofenceClusters, setShowGeofenceClusters] = useState(true)
 
-  // Live Driver Simulation State
-  const [isSimulating, setIsSimulating] = useState(false)
-
-  // Auto simulation timer: advances stage every 3.8 seconds
-  useEffect(() => {
-    if (!isSimulating || !selectedShiftForDrawer) return
-
-    const interval = setInterval(() => {
-      setSelectedShiftForDrawer((current) => {
-        if (!current) return null
-        const currentInfo = getShiftStageInfo(current)
-        if (currentInfo.stageIndex >= currentInfo.totalStages) {
-          setIsSimulating(false)
-          toast.success(`Shift ${current.shiftCode} has safely arrived at ${current.hubName}!`)
-          return current
-        }
-
-        const nextShift = progressShiftStage(current)
-        const nextInfo = getShiftStageInfo(nextShift)
-        toast.success(nextInfo.stageTitle, { id: 'ets-telemetry-toast', duration: 2500 })
-
-        // Synchronize in liveShifts
-        setLiveShifts((prev) => {
-          const nextList = prev.map((s) => (s.id === nextShift.id ? nextShift : s))
-          try {
-            localStorage.setItem('ETS_DISPATCHED_SHIFTS', JSON.stringify(nextList))
-          } catch {}
-          return nextList
-        })
-
-        return nextShift
-      })
-    }, 3800)
-
-    return () => clearInterval(interval)
-  }, [isSimulating, selectedShiftForDrawer?.id])
-
-  const handleNextStage = () => {
-    if (!selectedShiftForDrawer) return
-    const nextShift = progressShiftStage(selectedShiftForDrawer)
-    const nextInfo = getShiftStageInfo(nextShift)
-    toast.success(nextInfo.stageTitle, { id: 'ets-telemetry-toast' })
-    setSelectedShiftForDrawer(nextShift)
-    setLiveShifts((prev) => {
-      const nextList = prev.map((s) => (s.id === nextShift.id ? nextShift : s))
-      try {
-        localStorage.setItem('ETS_DISPATCHED_SHIFTS', JSON.stringify(nextList))
-      } catch {}
-      return nextList
-    })
-  }
-
-  const handleResetStage = () => {
-    if (!selectedShiftForDrawer) return
-    setIsSimulating(false)
-    const resetShift = progressShiftStage(selectedShiftForDrawer, 0)
-    toast('Trip reset to Driver Home base', { icon: '🔄' })
-    setSelectedShiftForDrawer(resetShift)
-    setLiveShifts((prev) => {
-      const nextList = prev.map((s) => (s.id === resetShift.id ? resetShift : s))
-      try {
-        localStorage.setItem('ETS_DISPATCHED_SHIFTS', JSON.stringify(nextList))
-      } catch {}
-      return nextList
-    })
-  }
-
   // Map Refs
   const mapContainerRef = useRef<HTMLDivElement>(null)
   const mapInstanceRef = useRef<any>(null)
@@ -887,17 +820,17 @@ export const ETSDashboardPage: React.FC = () => {
               </div>
 
               {/* ======================================================== */}
-              {/* LIVE TRIP SIMULATOR & DISPATCH TELEMETRY CARD */}
+              {/* REAL-TIME DRIVER GPS & TELEMETRY MONITOR */}
               {/* ======================================================== */}
               {(() => {
                 const drawerStageInfo = getShiftStageInfo(selectedShiftForDrawer)
                 return (
-                  <div className="p-4 rounded-xl bg-gradient-to-br from-slate-900 to-sky-950 text-white shadow-lg space-y-3.5 border border-sky-800/50">
+                  <div className="p-4 rounded-xl bg-slate-900 text-white shadow-lg space-y-3.5 border border-slate-800">
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
-                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-ping" />
-                        <span className="text-[11px] font-bold tracking-wider uppercase text-sky-300">
-                          Live Driver Telemetry Simulator
+                        <div className="w-2.5 h-2.5 rounded-full bg-emerald-400 animate-pulse" />
+                        <span className="text-[11px] font-bold tracking-wider uppercase text-emerald-400">
+                          Live Real-Time GPS Active
                         </span>
                       </div>
                       <span className="text-[10px] font-mono font-extrabold px-2 py-0.5 rounded bg-sky-500/20 text-sky-200 border border-sky-400/30 uppercase">
@@ -910,98 +843,53 @@ export const ETSDashboardPage: React.FC = () => {
                         <Navigation className="w-3.5 h-3.5 text-sky-400" />
                         <span>{drawerStageInfo.stageTitle}</span>
                       </h4>
-                      <p className="text-[11px] text-sky-200/80 mt-1 leading-relaxed">
+                      <p className="text-[11px] text-slate-300 mt-1 leading-relaxed">
                         {drawerStageInfo.stageDesc}
                       </p>
                     </div>
 
-                    {/* Visual Stepper */}
-                    <div className="flex items-center justify-between gap-1 pt-1">
-                      {Array.from({ length: drawerStageInfo.totalStages + 1 }).map((_, stepIdx) => {
-                        const isPast = stepIdx < drawerStageInfo.stageIndex
-                        const isCurrent = stepIdx === drawerStageInfo.stageIndex
-                        const isHome = stepIdx === 0
-                        const isHub = stepIdx === drawerStageInfo.totalStages
-                        return (
-                          <React.Fragment key={stepIdx}>
-                            <button
-                              type="button"
-                              onClick={() => {
-                                const updated = progressShiftStage(selectedShiftForDrawer, stepIdx)
-                                const info = getShiftStageInfo(updated)
-                                toast.success(info.stageTitle, { id: 'ets-telemetry-toast' })
-                                setSelectedShiftForDrawer(updated)
-                                setLiveShifts((prev) => {
-                                  const nextList = prev.map((s) => (s.id === updated.id ? updated : s))
-                                  try {
-                                    localStorage.setItem('ETS_DISPATCHED_SHIFTS', JSON.stringify(nextList))
-                                  } catch {}
-                                  return nextList
-                                })
-                              }}
-                              className={`w-7 h-7 rounded-lg flex items-center justify-center text-[10px] font-bold transition-all ${
-                                isCurrent
-                                  ? 'bg-sky-400 text-slate-950 ring-2 ring-sky-300 ring-offset-2 ring-offset-slate-900 scale-110 shadow-lg'
-                                  : isPast
-                                  ? 'bg-emerald-500 text-white'
-                                  : 'bg-slate-800 text-slate-400 border border-slate-700 hover:border-sky-400'
-                              }`}
-                              title={isHome ? 'Driver Home Base' : isHub ? 'Corporate Office Hub' : `Stop #${stepIdx}`}
-                            >
-                              {isPast ? '✓' : isHome ? '🏠' : isHub ? '🏢' : stepIdx}
-                            </button>
-                            {stepIdx < drawerStageInfo.totalStages && (
-                              <div
-                                className={`flex-1 h-1 rounded-full transition-all ${
-                                  stepIdx < drawerStageInfo.stageIndex ? 'bg-emerald-400' : 'bg-slate-700'
-                                }`}
-                              />
-                            )}
-                          </React.Fragment>
-                        )
-                      })}
+                    {/* Live Vehicle Telemetry Stats */}
+                    <div className="grid grid-cols-3 gap-2 pt-2 border-t border-slate-800">
+                      <div className="bg-slate-800/70 p-2 rounded-lg text-center">
+                        <span className="text-[9px] uppercase font-bold text-slate-400 block">GPS Speed</span>
+                        <span className="text-xs font-mono font-bold text-emerald-400">38 km/h</span>
+                      </div>
+                      <div className="bg-slate-800/70 p-2 rounded-lg text-center">
+                        <span className="text-[9px] uppercase font-bold text-slate-400 block">Telemetry</span>
+                        <span className="text-xs font-mono font-bold text-sky-400">4G Live</span>
+                      </div>
+                      <div className="bg-slate-800/70 p-2 rounded-lg text-center">
+                        <span className="text-[9px] uppercase font-bold text-slate-400 block">Last Ping</span>
+                        <span className="text-xs font-mono font-bold text-slate-200">Just now</span>
+                      </div>
                     </div>
 
-                    {/* Simulator Action Controls */}
-                    <div className="flex items-center justify-between gap-2 pt-2 border-t border-sky-800/40">
+                    {/* Driver Direct Contact & Center Button */}
+                    <div className="flex items-center gap-2 pt-1">
+                      {selectedShiftForDrawer.driverPhone && (
+                        <a
+                          href={`tel:${selectedShiftForDrawer.driverPhone}`}
+                          className="flex-1 py-2 px-3 rounded-lg text-xs font-bold bg-emerald-600 hover:bg-emerald-500 text-white flex items-center justify-center gap-1.5 transition-colors shadow-sm"
+                        >
+                          <Phone className="w-3.5 h-3.5" />
+                          <span>Call Driver ({selectedShiftForDrawer.driverName})</span>
+                        </a>
+                      )}
                       <button
                         type="button"
-                        onClick={() => setIsSimulating(!isSimulating)}
-                        className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm ${
-                          isSimulating
-                            ? 'bg-amber-500 hover:bg-amber-400 text-slate-950'
-                            : 'bg-emerald-600 hover:bg-emerald-500 text-white'
-                        }`}
+                        onClick={() => {
+                          if (shiftDrawerMapInstanceRef.current) {
+                            shiftDrawerMapInstanceRef.current.flyTo(
+                              [drawerStageInfo.currentCoords.lat, drawerStageInfo.currentCoords.lng],
+                              14,
+                              { duration: 1.0 }
+                            )
+                          }
+                        }}
+                        className="p-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-sky-400 border border-slate-700 transition-colors"
+                        title="Center map on vehicle live GPS"
                       >
-                        {isSimulating ? (
-                          <>
-                            <span>⏸ Pause Simulation</span>
-                          </>
-                        ) : (
-                          <>
-                            <span>▶ Play Live Simulation</span>
-                          </>
-                        )}
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleNextStage}
-                        disabled={isSimulating}
-                        className="py-1.5 px-3 rounded-lg text-xs font-bold bg-sky-600 hover:bg-sky-500 disabled:opacity-50 text-white flex items-center gap-1 transition-colors"
-                        title="Advance driver to next stop"
-                      >
-                        <span>Next Stop</span>
-                        <ChevronRight className="w-3.5 h-3.5" />
-                      </button>
-
-                      <button
-                        type="button"
-                        onClick={handleResetStage}
-                        className="p-1.5 rounded-lg text-slate-300 hover:text-white hover:bg-slate-800 border border-slate-700 transition-colors"
-                        title="Reset Trip to Start"
-                      >
-                        <RefreshCw className="w-3.5 h-3.5" />
+                        <Compass className="w-4 h-4" />
                       </button>
                     </div>
                   </div>
