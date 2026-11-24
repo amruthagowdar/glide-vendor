@@ -2,6 +2,7 @@ import React from 'react'
 import { NavLink, useNavigate } from 'react-router-dom'
 import {
   LayoutDashboard,
+  Building2,
   Navigation,
   Wallet,
   Bell,
@@ -19,6 +20,7 @@ interface SidebarProps {
 
 const navItems = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+  { name: 'ETS Command', path: '/ets', icon: Building2 },
   { name: 'Trips', path: '/trips', icon: Navigation },
   { name: 'Wallet', path: '/wallet', icon: Wallet },
   { name: 'Notifications', path: '/notifications', icon: Bell, badge: true },

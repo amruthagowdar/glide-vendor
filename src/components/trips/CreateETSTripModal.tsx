@@ -185,23 +185,25 @@ interface EmployeeSlot {
   company?: string
 }
 
+export type ETSViewMode = 'HUB' | 'CREATE_TRIP' | 'EMPLOYEE_LOG' | 'ROUTING_RULES'
+
 interface CreateETSTripModalProps {
   isOpen: boolean
   onClose: () => void
   onOpenRechargeModal: () => void
+  initialView?: ETSViewMode
 }
-
-type ETSViewMode = 'HUB' | 'CREATE_TRIP' | 'EMPLOYEE_LOG' | 'ROUTING_RULES'
 
 export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
   isOpen,
   onClose,
   onOpenRechargeModal,
+  initialView = 'HUB',
 }) => {
   const queryClient = useQueryClient()
 
   // Top-Level ETS View Mode
-  const [activeView, setActiveView] = useState<ETSViewMode>('HUB')
+  const [activeView, setActiveView] = useState<ETSViewMode>(initialView)
 
   // Create Trip Step (1: Vehicle, 2: Shift & Office, 3: Employees, 4: Manifest)
   const [step, setStep] = useState<1 | 2 | 3 | 4>(1)
@@ -337,7 +339,7 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
   // Reset form when modal opens
   useEffect(() => {
     if (isOpen) {
-      setActiveView('HUB')
+      setActiveView(initialView)
       setStep(1)
       setVehicleChoice(null)
       setShiftType('LOGIN')
@@ -350,7 +352,7 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
         { name: '', phone: '', address: '', lat: '', lng: '' },
       ])
     }
-  }, [isOpen])
+  }, [isOpen, initialView])
 
   // Get active office details
   const currentOffice = useMemo(() => {

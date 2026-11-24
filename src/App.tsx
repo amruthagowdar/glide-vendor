@@ -4,6 +4,7 @@ import { useAuth } from './contexts/AuthContext'
 import { AppLayout } from './components/layout/AppLayout'
 import { LoginPage } from './pages/LoginPage'
 import { DashboardPage } from './pages/DashboardPage'
+import { ETSDashboardPage } from './pages/ETSDashboardPage'
 import { TripsPage } from './pages/TripsPage'
 import { DriversPage } from './pages/DriversPage'
 import { VehiclesPage } from './pages/VehiclesPage'
@@ -40,6 +41,7 @@ export const App: React.FC = () => {
         }
       >
         <Route index element={<DashboardPage />} />
+        <Route path="ets" element={<ETSDashboardPage />} />
         <Route path="trips" element={<TripsPage />} />
         <Route path="drivers" element={<DriversPage />} />
         <Route path="vehicles" element={<VehiclesPage />} />

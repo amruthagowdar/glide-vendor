@@ -16,7 +16,6 @@ import { StatCard, LoadingState } from '../components/ui/LoadingState'
 import { StatusBadge, TransactionBadge } from '../components/ui/StatusBadge'
 import { DataTable } from '../components/ui/DataTable'
 import { CreateTripModal } from '../components/trips/CreateTripModal'
-import { CreateETSTripModal } from '../components/trips/CreateETSTripModal'
 import { RechargeModal } from '../components/wallet/RechargeModal'
 import { DriverModal } from '../components/drivers/DriverModal'
 import { TripDetailDrawer } from '../components/trips/TripDetailDrawer'
@@ -26,7 +25,6 @@ import type { DashboardData, Trip, WalletTransaction, ServiceType } from '../typ
 export const DashboardPage: React.FC = () => {
   const navigate = useNavigate()
   const [createTripOpen, setCreateTripOpen] = useState(false)
-  const [createETSTripOpen, setCreateETSTripOpen] = useState(false)
   const [rechargeOpen, setRechargeOpen] = useState(false)
   const [addDriverOpen, setAddDriverOpen] = useState(false)
   const [tripServiceType, setTripServiceType] = useState<ServiceType | undefined>(undefined)
@@ -149,7 +147,7 @@ export const DashboardPage: React.FC = () => {
             <span>Rent A Cab</span>
           </button>
           <button
-            onClick={() => setCreateETSTripOpen(true)}
+            onClick={() => navigate('/ets')}
             className="btn-primary text-xs sm:text-sm flex items-center gap-1.5"
           >
             <Building2 className="w-4 h-4" />
@@ -352,15 +350,6 @@ export const DashboardPage: React.FC = () => {
         onClose={() => setCreateTripOpen(false)}
         onOpenRechargeModal={() => {
           setCreateTripOpen(false)
-          setRechargeOpen(true)
-        }}
-      />
-
-      <CreateETSTripModal
-        isOpen={createETSTripOpen}
-        onClose={() => setCreateETSTripOpen(false)}
-        onOpenRechargeModal={() => {
-          setCreateETSTripOpen(false)
           setRechargeOpen(true)
         }}
       />

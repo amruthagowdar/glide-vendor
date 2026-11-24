@@ -1,12 +1,11 @@
 import React, { useState } from 'react'
 import { useQuery } from '@tanstack/react-query'
-import { useSearchParams } from 'react-router-dom'
+import { useSearchParams, useNavigate } from 'react-router-dom'
 import { PlusCircle, Filter, Download, Building2, Car } from 'lucide-react'
 import { vendorApi } from '../lib/api'
 import { DataTable, Pagination } from '../components/ui/DataTable'
 import { StatusBadge, PaymentBadge } from '../components/ui/StatusBadge'
 import { CreateTripModal } from '../components/trips/CreateTripModal'
-import { CreateETSTripModal } from '../components/trips/CreateETSTripModal'
 import { RechargeModal } from '../components/wallet/RechargeModal'
 import { TripDetailDrawer } from '../components/trips/TripDetailDrawer'
 import { formatCurrency, formatDateTime } from '../lib/utils'
@@ -25,11 +24,11 @@ const STATUSES: TripStatus[] = [
 ]
 
 export const TripsPage: React.FC = () => {
+  const navigate = useNavigate()
   const [searchParams, setSearchParams] = useSearchParams()
   const [createModalOpen, setCreateModalOpen] = useState(
     searchParams.get('action') === 'create'
   )
-  const [createETSTripOpen, setCreateETSTripOpen] = useState(false)
   const [rechargeModalOpen, setRechargeModalOpen] = useState(false)
   const [selectedTrip, setSelectedTrip] = useState<Trip | null>(null)
 
@@ -95,11 +94,11 @@ export const TripsPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <button
-            onClick={() => setCreateETSTripOpen(true)}
+            onClick={() => navigate('/ets')}
             className="btn-primary text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm"
           >
             <Building2 className="w-4 h-4" />
-            <span>Create ETS Trip</span>
+            <span>ETS</span>
           </button>
           <button
             onClick={() => setCreateModalOpen(true)}
@@ -302,15 +301,6 @@ export const TripsPage: React.FC = () => {
         }}
         onOpenRechargeModal={() => {
           setCreateModalOpen(false)
-          setRechargeModalOpen(true)
-        }}
-      />
-
-      <CreateETSTripModal
-        isOpen={createETSTripOpen}
-        onClose={() => setCreateETSTripOpen(false)}
-        onOpenRechargeModal={() => {
-          setCreateETSTripOpen(false)
           setRechargeModalOpen(true)
         }}
       />
