@@ -1,5 +1,6 @@
-import React, { useState, useEffect, useMemo } from 'react'
+import React, { useState, useEffect, useMemo, useRef } from 'react'
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import * as XLSX from 'xlsx'
 import toast from 'react-hot-toast'
 import { Modal } from '../ui/Modal'
 import { LocationMapModal } from './LocationMapModal'
@@ -34,6 +35,8 @@ import {
   ChevronRight,
   Briefcase,
   Lock,
+  FileSpreadsheet,
+  UploadCloud,
 } from 'lucide-react'
 
 export interface CorporateEmployee {
@@ -235,6 +238,171 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
     setNewEmpName('')
     setNewEmpPhone('')
     setNewEmpAddress('')
+  }
+
+  // Bulk Excel Upload state for Auto Routing & Employee Log
+  const [excelPreviewList, setExcelPreviewList] = useState<CorporateEmployee[]>([])
+  const [excelFileName, setExcelFileName] = useState<string>('')
+  const fileInputRef = useRef<HTMLInputElement>(null)
+
+  const handleDownloadTemplate = () => {
+    try {
+      const sampleData = [
+        {
+          'Employee Name': 'Ramesh Rao',
+          'Contact Number': '+91 98450 12345',
+          'Company Office': 'Atharva Tech Hub (Electronic City)',
+          'Department': 'Engineering',
+          'Home Address': 'Flat 204, Green Glen Layout, Bellandur, Bengaluru',
+          'Latitude': 12.9298,
+          'Longitude': 77.6743,
+        },
+        {
+          'Employee Name': 'Sneha Hegde',
+          'Contact Number': '+91 98451 23456',
+          'Company Office': 'Atharva Tech Hub (Electronic City)',
+          'Department': 'Operations',
+          'Home Address': '#45, 14th Main, HSR Layout Sector 4, Bengaluru',
+          'Latitude': 12.911,
+          'Longitude': 77.6385,
+        },
+        {
+          'Employee Name': 'Arjun Mehta',
+          'Contact Number': '+91 98452 34567',
+          'Company Office': 'Atharva Tech Hub (Electronic City)',
+          'Department': 'Product',
+          'Home Address': 'A-102, Salarpuria Greenage, Bommanahalli, Bengaluru',
+          'Latitude': 12.9056,
+          'Longitude': 77.6254,
+        },
+      ]
+      const ws = XLSX.utils.json_to_sheet(sampleData)
+      const wb = XLSX.utils.book_new()
+      XLSX.utils.book_append_sheet(wb, ws, 'Employees')
+      XLSX.writeFile(wb, 'ETS_Employee_Roster_Template.xlsx')
+      toast.success('Downloaded Employee Roster Excel Template')
+    } catch (err) {
+      console.error(err)
+      toast.error('Failed to generate template')
+    }
+  }
+
+  const handleExcelUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    const reader = new FileReader()
+    reader.onload = (evt) => {
+      try {
+        const data = new Uint8Array(evt.target?.result as ArrayBuffer)
+        const workbook = XLSX.read(data, { type: 'array' })
+        const firstSheetName = workbook.SheetNames[0]
+        const worksheet = workbook.Sheets[firstSheetName]
+        const rawRows = XLSX.utils.sheet_to_json<any>(worksheet)
+
+        if (!rawRows || rawRows.length === 0) {
+          toast.error('The uploaded Excel sheet contains no rows')
+          return
+        }
+
+        const parsed: CorporateEmployee[] = rawRows
+          .map((row: any, index: number) => {
+            const name =
+              row['Employee Name'] ||
+              row['employee name'] ||
+              row['Name'] ||
+              row['name'] ||
+              row['Employee'] ||
+              `Employee ${index + 1}`
+
+            const phone = String(
+              row['Contact Number'] ||
+                row['contact number'] ||
+                row['Phone'] ||
+                row['phone'] ||
+                row['Mobile'] ||
+                row['mobile'] ||
+                ''
+            ).trim()
+
+            const address =
+              row['Home Address'] ||
+              row['home address'] ||
+              row['Address'] ||
+              row['address'] ||
+              row['Location'] ||
+              'Bengaluru, Karnataka'
+
+            const company =
+              row['Company Office'] ||
+              row['company office'] ||
+              row['Company'] ||
+              row['company'] ||
+              currentOffice.name
+
+            const department =
+              row['Department'] ||
+              row['department'] ||
+              row['Dept'] ||
+              'Operations'
+
+            const lat =
+              Number(row['Latitude'] || row['latitude'] || row['Lat'] || row['lat']) ||
+              12.9716
+
+            const lng =
+              Number(row['Longitude'] || row['longitude'] || row['Lng'] || row['lng'] || row['Long']) ||
+              77.5946
+
+            return {
+              id: `emp-excel-${Date.now()}-${index}`,
+              name: String(name).trim(),
+              phone: String(phone).trim(),
+              address: String(address).trim(),
+              company: String(company).trim(),
+              department: String(department).trim(),
+              lat,
+              lng,
+            }
+          })
+          .filter((emp) => emp.name.length > 0)
+
+        setExcelPreviewList(parsed)
+        setExcelFileName(file.name)
+        toast.success(`Parsed ${parsed.length} employee records from ${file.name}`)
+      } catch (err) {
+        console.error(err)
+        toast.error('Failed to parse Excel file. Please use a valid .xlsx, .xls, or .csv file.')
+      }
+    }
+    reader.readAsArrayBuffer(file)
+  }
+
+  const handleCommitExcelUpload = () => {
+    if (excelPreviewList.length === 0) return
+
+    setDirectory((prev) => {
+      const existingPhones = new Set(prev.map((e) => e.phone.replace(/\D/g, '')).filter(Boolean))
+      const existingNames = new Set(prev.map((e) => e.name.toLowerCase().trim()))
+
+      const toAdd = excelPreviewList.filter(
+        (e) =>
+          (!e.phone || !existingPhones.has(e.phone.replace(/\D/g, ''))) &&
+          !existingNames.has(e.name.toLowerCase().trim())
+      )
+
+      const updated = [...toAdd, ...prev]
+      try {
+        localStorage.setItem('ETS_SAVED_EMPLOYEES', JSON.stringify(updated))
+      } catch {}
+
+      toast.success(`Successfully uploaded and saved ${toAdd.length} employees to Employee Log!`)
+      return updated
+    })
+
+    setExcelPreviewList([])
+    setExcelFileName('')
+    setActiveView('EMPLOYEE_LOG')
   }
 
   // Sync slots count when vehicle choice changes
@@ -813,6 +981,14 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                 <div className="flex items-center gap-2">
                   <button
                     type="button"
+                    onClick={() => setActiveView('ROUTING_RULES')}
+                    className="btn-secondary text-xs flex items-center gap-1.5 font-semibold text-emerald-800 border-emerald-200 hover:bg-emerald-50"
+                  >
+                    <FileSpreadsheet className="w-3.5 h-3.5 text-emerald-600" />
+                    <span>Upload Excel</span>
+                  </button>
+                  <button
+                    type="button"
                     onClick={() => setIsAddingNewEmp(!isAddingNewEmp)}
                     className="btn-secondary text-xs flex items-center gap-1 font-semibold"
                   >
@@ -925,41 +1101,59 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
 
               {/* Employee Directory List */}
               <div className="max-h-[50vh] overflow-y-auto space-y-2 pr-1">
-                {filteredLogEmployees.map((emp) => (
-                  <div
-                    key={emp.id}
-                    className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-300 hover:shadow-sm transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
-                  >
-                    <div className="flex items-start gap-3 min-w-0">
-                      <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center flex-shrink-0">
-                        {emp.name.charAt(0)}
-                      </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2">
-                          <p className="font-bold text-xs text-slate-900 truncate">{emp.name}</p>
-                          <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
-                            {emp.department || 'Operations'}
-                          </span>
-                          <span className="text-[9px] font-bold text-emerald-700 flex items-center gap-0.5">
-                            <CheckCircle2 className="w-2.5 h-2.5" />
-                            <span>Verified</span>
-                          </span>
-                        </div>
-                        <p className="text-[11px] text-slate-500 font-mono mt-0.5">{emp.phone}</p>
-                        <p className="text-[11px] text-slate-600 truncate mt-0.5">{emp.address}</p>
-                      </div>
-                    </div>
-
-                    <div className="text-right sm:self-center flex-shrink-0">
-                      <span className="text-[10px] font-semibold text-slate-700 block truncate max-w-[160px]">
-                        {emp.company}
-                      </span>
-                      <span className="text-[10px] font-mono text-slate-400 block mt-0.5">
-                        Geo: {emp.lat.toFixed(4)}, {emp.lng.toFixed(4)}
-                      </span>
-                    </div>
+                {filteredLogEmployees.length === 0 ? (
+                  <div className="p-8 text-center bg-slate-50/70 rounded-xl border border-dashed border-slate-200">
+                    <Users className="w-8 h-8 text-slate-300 mx-auto mb-2" />
+                    <p className="text-xs font-bold text-slate-700">No corporate employees in log yet</p>
+                    <p className="text-[11px] text-slate-400 mt-1 max-w-sm mx-auto">
+                      Upload an employee Excel sheet in Auto Routing, or add an employee manually using the button above.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => setActiveView('ROUTING_RULES')}
+                      className="btn-accent text-xs font-semibold mt-3 px-3.5 py-1.5 inline-flex items-center gap-1.5"
+                    >
+                      <FileSpreadsheet className="w-3.5 h-3.5" />
+                      <span>Upload Employee Excel</span>
+                    </button>
                   </div>
-                ))}
+                ) : (
+                  filteredLogEmployees.map((emp) => (
+                    <div
+                      key={emp.id}
+                      className="p-3.5 rounded-xl border border-slate-200 bg-white hover:border-emerald-300 hover:shadow-sm transition-all flex flex-col sm:flex-row sm:items-center justify-between gap-2.5"
+                    >
+                      <div className="flex items-start gap-3 min-w-0">
+                        <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center flex-shrink-0">
+                          {emp.name.charAt(0)}
+                        </div>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-2">
+                            <p className="font-bold text-xs text-slate-900 truncate">{emp.name}</p>
+                            <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-slate-100 text-slate-600">
+                              {emp.department || 'Operations'}
+                            </span>
+                            <span className="text-[9px] font-bold text-emerald-700 flex items-center gap-0.5">
+                              <CheckCircle2 className="w-2.5 h-2.5" />
+                              <span>Verified</span>
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-500 font-mono mt-0.5">{emp.phone}</p>
+                          <p className="text-[11px] text-slate-600 truncate mt-0.5">{emp.address}</p>
+                        </div>
+                      </div>
+
+                      <div className="text-right sm:self-center flex-shrink-0">
+                        <span className="text-[10px] font-semibold text-slate-700 block truncate max-w-[160px]">
+                          {emp.company}
+                        </span>
+                        <span className="text-[10px] font-mono text-slate-400 block mt-0.5">
+                          Geo: {emp.lat.toFixed(4)}, {emp.lng.toFixed(4)}
+                        </span>
+                      </div>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -977,6 +1171,124 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                 <p className="text-xs text-slate-500 mt-0.5">
                   Automated checks enforced on every employee transport shift across Bangalore.
                 </p>
+              </div>
+
+              {/* Bulk Excel Upload Section for Auto Routing */}
+              <div className="p-4 sm:p-5 rounded-2xl bg-gradient-to-br from-amber-50/90 via-white to-sky-50/90 border-2 border-amber-300/90 shadow-sm space-y-4">
+                <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div>
+                    <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full bg-amber-200 text-amber-900 font-mono">
+                      Bulk Import
+                    </span>
+                    <h4 className="text-sm sm:text-base font-bold text-slate-900 mt-1 flex items-center gap-2">
+                      <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+                      <span>Upload Employee Excel for Auto Routing & Log</span>
+                    </h4>
+                    <p className="text-xs text-slate-500 mt-0.5">
+                      Upload an Excel or CSV file to bulk import employees directly into the <strong>Employee Log</strong> and auto-cluster their shifts.
+                    </p>
+                  </div>
+
+                  <button
+                    type="button"
+                    onClick={handleDownloadTemplate}
+                    className="btn-secondary text-xs font-semibold flex items-center gap-1.5 self-start sm:self-center shrink-0 border-amber-200 hover:bg-amber-50 text-slate-800"
+                  >
+                    <Download className="w-3.5 h-3.5 text-amber-700" />
+                    <span>Download Excel Template</span>
+                  </button>
+                </div>
+
+                {/* File Upload Dropzone */}
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  className="border-2 border-dashed border-amber-300 hover:border-amber-500 bg-white/90 hover:bg-amber-50/50 rounded-xl p-5 text-center cursor-pointer transition-all flex flex-col items-center justify-center gap-2 group"
+                >
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept=".xlsx, .xls, .csv"
+                    className="hidden"
+                    onChange={handleExcelUpload}
+                  />
+                  <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-800 flex items-center justify-center group-hover:scale-105 transition-transform">
+                    <UploadCloud className="w-5 h-5 text-amber-700" />
+                  </div>
+                  <div>
+                    <p className="text-xs font-bold text-slate-800">
+                      Click to browse or drag & drop Employee Excel File
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Supports .xlsx, .xls, and .csv (Columns: Employee Name, Phone, Address, Lat, Lng, Company)
+                    </p>
+                  </div>
+                </div>
+
+                {/* Parsed Excel Records Preview */}
+                {excelPreviewList.length > 0 && (
+                  <div className="p-3.5 rounded-xl bg-white border border-slate-200 space-y-3 shadow-sm animate-in fade-in duration-150">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2">
+                        <FileSpreadsheet className="w-4 h-4 text-emerald-700" />
+                        <span className="text-xs font-bold text-slate-900">{excelFileName}</span>
+                        <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-mono">
+                          {excelPreviewList.length} Employees Found
+                        </span>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExcelPreviewList([])
+                          setExcelFileName('')
+                        }}
+                        className="text-xs text-slate-400 hover:text-rose-600 font-semibold"
+                      >
+                        Clear
+                      </button>
+                    </div>
+
+                    <div className="max-h-40 overflow-y-auto border border-slate-100 rounded-lg text-xs divide-y divide-slate-100">
+                      {excelPreviewList.slice(0, 5).map((emp, i) => (
+                        <div key={i} className="p-2 flex items-center justify-between gap-2">
+                          <div className="min-w-0">
+                            <span className="font-bold text-slate-900">{emp.name}</span>
+                            <span className="text-slate-500 font-mono text-[11px] ml-2">{emp.phone}</span>
+                            <p className="text-[11px] text-slate-600 truncate">{emp.address}</p>
+                          </div>
+                          <span className="text-[10px] font-mono text-slate-400 shrink-0">
+                            ({emp.lat.toFixed(4)}, {emp.lng.toFixed(4)})
+                          </span>
+                        </div>
+                      ))}
+                      {excelPreviewList.length > 5 && (
+                        <div className="p-1.5 text-center text-[11px] text-slate-500 font-semibold bg-slate-50">
+                          + {excelPreviewList.length - 5} more employees in sheet
+                        </div>
+                      )}
+                    </div>
+
+                    <div className="flex items-center justify-end gap-2 pt-1">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setExcelPreviewList([])
+                          setExcelFileName('')
+                        }}
+                        className="btn-secondary text-xs px-3 py-1.5"
+                      >
+                        Cancel
+                      </button>
+                      <button
+                        type="button"
+                        onClick={handleCommitExcelUpload}
+                        className="btn-accent text-xs font-bold px-4 py-2 flex items-center gap-1.5 shadow-sm"
+                      >
+                        <Check className="w-3.5 h-3.5" />
+                        <span>Save & View in Employee Log ({excelPreviewList.length})</span>
+                      </button>
+                    </div>
+                  </div>
+                )}
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3.5">
