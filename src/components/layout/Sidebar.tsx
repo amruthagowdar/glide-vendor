@@ -165,7 +165,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
               You are leaving me, {user?.name || 'Harish'}?
             </h3>
             <p className="text-slate-600 text-sm mb-6 leading-relaxed">
-              You are leaving me? plz come back soon <span className="font-bold text-slate-900">{user?.name || 'Harish'}</span>!
+              Plz come back soon
             </p>
             <div className="grid grid-cols-2 gap-3">
               <button
