@@ -845,27 +845,6 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                     </select>
                     <ChevronDown className="w-4 h-4 text-slate-500 absolute right-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
                   </div>
-                  {/* Quick selection pills to directly view and select either type */}
-                  <div className="flex items-center gap-2 mt-2">
-                    {VEHICLE_CATEGORY_TYPES[vehicleCategory].map((type) => {
-                      const isSelected = vehicleType === type
-                      return (
-                        <button
-                          key={type}
-                          type="button"
-                          onClick={() => setVehicleType(type)}
-                          className={`flex-1 py-1.5 px-3 rounded-lg text-xs font-bold border transition-all flex items-center justify-center gap-1.5 ${
-                            isSelected
-                              ? 'bg-sky-600 text-white border-sky-600 shadow-sm ring-1 ring-sky-500/20'
-                              : 'bg-slate-50 text-slate-600 border-slate-200 hover:bg-slate-100 hover:text-slate-800'
-                          }`}
-                        >
-                          {isSelected && <Check className="w-3.5 h-3.5 text-white stroke-[2.5]" />}
-                          <span>{type}</span>
-                        </button>
-                      )
-                    })}
-                  </div>
                 </div>
               </div>
 
