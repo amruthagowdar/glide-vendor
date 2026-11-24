@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react'
 import { useQuery } from '@tanstack/react-query'
 import {
+  Download,
   FileSpreadsheet,
   Calendar,
   Search,
@@ -229,18 +230,6 @@ export const ReportsPage: React.FC = () => {
               title="End Date"
             />
           </div>
-
-          {/* Export Monthly Report Buttons */}
-          <div className="flex items-center gap-1.5">
-            <button
-              onClick={handleExport}
-              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
-              title="Download monthly trips report as Excel (.xlsx)"
-            >
-              <FileSpreadsheet className="w-4 h-4 text-emerald-200" />
-              <span>Install Report (.xlsx)</span>
-            </button>
-          </div>
         </div>
       </div>
 
@@ -270,15 +259,15 @@ export const ReportsPage: React.FC = () => {
             </div>
           </div>
 
-          {/* Direct Download Buttons */}
+          {/* Direct Download Button */}
           <div className="flex items-center gap-2">
             <button
               onClick={handleExport}
-              className="px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
+              className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 text-white text-xs font-semibold flex items-center gap-1.5 shadow-sm transition"
               title="Download final report as Excel (.xlsx)"
             >
-              <FileSpreadsheet className="w-4 h-4" />
-              <span>Download Excel Report (.xlsx)</span>
+              <Download className="w-4 h-4" />
+              <span>Download</span>
             </button>
           </div>
         </div>
