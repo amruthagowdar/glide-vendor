@@ -19,306 +19,37 @@ const DEMO_USER: User = {
   companyName: 'Atharva Travels',
 }
 
-const INITIAL_DRIVERS: Driver[] = [
-  {
-    id: 'drv_01',
-    name: 'Rajesh Kumar',
-    phone: '+91 98451 23456',
-    licenseNo: 'KA-04-2018-00912',
-    isActive: true,
-    vehicleId: 'veh_01',
-    vehicleRegNo: 'KA-04-ME-1122',
-    vehicleModel: 'Toyota Innova Crysta',
-    activeTrips: 1,
-    companyId: 'cmp_atharva_travels',
-    createdAt: '2026-01-10T08:00:00Z',
-  },
-  {
-    id: 'drv_02',
-    name: 'Suresh Patil',
-    phone: '+91 98452 34567',
-    licenseNo: 'KA-01-2019-01824',
-    isActive: true,
-    vehicleId: 'veh_02',
-    vehicleRegNo: 'KA-01-AB-3344',
-    vehicleModel: 'Maruti Suzuki Dzire',
-    activeTrips: 0,
-    companyId: 'cmp_atharva_travels',
-    createdAt: '2026-02-15T09:00:00Z',
-  },
-  {
-    id: 'drv_03',
-    name: 'Manjunath Gowda',
-    phone: '+91 98453 45678',
-    licenseNo: 'KA-51-2020-03211',
-    isActive: true,
-    vehicleId: 'veh_03',
-    vehicleRegNo: 'KA-51-CD-5566',
-    vehicleModel: 'Maruti Suzuki Ertiga',
-    activeTrips: 1,
-    companyId: 'cmp_atharva_travels',
-    createdAt: '2026-03-01T10:00:00Z',
-  },
-  {
-    id: 'drv_04',
-    name: 'Anand Kumar',
-    phone: '+91 98454 56789',
-    licenseNo: 'KA-05-2021-04192',
-    isActive: true,
-    vehicleId: 'veh_04',
-    vehicleRegNo: 'KA-05-EF-7788',
-    vehicleModel: 'Toyota Fortuner',
-    activeTrips: 0,
-    companyId: 'cmp_atharva_travels',
-    createdAt: '2026-04-12T11:00:00Z',
-  },
-  {
-    id: 'drv_05',
-    name: 'Ramesh Babu',
-    phone: '+91 98455 67890',
-    licenseNo: 'KA-02-2022-05831',
-    isActive: false,
-    companyId: 'cmp_atharva_travels',
-    createdAt: '2026-05-20T12:00:00Z',
-  },
-]
+const INITIAL_DRIVERS: Driver[] = []
 
-const INITIAL_VEHICLES: Vehicle[] = [
-  {
-    id: 'veh_01',
-    registrationNo: 'KA-04-ME-1122',
-    type: 'Prime SUV 7+1',
-    model: 'Toyota Innova Crysta',
-    capacity: 7,
-    isActive: true,
-    driverId: 'drv_01',
-    driverName: 'Rajesh Kumar',
-    companyId: 'cmp_atharva_travels',
-    createdAt: '2026-01-10T08:00:00Z',
-  },
-  {
-    id: 'veh_02',
-    registrationNo: 'KA-01-AB-3344',
-    type: 'Sedan 4+1',
-    model: 'Maruti Suzuki Dzire',
-    capacity: 4,
-    isActive: true,
-    driverId: 'drv_02',
-    driverName: 'Suresh Patil',
-    companyId: 'cmp_atharva_travels',
-    createdAt: '2026-02-15T09:00:00Z',
-  },
-  {
-    id: 'veh_03',
-    registrationNo: 'KA-51-CD-5566',
-    type: 'SUV 6+1',
-    model: 'Maruti Suzuki Ertiga',
-    capacity: 6,
-    isActive: true,
-    driverId: 'drv_03',
-    driverName: 'Manjunath Gowda',
-    companyId: 'cmp_atharva_travels',
-    createdAt: '2026-03-01T10:00:00Z',
-  },
-  {
-    id: 'veh_04',
-    registrationNo: 'KA-05-EF-7788',
-    type: 'Prime SUV 7+1',
-    model: 'Toyota Fortuner',
-    capacity: 7,
-    isActive: true,
-    driverId: 'drv_04',
-    driverName: 'Anand Kumar',
-    companyId: 'cmp_atharva_travels',
-    createdAt: '2026-04-12T11:00:00Z',
-  },
-  {
-    id: 'veh_05',
-    registrationNo: 'KA-03-GH-9900',
-    type: 'Prime Sedan 4+1',
-    model: 'Honda City',
-    capacity: 4,
-    isActive: true,
-    companyId: 'cmp_atharva_travels',
-    createdAt: '2026-06-01T10:00:00Z',
-  },
-]
+const INITIAL_VEHICLES: Vehicle[] = []
 
-const INITIAL_TRIPS: Trip[] = [
-  {
-    id: 'trip_01',
-    tripNo: 'TRP-849201',
-    serviceType: 'RAC',
-    passengerName: 'Kavitha Hegde',
-    passengerPhone: '+91 98450 11223',
-    pickup: 'Kempegowda Intl Airport - Terminal 1 (T1)',
-    drop: 'Indiranagar 100ft Road, Bengaluru',
-    scheduledDate: '2026-11-24',
-    scheduledTime: '10:30',
-    driverId: 'drv_01',
-    driverName: 'Rajesh Kumar',
-    vehicleId: 'veh_01',
-    vehicleRegNo: 'KA-04-ME-1122',
-    tripAmount: 1350,
-    commissionRate: 0.15,
-    commissionAmount: 202.5,
-    driverPayable: 1137.5,
-    tripStatus: 'IN_PROGRESS',
-    paymentStatus: 'PAID',
-    notes: '[Vehicle: Sedan 4+1] Flight 6E-204 arrived on time',
-    createdAt: '2026-11-24T04:30:00Z',
-    updatedAt: '2026-11-24T05:00:00Z',
-  },
-  {
-    id: 'trip_02',
-    tripNo: 'TRP-849202',
-    serviceType: 'RAC',
-    passengerName: 'Nitin Sharma',
-    passengerPhone: '+91 98451 99887',
-    pickup: 'Koramangala 4th Block, Bengaluru',
-    drop: 'Kempegowda Intl Airport - Terminal 2 (T2)',
-    scheduledDate: '2026-11-24',
-    scheduledTime: '13:00',
-    driverId: 'drv_03',
-    driverName: 'Manjunath Gowda',
-    vehicleId: 'veh_03',
-    vehicleRegNo: 'KA-51-CD-5566',
-    tripAmount: 1450,
-    commissionRate: 0.15,
-    commissionAmount: 217.5,
-    driverPayable: 1222.5,
-    tripStatus: 'CONFIRMED',
-    paymentStatus: 'PAID',
-    notes: '[Vehicle: Prime Sedan 4+1] Terminal 2 International Departure',
-    createdAt: '2026-11-24T04:45:00Z',
-    updatedAt: '2026-11-24T04:45:00Z',
-  },
-  {
-    id: 'trip_03',
-    tripNo: 'TRP-849198',
-    serviceType: 'RAC',
-    passengerName: 'Amit Saxena',
-    passengerPhone: '+91 98450 77665',
-    pickup: 'Kempegowda Intl Airport - Terminal 1 (T1)',
-    drop: 'Whitefield ITPL Main Road, Bengaluru',
-    scheduledDate: '2026-11-24',
-    scheduledTime: '08:15',
-    driverId: 'drv_02',
-    driverName: 'Suresh Patil',
-    vehicleId: 'veh_02',
-    vehicleRegNo: 'KA-01-AB-3344',
-    tripAmount: 1480,
-    commissionRate: 0.15,
-    commissionAmount: 222,
-    driverPayable: 1248,
-    tripStatus: 'COMPLETED',
-    paymentStatus: 'PAID',
-    notes: '[Vehicle: Sedan 4+1] Completed successfully',
-    createdAt: '2026-11-24T02:00:00Z',
-    updatedAt: '2026-11-24T03:30:00Z',
-  },
-  {
-    id: 'trip_04',
-    tripNo: 'TRP-849185',
-    serviceType: 'OUTSTATION',
-    passengerName: 'Deepak Rao',
-    passengerPhone: '+91 98450 55443',
-    pickup: 'Jayanagar 4th Block, Bengaluru',
-    drop: 'Mysuru Palace, Mysuru',
-    scheduledDate: '2026-11-25',
-    scheduledTime: '06:00',
-    tripAmount: 4200,
-    commissionRate: 0.15,
-    commissionAmount: 630,
-    driverPayable: 3560,
-    tripStatus: 'PENDING',
-    paymentStatus: 'PAID',
-    notes: '[Vehicle: SUV 6+1] Weekend round-trip booking',
-    createdAt: '2026-11-24T05:00:00Z',
-    updatedAt: '2026-11-24T05:00:00Z',
-  },
-]
+const INITIAL_TRIPS: Trip[] = []
 
-const INITIAL_TRANSACTIONS: WalletTransaction[] = [
-  {
-    id: 'tx_01',
-    type: 'CREDIT',
-    amount: 10000,
-    previousBalance: 14850,
-    newBalance: 24850,
-    description: 'Vendor Prepaid Wallet Topup (Razorpay #pay_Nx812903)',
-    reference: 'pay_Nx812903',
-    createdAt: '2026-11-24T03:00:00Z',
-  },
-  {
-    id: 'tx_02',
-    type: 'DEBIT',
-    amount: 1350,
-    previousBalance: 16200,
-    newBalance: 14850,
-    description: 'Booking Advance Escrow for TRP-849201 (BLR Airport Pickup)',
-    reference: 'TRP-849201',
-    relatedTripId: 'trip_01',
-    createdAt: '2026-11-24T04:30:00Z',
-  },
-  {
-    id: 'tx_03',
-    type: 'DEBIT',
-    amount: 1450,
-    previousBalance: 17650,
-    newBalance: 16200,
-    description: 'Booking Advance Escrow for TRP-849202 (BLR Airport Drop T2)',
-    reference: 'TRP-849202',
-    relatedTripId: 'trip_02',
-    createdAt: '2026-11-24T04:45:00Z',
-  },
-  {
-    id: 'tx_04',
-    type: 'CREDIT',
-    amount: 5000,
-    previousBalance: 12650,
-    newBalance: 17650,
-    description: 'Weekly Fleet Operations Bonus Credited',
-    reference: 'SYS_BONUS_W47',
-    createdAt: '2026-11-23T18:00:00Z',
-  },
-]
+const INITIAL_TRANSACTIONS: WalletTransaction[] = []
 
-const INITIAL_NOTIFICATIONS: Notification[] = [
-  {
-    id: 'notif_01',
-    title: 'Airport Booking Dispatched',
-    message: 'Rajesh Kumar assigned to Kempegowda Terminal 1 pickup for Kavitha Hegde.',
-    type: 'TRIP',
-    isRead: false,
-    relatedEntity: 'TRIP',
-    relatedId: 'trip_01',
-    createdAt: '2026-11-24T04:35:00Z',
-  },
-  {
-    id: 'notif_02',
-    title: 'Prepaid Wallet Recharged',
-    message: '₹10,000 added successfully via Razorpay. Current balance: ₹24,850.',
-    type: 'WALLET',
-    isRead: false,
-    relatedEntity: 'WALLET',
-    createdAt: '2026-11-24T03:00:00Z',
-  },
-  {
-    id: 'notif_03',
-    title: 'Low Fare Minimum Enforced',
-    message: 'Airport Transfer minimum ₹1,200 rule applied successfully across bookings.',
-    type: 'SYSTEM',
-    isRead: true,
-    createdAt: '2026-11-23T20:00:00Z',
-  },
-]
+const INITIAL_NOTIFICATIONS: Notification[] = []
 
 // State persistence in LocalStorage
 function getStored<T>(key: string, fallback: T): T {
   try {
     const val = localStorage.getItem(key)
-    return val ? JSON.parse(val) : fallback
+    if (!val) return fallback
+    const parsed = JSON.parse(val)
+    if (Array.isArray(parsed)) {
+      return parsed.filter((item: any) => {
+        if (!item || !item.id) return false
+        const id = String(item.id)
+        return (
+          !id.startsWith('drv_0') &&
+          !id.startsWith('veh_0') &&
+          !id.startsWith('trip_0') &&
+          !id.startsWith('tx_0') &&
+          !id.startsWith('notif_0') &&
+          !id.startsWith('shift-')
+        )
+      }) as T
+    }
+    return parsed
   } catch {
     return fallback
   }
@@ -371,7 +102,7 @@ export function getMockResponse(
   // 4. Vendor Dashboard
   if (cleanUrl.endsWith('/vendor/dashboard')) {
     const trips = getStored<Trip[]>('glide_mock_trips', INITIAL_TRIPS)
-    const walletBalance = getStored<number>('glide_mock_wallet_balance', 24850)
+    const walletBalance = getStored<number>('glide_mock_wallet_balance', 0)
     const drivers = getStored<Driver[]>('glide_mock_drivers', INITIAL_DRIVERS)
     const txs = getStored<WalletTransaction[]>('glide_mock_txs', INITIAL_TRANSACTIONS)
 
@@ -398,7 +129,7 @@ export function getMockResponse(
 
   // 5. Vendor Wallet
   if (cleanUrl.endsWith('/vendor/wallet')) {
-    const balance = getStored<number>('glide_mock_wallet_balance', 24850)
+    const balance = getStored<number>('glide_mock_wallet_balance', 0)
     const wallet: Wallet = {
       id: 'wal_atharva_01',
       balance,
@@ -593,61 +324,89 @@ export function getMockResponse(
 
   // 12. Reports
   if (cleanUrl.includes('/vendor/reports/trips')) {
+    const trips = getStored<Trip[]>('glide_mock_trips', [])
+    const completed = trips.filter((t) => t.tripStatus === 'COMPLETED')
+    const cancelled = trips.filter((t) => t.tripStatus === 'CANCELLED')
+    const totalRev = completed.reduce((sum, t) => sum + (t.tripAmount || 0), 0)
+
     return {
       status: 'success',
       data: {
-        totalTrips: 184,
-        completedTrips: 172,
-        cancelledTrips: 4,
-        totalRevenue: 284500,
+        totalTrips: trips.length,
+        completedTrips: completed.length,
+        cancelledTrips: cancelled.length,
+        totalRevenue: totalRev,
         byService: {
-          RAC: { count: 120, revenue: 168000 },
-          OUTSTATION: { count: 48, revenue: 96500 },
-          PACKAGE: { count: 16, revenue: 20000 },
+          RAC: {
+            count: trips.filter((t) => t.serviceType === 'RAC').length,
+            revenue: trips
+              .filter((t) => t.serviceType === 'RAC' && t.tripStatus === 'COMPLETED')
+              .reduce((sum, t) => sum + (t.tripAmount || 0), 0),
+          },
+          OUTSTATION: {
+            count: trips.filter((t) => t.serviceType === 'OUTSTATION').length,
+            revenue: trips
+              .filter((t) => t.serviceType === 'OUTSTATION' && t.tripStatus === 'COMPLETED')
+              .reduce((sum, t) => sum + (t.tripAmount || 0), 0),
+          },
+          PACKAGE: {
+            count: trips.filter((t) => t.serviceType === 'PACKAGE').length,
+            revenue: trips
+              .filter((t) => t.serviceType === 'PACKAGE' && t.tripStatus === 'COMPLETED')
+              .reduce((sum, t) => sum + (t.tripAmount || 0), 0),
+          },
         },
         byStatus: {
-          COMPLETED: 172,
-          CANCELLED: 4,
-          IN_PROGRESS: 5,
-          CONFIRMED: 3,
-          PENDING: 0,
-          DRIVER_ASSIGNED: 0,
-          EN_ROUTE: 0,
-          ARRIVED: 0,
+          COMPLETED: completed.length,
+          CANCELLED: cancelled.length,
+          IN_PROGRESS: trips.filter((t) => t.tripStatus === 'IN_PROGRESS').length,
+          CONFIRMED: trips.filter((t) => t.tripStatus === 'CONFIRMED').length,
+          PENDING: trips.filter((t) => t.tripStatus === 'PENDING').length,
+          DRIVER_ASSIGNED: trips.filter((t) => t.tripStatus === 'DRIVER_ASSIGNED').length,
+          EN_ROUTE: trips.filter((t) => t.tripStatus === 'EN_ROUTE').length,
+          ARRIVED: trips.filter((t) => t.tripStatus === 'ARRIVED').length,
         },
       },
     }
   }
 
   if (cleanUrl.includes('/vendor/reports/financial')) {
+    const trips = getStored<Trip[]>('glide_mock_trips', [])
+    const completed = trips.filter((t) => t.tripStatus === 'COMPLETED')
+    const totalRev = completed.reduce((sum, t) => sum + (t.tripAmount || 0), 0)
+    const totalComm = completed.reduce((sum, t) => sum + (t.commissionAmount || 0), 0)
+    const totalPayable = completed.reduce((sum, t) => sum + (t.driverPayable || 0), 0)
+
     return {
       status: 'success',
       data: {
-        totalRevenue: 284500,
-        totalCommission: 42675,
-        totalDriverPayable: 239985,
-        netEarnings: 42675,
-        byDate: [
-          { date: '19 Nov', revenue: 38000, commission: 5700, driverPayable: 32050 },
-          { date: '20 Nov', revenue: 42000, commission: 6300, driverPayable: 35430 },
-          { date: '21 Nov', revenue: 46000, commission: 6900, driverPayable: 38810 },
-          { date: '22 Nov', revenue: 49000, commission: 7350, driverPayable: 41340 },
-          { date: '23 Nov', revenue: 53000, commission: 7950, driverPayable: 44710 },
-          { date: '24 Nov', revenue: 56500, commission: 8475, driverPayable: 47645 },
-        ],
+        totalRevenue: totalRev,
+        totalCommission: totalComm,
+        totalDriverPayable: totalPayable,
+        netEarnings: totalComm,
+        byDate: [],
       },
     }
   }
 
   if (cleanUrl.includes('/vendor/reports/driver-performance')) {
+    const drivers = getStored<Driver[]>('glide_mock_drivers', [])
+    const trips = getStored<Trip[]>('glide_mock_trips', [])
     return {
       status: 'success',
-      data: [
-        { driverId: 'drv_01', driverName: 'Rajesh Kumar', totalTrips: 58, completedTrips: 56, cancelledTrips: 1, totalEarnings: 68400, rating: 4.9 },
-        { driverId: 'drv_02', driverName: 'Suresh Patil', totalTrips: 46, completedTrips: 44, cancelledTrips: 1, totalEarnings: 54200, rating: 4.8 },
-        { driverId: 'drv_03', driverName: 'Manjunath Gowda', totalTrips: 52, completedTrips: 50, cancelledTrips: 2, totalEarnings: 61800, rating: 4.9 },
-        { driverId: 'drv_04', driverName: 'Anand Kumar', totalTrips: 28, completedTrips: 27, cancelledTrips: 0, totalEarnings: 35848, rating: 4.7 },
-      ],
+      data: drivers.map((d) => {
+        const driverTrips = trips.filter((t) => t.driverId === d.id)
+        const completedTrips = driverTrips.filter((t) => t.tripStatus === 'COMPLETED')
+        return {
+          driverId: d.id,
+          driverName: d.name,
+          totalTrips: driverTrips.length,
+          completedTrips: completedTrips.length,
+          cancelledTrips: driverTrips.filter((t) => t.tripStatus === 'CANCELLED').length,
+          totalEarnings: completedTrips.reduce((sum, t) => sum + (t.driverPayable || 0), 0),
+          rating: 5.0,
+        }
+      }),
     }
   }
 

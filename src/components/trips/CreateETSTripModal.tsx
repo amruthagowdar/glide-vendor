@@ -47,88 +47,7 @@ export interface CorporateEmployee {
   department?: string
 }
 
-const DEFAULT_CORPORATE_EMPLOYEES: CorporateEmployee[] = [
-  {
-    id: 'emp-101',
-    name: 'Rahul Sharma',
-    phone: '+91 98765 43210',
-    company: 'Atharva Tech Hub',
-    address: 'Flat 302, Green Glen Layout, Bellandur, Bengaluru',
-    lat: 12.9298,
-    lng: 77.6743,
-    department: 'Engineering',
-  },
-  {
-    id: 'emp-102',
-    name: 'Priya Nair',
-    phone: '+91 98451 23456',
-    company: 'Atharva Tech Hub',
-    address: '#45, 14th Main, HSR Layout Sector 4, Bengaluru',
-    lat: 12.911,
-    lng: 77.6385,
-    department: 'Product',
-  },
-  {
-    id: 'emp-103',
-    name: 'Ananya Rao',
-    phone: '+91 99001 87654',
-    company: 'Infosys Campus',
-    address: 'Villa 12, Rainbow Drive, Sarjapur Road, Bengaluru',
-    lat: 12.9152,
-    lng: 77.689,
-    department: 'Operations',
-  },
-  {
-    id: 'emp-104',
-    name: 'Vikram Patel',
-    phone: '+91 97412 34567',
-    company: 'Manyata Embassy Tech Park',
-    address: 'A-204, Salarpuria Greenage, Bommanahalli, Hosur Rd, Bengaluru',
-    lat: 12.9056,
-    lng: 77.6254,
-    department: 'Quality Assurance',
-  },
-  {
-    id: 'emp-105',
-    name: 'Sneha Kulkarni',
-    phone: '+91 98860 11223',
-    company: 'RMZ Ecospace',
-    address: '#108, 5th Cross, Indiranagar Stage 1, Bengaluru',
-    lat: 12.978,
-    lng: 77.641,
-    department: 'Finance',
-  },
-  {
-    id: 'emp-106',
-    name: 'Karthik Sundaram',
-    phone: '+91 96112 55443',
-    company: 'Wipro SEZ Campus',
-    address: 'B-501, Mantri Tranquil, Gubbalala, Kanakapura Rd, Bengaluru',
-    lat: 12.8841,
-    lng: 77.5458,
-    department: 'Human Resources',
-  },
-  {
-    id: 'emp-107',
-    name: 'Divya Menon',
-    phone: '+91 97314 66778',
-    company: 'Prestige Tech Park',
-    address: '12B, Palm Meadows, Whitefield, Bengaluru',
-    lat: 12.9642,
-    lng: 77.7471,
-    department: 'Sales',
-  },
-  {
-    id: 'emp-108',
-    name: 'Amit Deshmukh',
-    phone: '+91 98450 99887',
-    company: 'Atharva Tech Hub',
-    address: '304, Brigade Metropolis, Garudacharpalya, Mahadevapura, Bengaluru',
-    lat: 12.9912,
-    lng: 77.7021,
-    department: 'Design',
-  },
-]
+const DEFAULT_CORPORATE_EMPLOYEES: CorporateEmployee[] = []
 
 export const CORPORATE_OFFICES = [
   {
@@ -254,10 +173,12 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
       const saved = localStorage.getItem('ETS_SAVED_EMPLOYEES')
       if (saved) {
         const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) return parsed
+        if (Array.isArray(parsed)) {
+          return parsed.filter((e) => e && e.id && !e.id.startsWith('emp-10'))
+        }
       }
     } catch {}
-    return DEFAULT_CORPORATE_EMPLOYEES
+    return []
   })
 
   // Save new directory items
@@ -529,6 +450,39 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
       return (await vendorApi.createTrip(payload)).data
     },
     onSuccess: () => {
+      // Save newly dispatched shift to ETS_DISPATCHED_SHIFTS so it appears in ETS Dashboard
+      try {
+        const requiredCount = vehicleChoice === 'SUV' ? 6 : 3
+        const activeEmployees = employees.slice(0, requiredCount)
+        const newShift = {
+          id: `ets-shift-${Date.now()}`,
+          shiftCode: `ETS-${Math.floor(100 + Math.random() * 900)}`,
+          vehicleType: vehicleChoice === 'SUV' ? 'SUV 6+1' : 'Sedan 4+1',
+          seatsUsed: requiredCount,
+          capacity: requiredCount,
+          shiftType,
+          hubName: currentOffice.name,
+          hubAddress: currentOffice.address,
+          driverName: 'Assigned Driver',
+          driverPhone: '+91 98450 00000',
+          vehicleNo: vehicleChoice === 'SUV' ? 'KA-04-MK-1192' : 'KA-01-MJ-5821',
+          status: 'BOARDING' as const,
+          currentCoords: { lat: companyOfficeCoords.lat, lng: companyOfficeCoords.lng },
+          hubCoords: { lat: companyOfficeCoords.lat, lng: companyOfficeCoords.lng },
+          stops: activeEmployees.map((emp) => ({
+            name: emp.name,
+            address: emp.address,
+            lat: Number(emp.lat) || 12.95,
+            lng: Number(emp.lng) || 77.65,
+            status: 'PENDING' as const,
+          })),
+        }
+        const existingShifts = JSON.parse(localStorage.getItem('ETS_DISPATCHED_SHIFTS') || '[]')
+        const updatedShifts = [newShift, ...existingShifts]
+        localStorage.setItem('ETS_DISPATCHED_SHIFTS', JSON.stringify(updatedShifts))
+        window.dispatchEvent(new Event('ets_shift_created'))
+      } catch {}
+
       toast.success('ETS Corporate Trip created successfully! Wallet debited.')
       queryClient.invalidateQueries({ queryKey: ['trips'] })
       queryClient.invalidateQueries({ queryKey: ['wallet'] })

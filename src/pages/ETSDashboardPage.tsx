@@ -27,7 +27,7 @@ import {
 import { CreateETSTripModal, CORPORATE_OFFICES } from '../components/trips/CreateETSTripModal'
 import { formatCurrency } from '../lib/utils'
 
-interface LiveShiftCab {
+export interface LiveShiftCab {
   id: string
   shiftCode: string
   vehicleType: 'Sedan 4+1' | 'SUV 6+1'
@@ -45,101 +45,61 @@ interface LiveShiftCab {
   stops: { name: string; address: string; lat: number; lng: number; status: 'PICKED' | 'NEXT' | 'PENDING' }[]
 }
 
-const SAMPLE_LIVE_SHIFTS: LiveShiftCab[] = [
-  {
-    id: 'shift-1',
-    shiftCode: 'ETS-801',
-    vehicleType: 'Sedan 4+1',
-    seatsUsed: 3,
-    capacity: 3,
-    shiftType: 'LOGIN',
-    hubName: 'Atharva Tech Hub (Electronic City)',
-    hubAddress: 'Atharva Towers, Hosur Rd, Electronic City Phase 1, Bengaluru',
-    driverName: 'Suresh Kumar',
-    driverPhone: '+91 98451 99011',
-    vehicleNo: 'KA-01-MJ-5821',
-    status: 'ON_ROUTE',
-    currentCoords: { lat: 12.895, lng: 77.64 },
-    hubCoords: { lat: 12.8452, lng: 77.6602 },
-    stops: [
-      { name: 'Rahul Sharma', address: 'Flat 302, Green Glen Layout, Bellandur', lat: 12.9298, lng: 77.6743, status: 'PICKED' },
-      { name: 'Priya Nair', address: '#45, 14th Main, HSR Layout Sector 4', lat: 12.911, lng: 77.6385, status: 'PICKED' },
-      { name: 'Vikram Patel', address: 'A-204, Salarpuria Greenage, Bommanahalli', lat: 12.9056, lng: 77.6254, status: 'NEXT' },
-    ],
-  },
-  {
-    id: 'shift-2',
-    shiftCode: 'ETS-802',
-    vehicleType: 'SUV 6+1',
-    seatsUsed: 6,
-    capacity: 6,
-    shiftType: 'LOGIN',
-    hubName: 'Manyata Embassy Business Park',
-    hubAddress: 'Outer Ring Rd, Nagawara, Thanisandra, Bengaluru',
-    driverName: 'Manjunath Gowda',
-    driverPhone: '+91 97411 23099',
-    vehicleNo: 'KA-04-MK-1192',
-    status: 'ON_ROUTE',
-    currentCoords: { lat: 13.015, lng: 77.61 },
-    hubCoords: { lat: 13.0475, lng: 77.6202 },
-    stops: [
-      { name: 'Sneha Kulkarni', address: '#108, 5th Cross, Indiranagar', lat: 12.978, lng: 77.641, status: 'PICKED' },
-      { name: 'Divya Menon', address: '12B, Palm Meadows, Whitefield', lat: 12.9642, lng: 77.7471, status: 'PICKED' },
-      { name: 'Amit Deshmukh', address: '304, Brigade Metropolis, Mahadevapura', lat: 12.9912, lng: 77.7021, status: 'NEXT' },
-      { name: 'Karthik S', address: 'B-501, Mantri Tranquil, Kanakapura Rd', lat: 12.8841, lng: 77.5458, status: 'PENDING' },
-      { name: 'Deepa V', address: '402, Rohan Vasantha, Marathahalli', lat: 12.9512, lng: 77.7012, status: 'PENDING' },
-      { name: 'Rohan Joshi', address: '78, 2nd Main, Kalyan Nagar', lat: 13.021, lng: 77.642, status: 'PENDING' },
-    ],
-  },
-  {
-    id: 'shift-3',
-    shiftCode: 'ETS-803',
-    vehicleType: 'Sedan 4+1',
-    seatsUsed: 3,
-    capacity: 3,
-    shiftType: 'LOGOUT',
-    hubName: 'RMZ Ecospace (Bellandur)',
-    hubAddress: 'Outer Ring Rd, Bellandur, Bengaluru',
-    driverName: 'Syed Imran',
-    driverPhone: '+91 99008 77651',
-    vehicleNo: 'KA-51-AA-4432',
-    status: 'BOARDING',
-    currentCoords: { lat: 12.926, lng: 77.6833 },
-    hubCoords: { lat: 12.926, lng: 77.6833 },
-    stops: [
-      { name: 'Ananya Rao', address: 'Villa 12, Rainbow Drive, Sarjapur Rd', lat: 12.9152, lng: 77.689, status: 'NEXT' },
-      { name: 'Naveen Kumar', address: 'B-101, SJR Redwoods, Harlur Rd', lat: 12.908, lng: 77.669, status: 'PENDING' },
-      { name: 'Pooja Hegde', address: '202, Sobha Classic, Bellandur', lat: 12.924, lng: 77.678, status: 'PENDING' },
-    ],
-  },
-  {
-    id: 'shift-4',
-    shiftCode: 'ETS-804',
-    vehicleType: 'SUV 6+1',
-    seatsUsed: 6,
-    capacity: 6,
-    shiftType: 'LOGOUT',
-    hubName: 'Infosys Campus (Gate 1)',
-    hubAddress: 'Plot No. 44, Electronic City Phase 1, Hosur Road, Bengaluru',
-    driverName: 'Ramesh Reddy',
-    driverPhone: '+91 98450 11299',
-    vehicleNo: 'KA-05-NN-8841',
-    status: 'ARRIVED',
-    currentCoords: { lat: 12.8496, lng: 77.6633 },
-    hubCoords: { lat: 12.8496, lng: 77.6633 },
-    stops: [
-      { name: 'Shreya Roy', address: 'C-302, Prestige Ferns, Koramangala', lat: 12.935, lng: 77.625, status: 'PENDING' },
-      { name: 'Arjun Das', address: 'A-104, BTM 2nd Stage, Bannerghatta Rd', lat: 12.915, lng: 77.608, status: 'PENDING' },
-      { name: 'Kavitha P', address: '55, 9th Cross, Jayanagar 4th Block', lat: 12.928, lng: 77.585, status: 'PENDING' },
-      { name: 'Siddharth M', address: '12, 100ft Rd, Indiranagar', lat: 12.978, lng: 77.641, status: 'PENDING' },
-      { name: 'Tarun V', address: '22, Outer Ring Rd, Marathahalli', lat: 12.956, lng: 77.698, status: 'PENDING' },
-      { name: 'Megha Nair', address: '88, ECC Road, Whitefield', lat: 12.971, lng: 77.745, status: 'PENDING' },
-    ],
-  },
-]
-
 export const ETSDashboardPage: React.FC = () => {
   const navigate = useNavigate()
+
+  // Real live shifts state from localStorage
+  const [liveShifts, setLiveShifts] = useState<LiveShiftCab[]>(() => {
+    try {
+      const saved = localStorage.getItem('ETS_DISPATCHED_SHIFTS')
+      if (saved) {
+        const parsed = JSON.parse(saved)
+        if (Array.isArray(parsed)) {
+          return parsed.filter(
+            (s) =>
+              s &&
+              s.id &&
+              !s.id.startsWith('shift-1') &&
+              !s.id.startsWith('shift-2') &&
+              !s.id.startsWith('shift-3') &&
+              !s.id.startsWith('shift-4')
+          )
+        }
+      }
+    } catch {}
+    return []
+  })
+
+  // Listen for newly dispatched ETS shifts
+  useEffect(() => {
+    const handleShiftUpdated = () => {
+      try {
+        const saved = localStorage.getItem('ETS_DISPATCHED_SHIFTS')
+        if (saved) {
+          const parsed = JSON.parse(saved)
+          if (Array.isArray(parsed)) {
+            setLiveShifts(
+              parsed.filter(
+                (s) =>
+                  s &&
+                  s.id &&
+                  !s.id.startsWith('shift-1') &&
+                  !s.id.startsWith('shift-2') &&
+                  !s.id.startsWith('shift-3') &&
+                  !s.id.startsWith('shift-4')
+              )
+            )
+          }
+        }
+      } catch {}
+    }
+    window.addEventListener('ets_shift_created', handleShiftUpdated)
+    window.addEventListener('storage', handleShiftUpdated)
+    return () => {
+      window.removeEventListener('ets_shift_created', handleShiftUpdated)
+      window.removeEventListener('storage', handleShiftUpdated)
+    }
+  }, [])
 
   // Modal Control
   const [isModalOpen, setIsModalOpen] = useState(false)
@@ -163,7 +123,7 @@ export const ETSDashboardPage: React.FC = () => {
   }
 
   // Filtered live shifts
-  const filteredShifts = SAMPLE_LIVE_SHIFTS.filter((shift) => {
+  const filteredShifts = liveShifts.filter((shift) => {
     if (shiftFilter !== 'ALL' && shift.shiftType !== shiftFilter) return false
     if (vehicleFilter === 'SEDAN' && !shift.vehicleType.includes('Sedan')) return false
     if (vehicleFilter === 'SUV' && !shift.vehicleType.includes('SUV')) return false
@@ -381,30 +341,6 @@ export const ETSDashboardPage: React.FC = () => {
             </button>
           </div>
         </div>
-
-        {/* Quick Shift Status Strip */}
-        <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 pt-4 mt-4 border-t border-slate-100 text-xs">
-          <div className="p-2.5 rounded-xl bg-slate-50 border border-slate-100">
-            <span className="text-[10px] font-semibold text-slate-500 uppercase">Live ETS Fleet</span>
-            <p className="text-base font-extrabold text-slate-900 mt-0.5">18 Cabs On-Duty</p>
-          </div>
-          <div className="p-2.5 rounded-xl bg-sky-50/70 border border-sky-100">
-            <span className="text-[10px] font-semibold text-sky-800 uppercase">Sedan 4+1 (3-Seater)</span>
-            <p className="text-base font-extrabold text-sky-950 mt-0.5">11 Shifts Active</p>
-          </div>
-          <div className="p-2.5 rounded-xl bg-indigo-50/70 border border-indigo-100">
-            <span className="text-[10px] font-semibold text-indigo-800 uppercase">SUV 6+1 (6-Seater)</span>
-            <p className="text-base font-extrabold text-indigo-950 mt-0.5">7 Shifts Active</p>
-          </div>
-          <div className="p-2.5 rounded-xl bg-emerald-50/70 border border-emerald-100">
-            <span className="text-[10px] font-semibold text-emerald-800 uppercase">Employees In Transit</span>
-            <p className="text-base font-extrabold text-emerald-950 mt-0.5">75 Corporate Staff</p>
-          </div>
-          <div className="p-2.5 rounded-xl bg-amber-50/70 border border-amber-100 col-span-2 sm:col-span-1">
-            <span className="text-[10px] font-semibold text-amber-800 uppercase">Escort Compliance</span>
-            <p className="text-base font-extrabold text-amber-950 mt-0.5">100% Verified ✓</p>
-          </div>
-        </div>
       </div>
 
       {/* ======================================================== */}
@@ -494,7 +430,14 @@ export const ETSDashboardPage: React.FC = () => {
 
           {/* Shift Cards List */}
           <div className="flex-1 overflow-y-auto space-y-3 pt-3 pr-1">
-            {filteredShifts.map((shift) => {
+            {filteredShifts.length === 0 ? (
+              <div className="flex flex-col items-center justify-center h-48 text-center p-4 text-slate-400">
+                <Car className="w-8 h-8 mb-2 text-slate-300" />
+                <p className="text-xs font-semibold text-slate-600">No active shift trips</p>
+                <p className="text-[11px] text-slate-400 mt-0.5">Dispatched ETS trips will appear here</p>
+              </div>
+            ) : (
+              filteredShifts.map((shift) => {
               const isSelected = selectedShift?.id === shift.id
               const isSedan = shift.vehicleType.includes('Sedan')
 
@@ -546,7 +489,8 @@ export const ETSDashboardPage: React.FC = () => {
                   </div>
                 </div>
               )
-            })}
+            })
+          )}
           </div>
 
           {/* Quick Create Shift Trigger */}
