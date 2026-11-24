@@ -80,18 +80,17 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, onOpenRechargeModal
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Wallet Frozen Pill Indicator */}
-        <button
-          onClick={() => navigate('/wallet')}
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-200 bg-slate-100/90 text-slate-600 text-xs font-semibold hover:bg-slate-200/85 transition-colors cursor-pointer"
-          title="Prepaid wallet is frozen across portal"
+        {/* Wallet Frozen Pill Indicator - Disabled / Cannot be opened */}
+        <div
+          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-300 bg-slate-100/90 text-slate-500 text-xs font-semibold select-none cursor-not-allowed shadow-none opacity-80"
+          title="Wallet is frozen and cannot be opened"
         >
           <WalletIcon className="w-3.5 h-3.5 text-slate-400" />
           <span>Wallet: {formatCurrency(balance)}</span>
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600">
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 border border-slate-300">
             Frozen
           </span>
-        </button>
+        </div>
 
         {/* Notifications Icon with Interactive Dropdown */}
         <div className="relative" ref={dropdownRef}>

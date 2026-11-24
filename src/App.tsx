@@ -41,11 +41,12 @@ export const App: React.FC = () => {
         }
       >
         <Route index element={<DashboardPage />} />
-        <Route path="ets" element={<ETSDashboardPage />} />
+        {/* ETS and Wallet routes are frozen and cannot be opened */}
+        <Route path="ets" element={<Navigate to="/" replace />} />
         <Route path="trips" element={<TripsPage />} />
         <Route path="drivers" element={<DriversPage />} />
         <Route path="vehicles" element={<VehiclesPage />} />
-        <Route path="wallet" element={<WalletPage />} />
+        <Route path="wallet" element={<Navigate to="/" replace />} />
         <Route path="notifications" element={<NotificationsPage />} />
         <Route path="reports" element={<ReportsPage />} />
       </Route>

@@ -117,9 +117,13 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
   // Step 2: Passenger, Vehicle, Route & Fare
   const [passengerName, setPassengerName] = useState('')
   const [passengerPhone, setPassengerPhone] = useState('')
+  const [passengerEmail, setPassengerEmail] = useState('')
   const [vehicleType, setVehicleType] = useState<VehicleTypeOption>('Sedan 4+1')
   const [pickup, setPickup] = useState('')
   const [drop, setDrop] = useState('')
+  const [createdDate, setCreatedDate] = useState(
+    new Date().toISOString().split('T')[0]
+  )
   const [fromDate, setFromDate] = useState(
     new Date().toISOString().split('T')[0]
   )
@@ -203,6 +207,11 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 
   const createTripMutation = useMutation({
     mutationFn: async () => {
+      const scheduleNotes =
+        serviceType === 'RAC'
+          ? `[Created: ${createdDate}] [Booking: ${fromDate} ${fromTime}] [Vehicle: ${vehicleType}]${passengerEmail ? ` [Email: ${passengerEmail}]` : ''} ${notes}`.trim()
+          : `[From: ${fromDate} ${fromTime} | To: ${toDate} ${toTime}] [Vehicle: ${vehicleType}] ${notes}`.trim()
+
       const payload = {
         serviceType,
         passengerName,
@@ -212,7 +221,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         scheduledDate: fromDate,
         scheduledTime: fromTime,
         tripAmount: fareNum,
-        notes: `[From: ${fromDate} ${fromTime} | To: ${toDate} ${toTime}] [Vehicle: ${vehicleType}] ${notes}`.trim(),
+        notes: scheduleNotes,
       }
       return (await vendorApi.createTrip(payload)).data
     },
@@ -236,9 +245,11 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     setAirportTerminal('T1')
     setPassengerName('')
     setPassengerPhone('')
+    setPassengerEmail('')
     setVehicleType('Sedan 4+1')
     setPickup(BLR_TERMINALS.T1)
     setDrop('')
+    setCreatedDate(new Date().toISOString().split('T')[0])
     setFromDate(new Date().toISOString().split('T')[0])
     setFromTime('10:00')
     setToDate(new Date().toISOString().split('T')[0])
@@ -295,13 +306,15 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       `*Glide Trip Booking Confirmation*\n` +
       `--------------------------------\n` +
       `*Service:* ${serviceName}\n` +
+      (serviceType === 'RAC' ? `*Created Date:* ${createdDate}\n` : '') +
       `*Vehicle Type:* ${vehicleType}\n` +
-      `*Passenger:* ${passengerName} (${passengerPhone})\n` +
+      `*Passenger:* ${passengerName} (${passengerPhone})${serviceType === 'RAC' && passengerEmail ? `\n*Email:* ${passengerEmail}` : ''}\n` +
       `*Pickup:* ${pickup}\n` +
       `*Drop:* ${drop}\n` +
-      `*From:* ${fromDate} at ${fromTime}\n` +
-      `*To:* ${toDate} at ${toTime}\n` +
-      `*Trip Fare:* ₹${fareNum.toLocaleString('en-IN')}\n` +
+      (serviceType === 'RAC'
+        ? `*Booking Date & Time:* ${fromDate} at ${fromTime}\n`
+        : `*From:* ${fromDate} at ${fromTime}\n*To:* ${toDate} at ${toTime}\n`) +
+      `*Trip Fare:* ₹${fareNum.toLocaleString('en-IN')}${serviceType === 'RAC' ? ' (Frozen)' : ''}\n` +
       `*Platform Fee:* ₹10\n` +
       `*Convenience Fee (15%):* ₹${convenienceFee.toLocaleString('en-IN')}\n` +
       `*Driver Payout:* ₹${driverPayable.toLocaleString('en-IN')}\n` +
@@ -600,6 +613,21 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 </div>
               </div>
 
+              {/* Airport Transfer Only: Email ID Input Box Under Passenger Contact Number */}
+              {serviceType === 'RAC' && (
+                <div>
+                  <label className="label">Passenger Email ID *</label>
+                  <input
+                    type="email"
+                    placeholder="e.g. passenger@company.com"
+                    value={passengerEmail}
+                    onChange={(e) => setPassengerEmail(e.target.value)}
+                    className="input"
+                    required
+                  />
+                </div>
+              )}
+
               {/* Airport Transfer Mode Banner with Terminal Switcher */}
               {serviceType === 'RAC' && (
                 <div className="p-3.5 rounded-2xl bg-sky-50 border border-sky-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2">
@@ -792,59 +820,98 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 </div>
               </div>
 
-              {/* From Date & Time and To Date & Time */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div>
-                  <label className="label">From Date & Time *</label>
-                  <div className="flex items-center gap-2">
+              {/* For Airport Transfer: Created Date (calendar format), Booking Date & Time (replacing From Date & Time), and Remove To Date & Time */}
+              {serviceType === 'RAC' ? (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">Created Date *</label>
                     <input
                       type="date"
-                      value={fromDate}
-                      onChange={(e) => setFromDate(e.target.value)}
-                      className="input flex-1 min-w-0"
-                      required
-                    />
-                    <input
-                      type="time"
-                      value={fromTime}
-                      onChange={(e) => setFromTime(e.target.value)}
-                      className="input w-28 sm:w-32 flex-shrink-0"
+                      value={createdDate}
+                      onChange={(e) => setCreatedDate(e.target.value)}
+                      className="input"
                       required
                     />
                   </div>
-                </div>
 
-                <div>
-                  <label className="label">To Date & Time *</label>
-                  <div className="flex items-center gap-2">
-                    <input
-                      type="date"
-                      value={toDate}
-                      onChange={(e) => setToDate(e.target.value)}
-                      className="input flex-1 min-w-0"
-                      required
-                    />
-                    <input
-                      type="time"
-                      value={toTime}
-                      onChange={(e) => setToTime(e.target.value)}
-                      className="input w-28 sm:w-32 flex-shrink-0"
-                      required
-                    />
+                  <div>
+                    <label className="label">Booking Date & Time *</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={fromDate}
+                        onChange={(e) => setFromDate(e.target.value)}
+                        className="input flex-1 min-w-0"
+                        required
+                      />
+                      <input
+                        type="time"
+                        value={fromTime}
+                        onChange={(e) => setFromTime(e.target.value)}
+                        className="input w-28 sm:w-32 flex-shrink-0"
+                        required
+                      />
+                    </div>
                   </div>
                 </div>
-              </div>
+              ) : (
+                /* Outstation & Packages: keep unchanged From Date & Time and To Date & Time */
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div>
+                    <label className="label">From Date & Time *</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={fromDate}
+                        onChange={(e) => setFromDate(e.target.value)}
+                        className="input flex-1 min-w-0"
+                        required
+                      />
+                      <input
+                        type="time"
+                        value={fromTime}
+                        onChange={(e) => setFromTime(e.target.value)}
+                        className="input w-28 sm:w-32 flex-shrink-0"
+                        required
+                      />
+                    </div>
+                  </div>
 
+                  <div>
+                    <label className="label">To Date & Time *</label>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="date"
+                        value={toDate}
+                        onChange={(e) => setToDate(e.target.value)}
+                        className="input flex-1 min-w-0"
+                        required
+                      />
+                      <input
+                        type="time"
+                        value={toTime}
+                        onChange={(e) => setToTime(e.target.value)}
+                        className="input w-28 sm:w-32 flex-shrink-0"
+                        required
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Agreed Fare Section: Frozen and Greyed Out for Airport Transfer, unchanged for Outstation & Packages */}
               <div>
                 <div className="flex items-center justify-between mb-1">
-                  <label className="label mb-0">Agreed Trip Amount (₹) *</label>
+                  <div className="flex items-center gap-2">
+                    <label className="label mb-0">Agreed Trip Amount (₹) *</label>
+                    {serviceType === 'RAC' && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 border border-slate-300">
+                        Frozen
+                      </span>
+                    )}
+                  </div>
                   {serviceType === 'RAC' && estimatedKm !== null && (
-                    <span
-                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${estimatedKm <= 30
-                        ? 'bg-emerald-100 text-emerald-800'
-                        : 'bg-amber-100 text-amber-900'
-                        }`}
-                    >
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-slate-200 text-slate-700 border border-slate-300">
                       ~{estimatedKm} km from BLR Airport
                     </span>
                   )}
@@ -854,6 +921,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   min={serviceType === 'RAC' ? 1200 : 1}
                   step="10"
                   value={tripAmount}
+                  readOnly={serviceType === 'RAC'}
+                  disabled={serviceType === 'RAC'}
                   onChange={(e) => setTripAmount(e.target.value)}
                   onBlur={() => {
                     if (serviceType === 'RAC' && (parseFloat(tripAmount) || 0) < 1200) {
@@ -861,16 +930,20 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                       toast.error('Airport Transfer fare cannot be less than ₹1,200 (fixed minimum)')
                     }
                   }}
-                  className="input text-lg font-bold"
+                  className={`input text-lg font-bold ${
+                    serviceType === 'RAC'
+                      ? 'bg-slate-100 border-slate-300 text-slate-500 cursor-not-allowed select-none'
+                      : ''
+                  }`}
                   required
                 />
                 {serviceType === 'RAC' ? (
-                  <div className="text-[11px] mt-1 space-y-0.5">
-                    <p className="text-slate-500">
-                      ₹1,200 fixed up to 30 km radius from BLR Airport; beyond 30 km charged at ₹28/km. Minimum fare is ₹1,200.
+                  <div className="text-[11px] mt-1 space-y-0.5 text-slate-500">
+                    <p>
+                      Fixed ₹1,200 up to 30 km radius from BLR Airport; beyond 30 km charged at ₹28/km. Minimum fare is ₹1,200 (Frozen Rate).
                     </p>
                     {estimatedKm !== null && (
-                      <p className={`font-semibold ${estimatedKm <= 30 ? 'text-emerald-700' : 'text-amber-800'}`}>
+                      <p className="font-semibold text-slate-700">
                         {estimatedKm <= 30
                           ? '✓ Within 30 km airport radius: Standard ₹1,200 fixed fare applied.'
                           : `✓ Exceeds 30 km (~${estimatedKm} km): ₹1,200 base (30 km) + ${estimatedKm - 30} km extra @ ₹28/km = ₹${fareNum}.`}
@@ -884,21 +957,38 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 )}
               </div>
 
-              {/* Direct Billing Notice (Wallet Frozen) */}
-              <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 flex items-center justify-between text-xs">
-                <div>
-                  <p className="font-semibold text-slate-900 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-slate-400" />
-                    Payment Method: Direct Corporate Billing
-                  </p>
-                  <p className="text-[11px] text-slate-500 mt-0.5">
-                    Prepaid wallet option is frozen. Trip will be booked immediately without wallet balance.
-                  </p>
+              {/* Wallet Balance: Frozen and greyed out until admin portal connects for Airport Transfer, unchanged for Outstation & Packages */}
+              {serviceType === 'RAC' ? (
+                <div className="p-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 flex items-center justify-between text-xs">
+                  <div>
+                    <p className="font-semibold text-slate-900 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                      Wallet Balance: Frozen (Admin Connect Pending)
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Wallet balance is frozen and greyed out until the admin portal connects. Trip will be booked immediately without wallet balance.
+                    </p>
+                  </div>
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-200 text-slate-600 border border-slate-300">
+                    Frozen
+                  </span>
                 </div>
-                <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-200 text-slate-600">
-                  Wallet Frozen
-                </span>
-              </div>
+              ) : (
+                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 flex items-center justify-between text-xs">
+                  <div>
+                    <p className="font-semibold text-slate-900 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                      Payment Method: Direct Corporate Billing
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Prepaid wallet option is frozen. Trip will be booked immediately without wallet balance.
+                    </p>
+                  </div>
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-200 text-slate-600">
+                    Wallet Frozen
+                  </span>
+                </div>
+              )}
 
               <div>
                 <label className="label">Passenger Notes / Special Instructions</label>
@@ -936,6 +1026,14 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                     {passengerName} ({passengerPhone})
                   </span>
                 </div>
+                {serviceType === 'RAC' && passengerEmail && (
+                  <div className="flex justify-between border-b border-sky-100 pb-2">
+                    <span className="text-slate-500">Email ID:</span>
+                    <span className="font-semibold text-slate-800 font-mono">
+                      {passengerEmail}
+                    </span>
+                  </div>
+                )}
                 <div className="flex justify-between border-b border-sky-100 pb-2">
                   <span className="text-slate-500">Pickup:</span>
                   <span className="font-semibold text-slate-800 text-right max-w-[280px] truncate">
@@ -948,22 +1046,46 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                     {drop}
                   </span>
                 </div>
-                <div className="flex justify-between border-b border-sky-100 pb-2">
-                  <span className="text-slate-500">From:</span>
-                  <span className="font-semibold text-slate-800">
-                    {fromDate} at {fromTime}
-                  </span>
-                </div>
-                <div className="flex justify-between border-b border-sky-100 pb-2">
-                  <span className="text-slate-500">To:</span>
-                  <span className="font-semibold text-slate-800">
-                    {toDate} at {toTime}
-                  </span>
-                </div>
+                {serviceType === 'RAC' ? (
+                  <>
+                    <div className="flex justify-between border-b border-sky-100 pb-2">
+                      <span className="text-slate-500">Created Date:</span>
+                      <span className="font-semibold text-slate-800">
+                        {createdDate}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-b border-sky-100 pb-2">
+                      <span className="text-slate-500">Booking Date & Time:</span>
+                      <span className="font-semibold text-slate-800">
+                        {fromDate} at {fromTime}
+                      </span>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="flex justify-between border-b border-sky-100 pb-2">
+                      <span className="text-slate-500">From:</span>
+                      <span className="font-semibold text-slate-800">
+                        {fromDate} at {fromTime}
+                      </span>
+                    </div>
+                    <div className="flex justify-between border-b border-sky-100 pb-2">
+                      <span className="text-slate-500">To:</span>
+                      <span className="font-semibold text-slate-800">
+                        {toDate} at {toTime}
+                      </span>
+                    </div>
+                  </>
+                )}
                 <div className="flex justify-between border-b border-sky-100 pb-2">
                   <span className="text-slate-500">Agreed Fare:</span>
-                  <span className="font-bold text-emerald-700 text-sm">
+                  <span className="font-bold text-slate-800 text-sm flex items-center gap-1.5">
                     {formatCurrency(fareNum)}
+                    {serviceType === 'RAC' && (
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 border border-slate-300">
+                        Frozen
+                      </span>
+                    )}
                   </span>
                 </div>
                 {notes && (
@@ -975,6 +1097,24 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   </div>
                 )}
               </div>
+
+              {/* Airport Transfer Only: Wallet Balance Frozen Notice until Admin connects */}
+              {serviceType === 'RAC' && (
+                <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 flex items-center justify-between text-xs">
+                  <div>
+                    <p className="font-semibold text-slate-900 flex items-center gap-1.5">
+                      <span className="w-2 h-2 rounded-full bg-slate-400" />
+                      Wallet Balance: Frozen (Admin Connect Pending)
+                    </p>
+                    <p className="text-[11px] text-slate-500 mt-0.5">
+                      Wallet balance is frozen and greyed out until the admin portal connects. Booking proceeds via direct corporate billing.
+                    </p>
+                  </div>
+                  <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-200 text-slate-600 border border-slate-300">
+                    Frozen
+                  </span>
+                </div>
+              )}
 
               {/* Action Toolbar: Download & Share */}
               <div className="flex items-center justify-between gap-2 pt-0.5 pb-0.5">

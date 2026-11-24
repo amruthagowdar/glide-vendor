@@ -184,16 +184,16 @@ export const DashboardPage: React.FC = () => {
             <Car className="w-4 h-4" />
             <span>Rent A Cab</span>
           </button>
-          <button
-            onClick={() => navigate('/ets')}
-            className="px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-100 hover:bg-slate-200 text-slate-700 text-xs sm:text-sm font-semibold flex items-center gap-1.5 transition-colors"
+          <div
+            className="px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-100 text-slate-500 text-xs sm:text-sm font-semibold flex items-center gap-1.5 select-none cursor-not-allowed opacity-80 shadow-none"
+            title="ETS module is frozen and cannot be opened"
           >
-            <Building2 className="w-4 h-4 text-slate-500" />
+            <Building2 className="w-4 h-4 text-slate-400" />
             <span>ETS</span>
             <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 border border-slate-300">
               Frozen
             </span>
-          </button>
+          </div>
         </div>
       </div>
 
@@ -211,9 +211,9 @@ export const DashboardPage: React.FC = () => {
           title="Wallet Balance"
           value={formatCurrency(walletBalance)}
           subtitle="Frozen · Direct Billing"
-          icon={<Wallet className="w-5 h-5" />}
-          colorClass="bg-slate-100 text-slate-700"
-          onClick={() => navigate('/wallet')}
+          icon={<Wallet className="w-5 h-5 text-slate-400" />}
+          colorClass="bg-slate-100 text-slate-700 border border-slate-300"
+          onClick={undefined}
         />
         <StatCard
           title="Active Drivers"
@@ -357,13 +357,9 @@ export const DashboardPage: React.FC = () => {
               </div>
               <p className="text-xs text-slate-500">Recent credits & debits</p>
             </div>
-            <button
-              onClick={() => navigate('/wallet')}
-              className="text-xs text-sky-700 hover:text-sky-900 font-semibold flex items-center gap-1"
-            >
-              <span>Wallet</span>
-              <ArrowUpRight className="w-3.5 h-3.5" />
-            </button>
+            <span className="text-xs text-slate-400 font-semibold select-none cursor-not-allowed">
+              Inaccessible (Frozen)
+            </span>
           </div>
 
           <div className="flex-1 divide-y divide-sky-50 overflow-y-auto max-h-[380px]">

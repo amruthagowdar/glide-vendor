@@ -86,30 +86,39 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         {/* Navigation links */}
         <div className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto">
-          {navItems.map((item) => (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              end={item.path === '/'}
-              onClick={onClose}
-              className={({ isActive }) =>
-                `sidebar-link ${isActive ? 'active' : ''}`
-              }
-            >
-              <item.icon className="w-5 h-5 flex-shrink-0" />
-              <span className="flex-1 tracking-tight">{item.name}</span>
-              {item.tag && (
+          {navItems.map((item) =>
+            item.tag === 'Frozen' ? (
+              <div
+                key={item.path}
+                className="flex items-center gap-3 px-3.5 py-2.5 rounded-xl text-sm font-semibold text-slate-500 cursor-not-allowed select-none opacity-60 bg-white/[0.02]"
+                title={`${item.name} is frozen and cannot be opened`}
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0 text-slate-500" />
+                <span className="flex-1 tracking-tight">{item.name}</span>
                 <span className="px-1.5 py-0.5 text-[10px] font-bold rounded bg-slate-800 text-slate-400 border border-slate-700">
-                  {item.tag}
+                  Frozen
                 </span>
-              )}
-              {item.badge && unreadCount > 0 && (
-                <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-600 text-white">
-                  {unreadCount > 99 ? '99+' : unreadCount}
-                </span>
-              )}
-            </NavLink>
-          ))}
+              </div>
+            ) : (
+              <NavLink
+                key={item.path}
+                to={item.path}
+                end={item.path === '/'}
+                onClick={onClose}
+                className={({ isActive }) =>
+                  `sidebar-link ${isActive ? 'active' : ''}`
+                }
+              >
+                <item.icon className="w-5 h-5 flex-shrink-0" />
+                <span className="flex-1 tracking-tight">{item.name}</span>
+                {item.badge && unreadCount > 0 && (
+                  <span className="px-2 py-0.5 text-xs font-bold rounded-full bg-blue-600 text-white">
+                    {unreadCount > 99 ? '99+' : unreadCount}
+                  </span>
+                )}
+              </NavLink>
+            )
+          )}
         </div>
 
         {/* User profile & Logout */}
