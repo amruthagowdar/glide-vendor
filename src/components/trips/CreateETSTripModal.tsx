@@ -1034,7 +1034,7 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
           activeView === 'HUB'
             ? 'Employee Transport Services (ETS)'
             : activeView === 'CREATE_TRIP'
-            ? 'Create ETS Trip (Sedan 3-seater / SUV 6-seater)'
+            ? 'Create ETS Trip'
             : activeView === 'EMPLOYEE_LOG'
             ? 'ETS Employee Log & Directory'
             : 'Auto Routing'
@@ -1743,9 +1743,6 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                     <h3 className="text-sm font-semibold text-slate-800">
                       1. Select ETS Vehicle & Employee Capacity
                     </h3>
-                    <p className="text-xs text-slate-500 mt-0.5">
-                      Choose between Sedan (3 employees) or SUV (6 employees) for corporate employee transport
-                    </p>
                   </div>
 
                   <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1769,14 +1766,6 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                           </span>
                         </div>
                         <h4 className="text-base font-bold text-slate-900">Sedan (3-Seater)</h4>
-                        <p className="text-xs text-slate-500 mt-1">
-                          Designed for 3 corporate passengers with individual front & rear seating comfort.
-                        </p>
-                      </div>
-
-                      <div className="mt-5 pt-3 border-t border-sky-100/80 flex items-center justify-between text-xs">
-                        <span className="font-semibold text-slate-600">Capacity: 3 Employee Slots</span>
-                        <span className="font-bold text-sky-900">₹1,500 fixed</span>
                       </div>
                     </button>
 
@@ -1800,14 +1789,6 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                           </span>
                         </div>
                         <h4 className="text-base font-bold text-slate-900">SUV (6-Seater)</h4>
-                        <p className="text-xs text-slate-500 mt-1">
-                          High-capacity 6+1/7+1 vehicle for larger team shifts, multi-point routes and airport rosters.
-                        </p>
-                      </div>
-
-                      <div className="mt-5 pt-3 border-t border-indigo-100/80 flex items-center justify-between text-xs">
-                        <span className="font-semibold text-slate-600">Capacity: 6 Employee Slots</span>
-                        <span className="font-bold text-sky-900">₹2,400 fixed</span>
                       </div>
                     </button>
                   </div>
