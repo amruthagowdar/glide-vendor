@@ -26,7 +26,7 @@ export interface LiveShiftCab {
   hubCoords: { lat: number; lng: number }
   driverHomeCoords?: { lat: number; lng: number }
   currentStepIndex?: number // 0: at driver home, 1..N: at stop k, N+1: arrived at hub
-  stops: { name: string; address: string; lat: number; lng: number; status: 'PICKED' | 'NEXT' | 'PENDING' }[]
+  stops: { name: string; address: string; lat: number; lng: number; status: 'PICKED' | 'NEXT' | 'PENDING'; pickupTime?: string }[]
 }
 
 export interface ShiftStageInfo {

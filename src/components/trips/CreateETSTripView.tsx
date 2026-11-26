@@ -67,6 +67,7 @@ export interface EmployeeSlot {
   address: string
   lat: string
   lng: string
+  pickupTime?: string
 }
 
 export interface CorporateEmployee {
@@ -101,11 +102,11 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
   const [tripType, setTripType] = useState<'Login' | 'Logout'>('Login')
   const [companyName, setCompanyName] = useState('Atharva Tech Hub')
 
-  // Employee Slots: 3 for Sedan, 6 for SUV
+  // Employee Slots: 3 for Sedan, 6 for SUV (with pickup times)
   const [employees, setEmployees] = useState<EmployeeSlot[]>([
-    { name: '', phone: '', address: '', lat: '', lng: '' },
-    { name: '', phone: '', address: '', lat: '', lng: '' },
-    { name: '', phone: '', address: '', lat: '', lng: '' },
+    { name: '', phone: '', address: '', lat: '', lng: '', pickupTime: '07:30' },
+    { name: '', phone: '', address: '', lat: '', lng: '', pickupTime: '07:45' },
+    { name: '', phone: '', address: '', lat: '', lng: '', pickupTime: '08:00' },
   ])
 
   // Map Picker Modal state for pinpointing coordinates
@@ -192,12 +193,20 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
   const handleSelectVehicle = (v: 'SEDAN' | 'SUV') => {
     setVehicleChoice(v)
     const targetCount = v === 'SEDAN' ? 3 : 6
+    const defaultTimes = ['07:00', '07:15', '07:30', '07:45', '08:00', '08:15']
     setEmployees((prev) => {
       if (prev.length === targetCount) return prev
       if (prev.length < targetCount) {
         const extra: EmployeeSlot[] = Array.from(
           { length: targetCount - prev.length },
-          () => ({ name: '', phone: '', address: '', lat: '', lng: '' })
+          (_, idx) => ({
+            name: '',
+            phone: '',
+            address: '',
+            lat: '',
+            lng: '',
+            pickupTime: defaultTimes[prev.length + idx] || '08:00',
+          })
         )
         return [...prev, ...extra]
       }
@@ -296,6 +305,7 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
           lat,
           lng,
           status: 'PENDING' as const,
+          pickupTime: emp.pickupTime || undefined,
         }
       })
 
@@ -425,8 +435,7 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
               </div>
               <div className="mt-2 text-center">
                 <h3 className="text-sm font-bold text-slate-900">Sedan – Swift Dzire</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Employee 1, 2, 3</p>
-                <span className="inline-block mt-2.5 px-3 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-200">
+                <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold bg-sky-100 text-sky-800 border border-sky-200">
                   3 Employees
                 </span>
               </div>
@@ -450,8 +459,7 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
               </div>
               <div className="mt-2 text-center">
                 <h3 className="text-sm font-bold text-slate-900">SUV – Ertiga</h3>
-                <p className="text-xs text-slate-500 mt-0.5">Employee 1, 2, 3, 4, 5, 6</p>
-                <span className="inline-block mt-2.5 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+                <span className="inline-block mt-2 px-3 py-1 rounded-full text-xs font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
                   6 Employees
                 </span>
               </div>
@@ -572,8 +580,8 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
                   )}
                 </div>
 
-                {/* Row 1: Employee Name & Contact Number */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                {/* Row 1: Employee Name, Contact Number & Pickup Time */}
+                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                   <div>
                     <label className="label">Employee Name *</label>
                     <input
@@ -581,7 +589,7 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
                       placeholder="Full name"
                       value={slot.name}
                       onChange={(e) => updateEmployeeField(idx, 'name', e.target.value)}
-                      className="input text-xs sm:text-sm"
+                      className="input text-xs sm:text-sm font-medium"
                     />
                   </div>
 
@@ -592,7 +600,7 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
                       placeholder="Mobile number"
                       value={slot.phone}
                       onChange={(e) => updateEmployeeField(idx, 'phone', e.target.value)}
-                      className="input text-xs sm:text-sm"
+                      className="input text-xs sm:text-sm font-medium"
                     />
 
                     {/* WhatsApp & SMS Request Buttons beneath Contact Number */}
@@ -617,6 +625,20 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
                         <span>SMS Request</span>
                       </button>
                     </div>
+                  </div>
+
+                  <div>
+                    <label className="label">Pickup Time *</label>
+                    <div className="relative">
+                      <Clock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                      <input
+                        type="time"
+                        value={slot.pickupTime || ''}
+                        onChange={(e) => updateEmployeeField(idx, 'pickupTime', e.target.value)}
+                        className="input pl-9 text-xs sm:text-sm font-medium"
+                      />
+                    </div>
+                    <span className="text-[10px] text-slate-500 mt-1 block">Scheduled pickup for stop #{slotNumber}</span>
                   </div>
                 </div>
 
