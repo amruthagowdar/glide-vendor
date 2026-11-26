@@ -88,6 +88,21 @@ interface CreateETSTripViewProps {
   onTripCreated?: (newShift: LiveShiftCab) => void
 }
 
+// Full 24-hour range in 15-minute intervals from 12:00 AM to 11:45 PM
+export const SHIFT_TIME_OPTIONS: string[] = (() => {
+  const options: string[] = []
+  for (let h = 0; h < 24; h++) {
+    for (let m = 0; m < 60; m += 15) {
+      const period = h < 12 ? 'AM' : 'PM'
+      const displayHour = h % 12 === 0 ? 12 : h % 12
+      const hourStr = displayHour < 10 ? `0${displayHour}` : `${displayHour}`
+      const minStr = m < 10 ? `0${m}` : `${m}`
+      options.push(`${hourStr}:${minStr} ${period}`)
+    }
+  }
+  return options
+})()
+
 export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
   onBack,
   onTripCreated,
@@ -440,7 +455,22 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
     return null
   }
 
-  // WhatsApp location request link - strictly restricted to entered number
+  // Format time (e.g. 11:30) to 12-hour AM/PM format (e.g. 11:30 AM)
+  const formatTime12h = (timeStr?: string, defaultVal: string = '08:30 AM'): string => {
+    if (!timeStr) return defaultVal
+    const parts = timeStr.trim().split(':')
+    if (parts.length < 2) return timeStr
+    let hour = parseInt(parts[0], 10)
+    const minute = parts[1].slice(0, 2)
+    if (isNaN(hour)) return timeStr
+    const period = hour >= 12 ? 'PM' : 'AM'
+    if (hour > 12) hour -= 12
+    if (hour === 0) hour = 12
+    const paddedHour = hour < 10 ? `0${hour}` : `${hour}`
+    return `${paddedHour}:${minute} ${period}`
+  }
+
+  // WhatsApp location request link - strictly restricted to entered number with exact pickup time
   const handleWhatsAppRequest = (slot: EmployeeSlot, slotIndex: number = 0) => {
     const valid10Digits = getStrictMobileNumber(slot.phone)
     if (!valid10Digits) {
@@ -451,10 +481,13 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
     }
 
     const name = slot.name.trim() || `Employee ${slotIndex + 1}`
+    const employeePickupTime = formatTime12h(slot.pickupTime, shiftTiming)
+    const shareLink = `${window.location.origin}/share-location?name=${encodeURIComponent(name)}&tripDate=${encodeURIComponent(tripDate)}&pickup=${encodeURIComponent(employeePickupTime)}&type=${tripType}`
+
     const msg = encodeURIComponent(
       tripType === 'Login'
-        ? `Hi ${name}, please share your live home pickup location with Atharva Travels for your upcoming ETS corporate shift on ${tripDate} at ${shiftTiming}. Reply with a Google Maps location link or coordinates.`
-        : `Hi ${name}, please share your live home drop location with Atharva Travels for your upcoming ETS corporate shift on ${tripDate}. Reply with a Google Maps location link or coordinates.`
+        ? `Hi ${name}, please share your live home pickup location with Atharva Travels for your upcoming ETS corporate shift on ${tripDate} (Scheduled Pickup: ${employeePickupTime}).\n\n📍 Tap here to auto-share your location in 1-click:\n${shareLink}\n\n(Or reply with your Google Maps link or coordinates)`
+        : `Hi ${name}, please share your live home drop location with Atharva Travels for your upcoming ETS corporate shift on ${tripDate}.\n\n📍 Tap here to auto-share your location in 1-click:\n${shareLink}\n\n(Or reply with your Google Maps link or coordinates)`
     )
     // STRICT: Only opens to the exact phone entered with 91 country code prefix, never generic
     const targetPhone = `91${valid10Digits}`
@@ -462,7 +495,7 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
     window.open(url, '_blank')
   }
 
-  // SMS location request link - strictly restricted to entered number
+  // SMS location request link - strictly restricted to entered number with exact pickup time
   const handleSMSRequest = (slot: EmployeeSlot, slotIndex: number = 0) => {
     const valid10Digits = getStrictMobileNumber(slot.phone)
     if (!valid10Digits) {
@@ -473,10 +506,13 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
     }
 
     const name = slot.name.trim() || `Employee ${slotIndex + 1}`
+    const employeePickupTime = formatTime12h(slot.pickupTime, shiftTiming)
+    const shareLink = `${window.location.origin}/share-location?name=${encodeURIComponent(name)}&tripDate=${encodeURIComponent(tripDate)}&pickup=${encodeURIComponent(employeePickupTime)}&type=${tripType}`
+
     const body = encodeURIComponent(
       tripType === 'Login'
-        ? `Hi ${name}, please share your home pickup location link or coordinates for your ETS corporate shift on ${tripDate} at ${shiftTiming}.`
-        : `Hi ${name}, please share your home drop location link or coordinates for your ETS corporate shift on ${tripDate}.`
+        ? `Hi ${name}, please share your home pickup location for Atharva Travels shift on ${tripDate} (Pickup: ${employeePickupTime}). Tap link to share: ${shareLink}`
+        : `Hi ${name}, please share your home drop location for Atharva Travels shift on ${tripDate}. Tap link to share: ${shareLink}`
     )
     // STRICT: Only sends SMS to the exact entered 10-digit number
     window.open(`sms:+91${valid10Digits}?body=${body}`, '_blank')
@@ -709,16 +745,11 @@ return (
               onChange={(e) => setShiftTiming(e.target.value)}
               className="input text-xs sm:text-sm font-medium"
             >
-              <option value="06:00 AM">06:00 AM (Early Login Shift)</option>
-              <option value="07:00 AM">07:00 AM (Morning Shift)</option>
-              <option value="08:00 AM">08:00 AM</option>
-              <option value="08:30 AM">08:30 AM (Standard General Shift)</option>
-              <option value="09:00 AM">09:00 AM</option>
-              <option value="01:00 PM">01:00 PM (Afternoon Shift)</option>
-              <option value="02:00 PM">02:00 PM</option>
-              <option value="06:00 PM">06:00 PM (Evening Logout)</option>
-              <option value="08:00 PM">08:00 PM</option>
-              <option value="10:00 PM">10:00 PM (Night Shift)</option>
+              {SHIFT_TIME_OPTIONS.map((time) => (
+                <option key={time} value={time}>
+                  {time}
+                </option>
+              ))}
             </select>
           </div>
         )}

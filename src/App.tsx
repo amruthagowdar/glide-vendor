@@ -3,6 +3,7 @@ import { Routes, Route, Navigate } from 'react-router-dom'
 import { useAuth } from './contexts/AuthContext'
 import { AppLayout } from './components/layout/AppLayout'
 import { LoginPage } from './pages/LoginPage'
+import { ShareLocationPage } from './pages/ShareLocationPage'
 import { DashboardPage } from './pages/DashboardPage'
 import { ETSDashboardPage } from './pages/ETSDashboardPage'
 import { TripsPage } from './pages/TripsPage'
@@ -31,6 +32,7 @@ export const App: React.FC = () => {
   return (
     <Routes>
       <Route path="/login" element={<LoginPage />} />
+      <Route path="/share-location" element={<ShareLocationPage />} />
 
       <Route
         path="/"
