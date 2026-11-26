@@ -707,19 +707,32 @@ const maxSlots = vehicleChoice === 'SEDAN' ? 3 : 6
 // Night shift compliance calculations (7:00 PM to 6:00 AM)
 const isNight = isNightShift(shiftTiming)
 
+// Optional escort toggle state
+const [showOptionalEscort, setShowOptionalEscort] = useState(false)
+
+// Active target slots:
+// In Logout (Drop), the last drop employee is the last slot with a name (or the last slot in the vehicle by default)
+const lastDropIndex = (() => {
+  for (let i = employees.length - 1; i >= 0; i--) {
+    if (employees[i].name.trim() !== '') return i
+  }
+  return employees.length - 1 // Default to last slot (e.g. Employee 3 in Sedan, Employee 6 in SUV)
+})()
+
+// In Login (Pickup), the first pickup employee is slot 0
+const firstPickupIndex = 0
+
 // Drop (Logout): Escort required if the LAST employee dropped off is Female
 const isLastFemaleDrop =
   tripType === 'Logout' &&
   isNight &&
-  filledEmployees.length > 0 &&
-  filledEmployees[filledEmployees.length - 1].gender === 'FEMALE'
+  employees[lastDropIndex]?.gender === 'FEMALE'
 
 // Pickup (Login): Escort required if the FIRST employee picked up is Female
 const isFirstFemalePickup =
   tripType === 'Login' &&
   isNight &&
-  filledEmployees.length > 0 &&
-  filledEmployees[0].gender === 'FEMALE'
+  employees[firstPickupIndex]?.gender === 'FEMALE'
 
 const isEscortRequired = isLastFemaleDrop || isFirstFemalePickup
 
@@ -1029,6 +1042,14 @@ return (
           const isConfirmed = Boolean(slot.lat && slot.lng && slot.address.trim())
           const slotNumber = idx + 1
 
+          // Escort trigger for this specific employee slot
+          const isLastDropSlot = tripType === 'Logout' && idx === lastDropIndex
+          const isFirstPickupSlot = tripType === 'Login' && idx === firstPickupIndex
+          const isEscortSlot =
+            (isLastDropSlot && isLastFemaleDrop) ||
+            (isFirstPickupSlot && isFirstFemalePickup) ||
+            (showOptionalEscort && (isLastDropSlot || isFirstPickupSlot))
+
           // Directory search filtered list
           const currentSearch = searchQueries[idx] || ''
           const filteredEmps = directory.filter(
@@ -1041,7 +1062,9 @@ return (
           return (
             <div
               key={idx}
-              className="border border-slate-200 rounded-2xl p-4 sm:p-5 bg-white space-y-4 shadow-xs"
+              className={`border rounded-2xl p-4 sm:p-5 bg-white space-y-4 shadow-xs transition-all ${
+                isEscortSlot ? 'border-amber-300 ring-2 ring-amber-300/30' : 'border-slate-200'
+              }`}
             >
               {/* Employee Header with Gender Toggle */}
               <div className="flex flex-wrap items-center justify-between gap-2.5">
@@ -1050,6 +1073,12 @@ return (
                     {slotNumber}
                   </span>
                   <span className="font-bold text-sm text-slate-900">Employee {slotNumber}</span>
+                  {isEscortSlot && (
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-amber-600" />
+                      <span>Escort Required</span>
+                    </span>
+                  )}
                 </div>
 
                 <div className="flex items-center gap-2 flex-wrap">
@@ -1312,6 +1341,64 @@ return (
                     </span>
                   </div>
                 </div>
+
+                {/* Security Escort Guard Fields directly inside this Employee Card */}
+                {isEscortSlot && (
+                  <div className="mt-3 p-4 rounded-xl bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-2 border-amber-300 space-y-3 animate-in fade-in duration-150">
+                    <div className="flex items-center justify-between flex-wrap gap-2">
+                      <div className="flex items-center gap-2">
+                        <div className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-xs">
+                          <ShieldCheck className="w-4 h-4" />
+                        </div>
+                        <div>
+                          <span className="text-xs font-bold text-amber-950 block">
+                            Security Escort Guard Required
+                          </span>
+                          <span className="text-[10px] text-amber-800">
+                            {tripType === 'Logout' ? 'Last Female Drop' : 'First Female Pickup'} • Night Window (7:00 PM – 6:00 AM)
+                          </span>
+                        </div>
+                      </div>
+                      <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-amber-200 text-amber-900 border border-amber-300">
+                        Mandatory Compliance
+                      </span>
+                    </div>
+
+                    <p className="text-[11px] text-amber-800 leading-relaxed">
+                      {tripType === 'Logout'
+                        ? `Under Karnataka corporate transport safety standards, because Employee #${slotNumber} (${slot.name.trim() || `Employee ${slotNumber}`}) is female and the last passenger to be dropped during night hours, a verified security escort guard must accompany the cab.`
+                        : `Under Karnataka corporate transport safety standards, because Employee #${slotNumber} (${slot.name.trim() || `Employee ${slotNumber}`}) is female and the first passenger to be picked up during night hours, a verified security escort guard must accompany the cab.`}
+                    </p>
+
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
+                      <div>
+                        <label className="text-[11px] font-bold text-amber-950 block mb-1">
+                          Escort Guard Name *
+                        </label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Ramesh Kumar (Security Guard)"
+                          value={escortName}
+                          onChange={(e) => setEscortName(e.target.value)}
+                          className="input text-xs sm:text-sm font-medium border-amber-300 focus:border-amber-500 bg-white w-full"
+                        />
+                      </div>
+                      <div>
+                        <label className="text-[11px] font-bold text-amber-950 block mb-1">
+                          Escort Contact Number (Optional)
+                        </label>
+                        <input
+                          type="tel"
+                          placeholder="e.g. +91 98450 99881"
+                          value={escortPhone}
+                          onChange={(e) => setEscortPhone(e.target.value)}
+                          className="input text-xs sm:text-sm font-medium border-amber-300 focus:border-amber-500 bg-white w-full"
+                        />
+                      </div>
+                    </div>
+                  </div>
+                )}
               </div>
               )
           })}
@@ -1342,7 +1429,7 @@ return (
                   <>
                     <strong>Drop Trip Rule (Office → Home):</strong> The last employee to be dropped off in this shift is female (
                     <span className="font-bold underline text-amber-950">
-                      {filledEmployees[filledEmployees.length - 1]?.name}
+                      {employees[lastDropIndex]?.name.trim() || `Employee #${lastDropIndex + 1}`}
                     </span>
                     ). Under Karnataka corporate transport safety standards, a verified Security Escort Guard must accompany the vehicle until the final drop.
                   </>
@@ -1351,7 +1438,7 @@ return (
                   <>
                     <strong>Pickup Trip Rule (Home → Office):</strong> The first employee to be picked up in this shift is female (
                     <span className="font-bold underline text-amber-950">
-                      {filledEmployees[0]?.name}
+                      {employees[firstPickupIndex]?.name.trim() || `Employee #${firstPickupIndex + 1}`}
                     </span>
                     ). Under Karnataka corporate transport safety standards, a verified Security Escort Guard must be present in the cab from the initial pickup.
                   </>
