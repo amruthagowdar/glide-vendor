@@ -32,6 +32,7 @@ import { ETSEmployeeLogView } from '../components/trips/ETSEmployeeLogView'
 import { SlideDeleteModal } from '../components/ui/SlideDeleteModal'
 import { logAuditEvent } from '../lib/auditLogger'
 import { formatCurrency } from '../lib/utils'
+import { deleteTripFromNeon } from '../lib/neonClient'
 import {
   fetchOSRMRoute,
   sortStopsFarthestFirst,
@@ -96,10 +97,10 @@ export const ETSDashboardPage: React.FC = () => {
   const [liveShifts, setLiveShifts] = useState<LiveShiftCab[]>(() => {
     try {
       const saved = localStorage.getItem('ETS_DISPATCHED_SHIFTS')
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved)
         if (Array.isArray(parsed)) {
-          const valid = parsed.filter(
+          return parsed.filter(
             (s) =>
               s &&
               s.id &&
@@ -108,11 +109,10 @@ export const ETSDashboardPage: React.FC = () => {
               !s.id.startsWith('shift-3') &&
               !s.id.startsWith('shift-4')
           )
-          if (valid.length > 0) return valid
         }
       }
     } catch {}
-    return [DEFAULT_INITIAL_SHIFT]
+    return []
   })
 
   // Listen for newly dispatched ETS shifts
@@ -120,7 +120,7 @@ export const ETSDashboardPage: React.FC = () => {
     const handleShiftUpdated = () => {
       try {
         const saved = localStorage.getItem('ETS_DISPATCHED_SHIFTS')
-        if (saved) {
+        if (saved !== null) {
           const parsed = JSON.parse(saved)
           if (Array.isArray(parsed)) {
             const valid = parsed.filter(
@@ -132,10 +132,12 @@ export const ETSDashboardPage: React.FC = () => {
                 !s.id.startsWith('shift-3') &&
                 !s.id.startsWith('shift-4')
             )
-            setLiveShifts(valid.length > 0 ? valid : [DEFAULT_INITIAL_SHIFT])
+            setLiveShifts(valid)
+            return
           }
         }
       } catch {}
+      setLiveShifts([])
     }
     window.addEventListener('ets_shift_created', handleShiftUpdated)
     window.addEventListener('storage', handleShiftUpdated)
@@ -169,6 +171,16 @@ export const ETSDashboardPage: React.FC = () => {
       localStorage.setItem('ETS_DISPATCHED_SHIFTS', JSON.stringify(updated))
     } catch {
       // ignore
+    }
+
+    // Permanently delete from Neon DB so it never comes back
+    deleteTripFromNeon(deletingShift.shiftCode).catch((err) =>
+      console.warn('Neon DB trip delete notice:', err)
+    )
+    if (deletingShift.id) {
+      deleteTripFromNeon(deletingShift.id).catch((err) =>
+        console.warn('Neon DB trip delete notice:', err)
+      )
     }
 
     logAuditEvent({
@@ -797,7 +809,7 @@ export const ETSDashboardPage: React.FC = () => {
                       }`}
                     >
                       <div className="flex items-center justify-between pb-1.5 mb-2 border-b border-slate-100">
-                        <div className="flex items-center gap-1.5">
+                        <div className="flex items-center gap-1.5 flex-wrap">
                           <span className="text-xs font-extrabold text-slate-900">{shift.shiftCode}</span>
                           <span
                             className={`text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded ${
@@ -806,6 +818,11 @@ export const ETSDashboardPage: React.FC = () => {
                           >
                             {shift.shiftType}
                           </span>
+                          {shift.hasEscort && (
+                            <span className="text-[9px] font-extrabold uppercase px-1.5 py-0.5 rounded bg-amber-100 text-amber-900 border border-amber-200 flex items-center gap-0.5">
+                              <span>🛡️ Escort</span>
+                            </span>
+                          )}
                         </div>
 
                         <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-slate-100 text-slate-700 font-mono">
@@ -1154,6 +1171,36 @@ export const ETSDashboardPage: React.FC = () => {
                   </div>
                 </div>
               </div>
+
+              {/* Security Escort Guard Details if assigned */}
+              {selectedShiftForDrawer.hasEscort && (
+                <div className="p-4 rounded-xl bg-amber-50 border border-amber-200 text-amber-950 space-y-2">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-1.5 font-bold text-xs text-amber-900">
+                      <ShieldCheck className="w-4 h-4 text-amber-600" />
+                      <span>Security Escort Assigned</span>
+                    </div>
+                    <span className="text-[9px] font-extrabold uppercase px-2 py-0.5 rounded bg-amber-200 text-amber-900 border border-amber-300">
+                      Compliance Active
+                    </span>
+                  </div>
+                  <div className="text-xs space-y-0.5">
+                    <p>
+                      <span className="text-amber-800">Guard Name: </span>
+                      <strong className="text-amber-950">{selectedShiftForDrawer.escortName || 'Assigned Guard'}</strong>
+                    </p>
+                    {selectedShiftForDrawer.escortPhone && (
+                      <p>
+                        <span className="text-amber-800">Contact: </span>
+                        <span className="font-mono font-medium text-amber-950">{selectedShiftForDrawer.escortPhone}</span>
+                      </p>
+                    )}
+                  </div>
+                  <p className="text-[10px] text-amber-700 italic border-t border-amber-200/80 pt-1">
+                    Night shift safety guard assigned in compliance with women employee transit regulations (7:00 PM – 6:00 AM).
+                  </p>
+                </div>
+              )}
 
               {/* Passenger Stop Manifest */}
               <div className="space-y-2">

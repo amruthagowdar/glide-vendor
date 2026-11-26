@@ -56,6 +56,7 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
         lat: 12.99,
         lng: 77.7,
         department: 'Operations',
+        gender: 'MALE',
       },
       {
         id: 'emp-2',
@@ -66,6 +67,7 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
         lat: 12.925,
         lng: 77.675,
         department: 'Engineering',
+        gender: 'FEMALE',
       },
       {
         id: 'emp-3',
@@ -76,6 +78,7 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
         lat: 12.875,
         lng: 77.65,
         department: 'Finance',
+        gender: 'MALE',
       },
       {
         id: 'emp-4',
@@ -86,6 +89,7 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
         lat: 12.915,
         lng: 77.645,
         department: 'HR',
+        gender: 'FEMALE',
       },
       {
         id: 'emp-5',
@@ -96,6 +100,7 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
         lat: 12.934,
         lng: 77.625,
         department: 'IT Support',
+        gender: 'MALE',
       },
       {
         id: 'emp-6',
@@ -106,6 +111,7 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
         lat: 12.845,
         lng: 77.685,
         department: 'QA',
+        gender: 'FEMALE',
       },
     ]
   })
@@ -120,6 +126,7 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
   const [isAddingNewEmp, setIsAddingNewEmp] = useState(false)
   const [newEmpName, setNewEmpName] = useState('')
   const [newEmpPhone, setNewEmpPhone] = useState('')
+  const [newEmpGender, setNewEmpGender] = useState<'MALE' | 'FEMALE'>('FEMALE')
   const [newEmpCompany, setNewEmpCompany] = useState(CORPORATE_OFFICES[0]?.name || 'Atharva Tech Hub')
   const [newEmpAddress, setNewEmpAddress] = useState('')
   const [newEmpLat, setNewEmpLat] = useState('12.9298')
@@ -193,11 +200,12 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
       lat: parseFloat(newEmpLat) || 12.9298,
       lng: parseFloat(newEmpLng) || 77.6743,
       department: newEmpDept,
+      gender: newEmpGender,
     }
 
     const updated = [newRecord, ...directory]
     persistDirectory(updated)
-    toast.success(`Employee ${newRecord.name} added to Corporate Directory!`)
+    toast.success(`Employee ${newRecord.name} (${newEmpGender === 'FEMALE' ? 'Female' : 'Male'}) added to Corporate Directory!`)
 
     setIsAddingNewEmp(false)
     setNewEmpName('')
@@ -205,6 +213,7 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
     setNewEmpAddress('')
     setNewEmpLat('12.9298')
     setNewEmpLng('77.6743')
+    setNewEmpGender('FEMALE')
   }
 
   // Delete single employee
@@ -259,6 +268,9 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
               row['Company Office'] || row['Company'] || row['company'] || CORPORATE_OFFICES[0]?.name || 'Atharva Tech Hub'
             const department =
               row['Department'] || row['department'] || row['Dept'] || 'General'
+            const rawGender = String(row['Gender'] || row['gender'] || row['Sex'] || row['sex'] || '').toUpperCase()
+            const gender: 'MALE' | 'FEMALE' =
+              rawGender.includes('FEMALE') || rawGender.includes('WOMAN') || rawGender === 'F' ? 'FEMALE' : 'MALE'
             const lat =
               Number(row['Latitude'] || row['latitude'] || row['Lat'] || row['lat']) || 12.9716
             const lng =
@@ -271,6 +283,7 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
               address: String(address).trim(),
               company: String(company).trim(),
               department: String(department).trim(),
+              gender,
               lat,
               lng,
             }
@@ -427,7 +440,7 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
               </button>
             </div>
 
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
               <div>
                 <label className="text-[11px] font-semibold text-slate-700 block mb-1">Full Name *</label>
                 <input
@@ -449,6 +462,33 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
                   className="input text-xs font-mono"
                   required
                 />
+              </div>
+              <div>
+                <label className="text-[11px] font-semibold text-slate-700 block mb-1">Gender *</label>
+                <div className="flex items-center gap-1 bg-white p-1 rounded-xl border border-slate-300">
+                  <button
+                    type="button"
+                    onClick={() => setNewEmpGender('MALE')}
+                    className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1 ${
+                      newEmpGender === 'MALE'
+                        ? 'bg-blue-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>👨 Male</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setNewEmpGender('FEMALE')}
+                    className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1 ${
+                      newEmpGender === 'FEMALE'
+                        ? 'bg-rose-600 text-white shadow-xs'
+                        : 'text-slate-600 hover:text-slate-900'
+                    }`}
+                  >
+                    <span>👩 Female</span>
+                  </button>
+                </div>
               </div>
               <div>
                 <label className="text-[11px] font-semibold text-slate-700 block mb-1">Company Office *</label>
@@ -661,6 +701,16 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
                         <p className="font-bold text-xs sm:text-sm text-slate-900 truncate">
                           {emp.name}
                         </p>
+                        {/* Gender Badge */}
+                        {emp.gender === 'FEMALE' ? (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
+                            <span>👩 Female</span>
+                          </span>
+                        ) : (
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
+                            <span>👨 Male</span>
+                          </span>
+                        )}
                         <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600">
                           {emp.department || 'GENERAL'}
                         </span>

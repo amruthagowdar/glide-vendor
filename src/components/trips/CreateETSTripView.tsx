@@ -17,6 +17,7 @@ import {
   AlertCircle,
   ExternalLink,
   ChevronDown,
+  ShieldCheck,
 } from 'lucide-react'
 import { LocationMapModal } from './LocationMapModal'
 import { sortStopsFarthestFirst, type LiveShiftCab } from '../../lib/routing'
@@ -71,6 +72,7 @@ export interface EmployeeSlot {
   lng: string
   pickupTime?: string
   geoCode?: string
+  gender?: 'MALE' | 'FEMALE'
 }
 
 export interface CorporateEmployee {
@@ -82,12 +84,34 @@ export interface CorporateEmployee {
   lat: number
   lng: number
   department?: string
+  gender?: 'MALE' | 'FEMALE'
 }
 
 interface CreateETSTripViewProps {
   onBack: () => void
   onTripCreated?: (newShift: LiveShiftCab) => void
   initialEmployees?: CorporateEmployee[]
+}
+
+// Helper to determine if a shift time is in the night compliance window (7:00 PM to 6:00 AM)
+export const isNightShift = (timeStr: string): boolean => {
+  if (!timeStr) return false
+  const clean = timeStr.trim().toUpperCase()
+  const isPM = clean.includes('PM')
+  const isAM = clean.includes('AM')
+  const parts = clean.replace(/AM|PM/g, '').trim().split(':')
+  if (parts.length < 2) return false
+  let hour = parseInt(parts[0], 10)
+  const minute = parseInt(parts[1], 10)
+  if (isNaN(hour) || isNaN(minute)) return false
+
+  if (isPM && hour < 12) hour += 12
+  if (isAM && hour === 12) hour = 0
+
+  const timeMinutes = hour * 60 + minute
+  // 7:00 PM is 19 * 60 = 1140 minutes
+  // 6:00 AM is 6 * 60 = 360 minutes
+  return timeMinutes >= 1140 || timeMinutes <= 360
 }
 
 // Full 24-hour range in 15-minute intervals from 12:00 AM to 11:45 PM
@@ -126,7 +150,11 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
     return initialEmployees?.[0]?.company || 'Atharva Tech Hub'
   })
 
-  // Employee Slots: 3 for Sedan, 6 for SUV (with pickup times)
+  // Security Escort Guard details
+  const [escortName, setEscortName] = useState('')
+  const [escortPhone, setEscortPhone] = useState('')
+
+  // Employee Slots: 3 for Sedan, 6 for SUV (with pickup times and gender)
   const [employees, setEmployees] = useState<EmployeeSlot[]>(() => {
     const defaultTimes = ['07:30', '07:45', '08:00', '08:15', '08:30', '08:45']
     const capacity = initialChoice === 'SUV' ? 6 : 3
@@ -142,6 +170,7 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
           lng: emp.lng ? String(emp.lng) : '',
           geoCode: emp.lat && emp.lng ? `${emp.lat}, ${emp.lng}` : '',
           pickupTime: defaultTimes[idx] || '08:00',
+          gender: emp.gender || 'MALE',
         })
       })
     }
@@ -156,6 +185,7 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
         lng: '',
         geoCode: '',
         pickupTime: defaultTimes[idx] || '08:00',
+        gender: 'MALE',
       })
     }
 
@@ -177,6 +207,7 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
         lng: emp.lng ? String(emp.lng) : '',
         geoCode: emp.lat && emp.lng ? `${emp.lat}, ${emp.lng}` : '',
         pickupTime: defaultTimes[idx] || '08:00',
+        gender: emp.gender || 'MALE',
       }))
       while (slots.length < capacity) {
         const idx = slots.length
@@ -188,6 +219,7 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
           lng: '',
           geoCode: '',
           pickupTime: defaultTimes[idx] || '08:00',
+          gender: 'MALE',
         })
       }
       setEmployees(slots)
@@ -566,12 +598,14 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
     setEmployees((prev) => {
       const copy = [...prev]
       copy[index] = {
+        ...copy[index],
         name: emp.name,
         phone: emp.phone,
         address: emp.address,
         lat: String(emp.lat),
         lng: String(emp.lng),
         geoCode: emp.lat && emp.lng ? `${emp.lat}, ${emp.lng}` : copy[index].geoCode || '',
+        gender: emp.gender || copy[index].gender || 'MALE',
       }
       return copy
     })
@@ -670,12 +704,37 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
 const filledEmployees = employees.filter((e) => e.name.trim() && e.address.trim())
 const maxSlots = vehicleChoice === 'SEDAN' ? 3 : 6
 
+// Night shift compliance calculations (7:00 PM to 6:00 AM)
+const isNight = isNightShift(shiftTiming)
+
+// Drop (Logout): Escort required if the LAST employee dropped off is Female
+const isLastFemaleDrop =
+  tripType === 'Logout' &&
+  isNight &&
+  filledEmployees.length > 0 &&
+  filledEmployees[filledEmployees.length - 1].gender === 'FEMALE'
+
+// Pickup (Login): Escort required if the FIRST employee picked up is Female
+const isFirstFemalePickup =
+  tripType === 'Login' &&
+  isNight &&
+  filledEmployees.length > 0 &&
+  filledEmployees[0].gender === 'FEMALE'
+
+const isEscortRequired = isLastFemaleDrop || isFirstFemalePickup
+
 // Form submission: Validate, Calculate Optimal Route, and Dispatch Shift
 const [isSubmitting, setIsSubmitting] = useState(false)
 
 const handleSaveAndCreateTrip = async () => {
   if (filledEmployees.length === 0) {
     toast.error('Please add at least 1 employee with a Name and Address')
+    return
+  }
+
+  // Security escort compliance validation
+  if (isEscortRequired && !escortName.trim()) {
+    toast.error('Security Escort Guard Name is mandatory for night shift female safety compliance.')
     return
   }
 
@@ -706,6 +765,7 @@ const handleSaveAndCreateTrip = async () => {
         lng,
         status: 'PENDING' as const,
         pickupTime: emp.pickupTime || undefined,
+        gender: emp.gender || 'MALE',
       }
     })
 
@@ -731,6 +791,9 @@ const handleSaveAndCreateTrip = async () => {
       hubCoords,
       currentStepIndex: 0,
       stops: sortedStops,
+      hasEscort: isEscortRequired || Boolean(escortName.trim()),
+      escortName: escortName.trim() || undefined,
+      escortPhone: escortPhone.trim() || undefined,
     }
 
     // Persist to localStorage
@@ -745,7 +808,7 @@ const handleSaveAndCreateTrip = async () => {
       console.error('Failed to save to localStorage:', err)
     }
 
-    // Sync to Neon DB in background so all laptops see this trip
+    // Sync to Neon DB in background so all devices see this trip
     createTripInNeon({
       tripNo: shiftCode,
       serviceType: 'RAC',
@@ -756,7 +819,11 @@ const handleSaveAndCreateTrip = async () => {
       scheduledDate: tripDate,
       scheduledTime: shiftTiming,
       tripAmount: filledEmployees.length * 600,
-      notes: `ETS ${tripType.toUpperCase()} Shift [Vehicle: ${vehicleChoice === 'SEDAN' ? 'Sedan 4+1' : 'SUV 6+1'}] Hub: ${companyName}`,
+      notes: `ETS ${tripType.toUpperCase()} Shift [Vehicle: ${vehicleChoice === 'SEDAN' ? 'Sedan 4+1' : 'SUV 6+1'}] Hub: ${companyName}${
+        isEscortRequired
+          ? ` [Escort: ${escortName.trim()}${escortPhone.trim() ? ' Ph: ' + escortPhone.trim() : ''}]`
+          : ''
+      }`,
     }).catch((err) => console.warn('ETS trip Neon sync notice:', err))
 
     // Save filled employees to Permanent Directory
@@ -779,6 +846,7 @@ const handleSaveAndCreateTrip = async () => {
             lat: parseFloat(emp.lat) || 12.92,
             lng: parseFloat(emp.lng) || 77.66,
             department: 'General',
+            gender: emp.gender || 'MALE',
           })
         }
       })
@@ -879,12 +947,8 @@ return (
         </div>
       </div>
 
-      {/* Grid of Trip & Shift Details (Shift Timing hidden for Home Drop) */}
-      <div
-        className={`grid grid-cols-1 ${
-          tripType === 'Login' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'
-        } gap-4 pt-4 border-t border-slate-100`}
-      >
+      {/* Grid of Trip & Shift Details (Shift Timing visible for both Login & Logout with Night Window Compliance) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 pt-4 border-t border-slate-100">
         {/* Trip Date */}
         <div>
           <label className="label">Trip Date</label>
@@ -898,23 +962,30 @@ return (
           </div>
         </div>
 
-        {/* Shift Timing - Only visible for Login (Home -> Office Pickup) */}
-        {tripType === 'Login' && (
-          <div>
-            <label className="label">Shift Timing</label>
-            <select
-              value={shiftTiming}
-              onChange={(e) => setShiftTiming(e.target.value)}
-              className="input text-xs sm:text-sm font-medium"
-            >
-              {SHIFT_TIME_OPTIONS.map((time) => (
-                <option key={time} value={time}>
-                  {time}
-                </option>
-              ))}
-            </select>
+        {/* Shift Timing - Visible for BOTH Login and Logout */}
+        <div>
+          <div className="flex items-center justify-between mb-1">
+            <label className="label !mb-0">Shift Timing</label>
+            {isNight && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">
+                🌙 Night Window
+              </span>
+            )}
           </div>
-        )}
+          <select
+            value={shiftTiming}
+            onChange={(e) => setShiftTiming(e.target.value)}
+            className={`input text-xs sm:text-sm font-medium ${
+              isNight ? 'border-purple-300 bg-purple-50/20' : ''
+            }`}
+          >
+            {SHIFT_TIME_OPTIONS.map((time) => (
+              <option key={time} value={time}>
+                {time}
+              </option>
+            ))}
+          </select>
+        </div>
 
         {/* Trip Type */}
         <div>
@@ -972,8 +1043,8 @@ return (
               key={idx}
               className="border border-slate-200 rounded-2xl p-4 sm:p-5 bg-white space-y-4 shadow-xs"
             >
-              {/* Employee Header */}
-              <div className="flex items-center justify-between">
+              {/* Employee Header with Gender Toggle */}
+              <div className="flex flex-wrap items-center justify-between gap-2.5">
                 <div className="flex items-center gap-2.5">
                   <span className="w-6 h-6 rounded-full bg-blue-600 text-white font-bold text-xs flex items-center justify-center shadow-xs">
                     {slotNumber}
@@ -981,16 +1052,44 @@ return (
                   <span className="font-bold text-sm text-slate-900">Employee {slotNumber}</span>
                 </div>
 
-                {isConfirmed ? (
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
-                    <Check className="w-3 h-3" />
-                    Location Confirmed
-                  </span>
-                ) : (
-                  <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
-                    Location Pending
-                  </span>
-                )}
+                <div className="flex items-center gap-2 flex-wrap">
+                  {/* Gender Male / Female Toggle */}
+                  <div className="flex items-center bg-slate-100 p-0.5 rounded-lg border border-slate-200">
+                    <button
+                      type="button"
+                      onClick={() => updateEmployeeField(idx, 'gender', 'MALE')}
+                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                        slot.gender !== 'FEMALE'
+                          ? 'bg-blue-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>👨 Male</span>
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => updateEmployeeField(idx, 'gender', 'FEMALE')}
+                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                        slot.gender === 'FEMALE'
+                          ? 'bg-rose-600 text-white shadow-xs'
+                          : 'text-slate-600 hover:text-slate-900'
+                      }`}
+                    >
+                      <span>👩 Female</span>
+                    </button>
+                  </div>
+
+                  {isConfirmed ? (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200 flex items-center gap-1">
+                      <Check className="w-3 h-3" />
+                      Location Confirmed
+                    </span>
+                  ) : (
+                    <span className="px-2.5 py-0.5 rounded-full text-[11px] font-bold bg-amber-50 text-amber-700 border border-amber-200">
+                      Location Pending
+                    </span>
+                  )}
+                </div>
               </div>
 
                 {/* Row 1: Employee Name, Contact Number & (if Login) Pickup Time */}
@@ -1218,6 +1317,93 @@ return (
           })}
             </div>
       </div>
+
+      {/* Security Escort Guard Section (Triggered by Night Shift Female Safety Rules) */}
+      {isEscortRequired ? (
+        <div className="card p-5 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-2 border-amber-300 rounded-2xl shadow-sm space-y-4 animate-in fade-in duration-200">
+          <div className="flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+              <ShieldCheck className="w-5 h-5" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center gap-2 flex-wrap">
+                <h3 className="text-sm font-bold text-amber-950">
+                  Security Escort Guard Required
+                </h3>
+                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-200 text-amber-900 uppercase tracking-wider border border-amber-300">
+                  Mandatory Compliance
+                </span>
+                <span className="text-[11px] font-bold text-amber-800">
+                  (Night Window: 7:00 PM – 6:00 AM)
+                </span>
+              </div>
+              <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+                {isLastFemaleDrop && (
+                  <>
+                    <strong>Drop Trip Rule (Office → Home):</strong> The last employee to be dropped off in this shift is female (
+                    <span className="font-bold underline text-amber-950">
+                      {filledEmployees[filledEmployees.length - 1]?.name}
+                    </span>
+                    ). Under Karnataka corporate transport safety standards, a verified Security Escort Guard must accompany the vehicle until the final drop.
+                  </>
+                )}
+                {isFirstFemalePickup && (
+                  <>
+                    <strong>Pickup Trip Rule (Home → Office):</strong> The first employee to be picked up in this shift is female (
+                    <span className="font-bold underline text-amber-950">
+                      {filledEmployees[0]?.name}
+                    </span>
+                    ). Under Karnataka corporate transport safety standards, a verified Security Escort Guard must be present in the cab from the initial pickup.
+                  </>
+                )}
+              </p>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-amber-200/90">
+            <div>
+              <label className="text-xs font-bold text-amber-950 block mb-1">
+                Escort Guard Name *
+              </label>
+              <input
+                type="text"
+                required
+                placeholder="e.g. Ramesh Kumar (Security Guard)"
+                value={escortName}
+                onChange={(e) => setEscortName(e.target.value)}
+                className="input text-xs sm:text-sm font-medium border-amber-300 focus:border-amber-500 bg-white"
+              />
+            </div>
+            <div>
+              <label className="text-xs font-bold text-amber-950 block mb-1">
+                Escort Contact Number (Optional)
+              </label>
+              <input
+                type="tel"
+                placeholder="e.g. +91 98450 99881"
+                value={escortPhone}
+                onChange={(e) => setEscortPhone(e.target.value)}
+                className="input text-xs sm:text-sm font-medium border-amber-300 focus:border-amber-500 bg-white"
+              />
+            </div>
+          </div>
+        </div>
+      ) : (
+        isNight && (
+          <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-600 text-xs flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <ShieldCheck className="w-4 h-4 text-emerald-600" />
+              <span>
+                <strong>Night Shift Active (7 PM - 6 AM):</strong> No escort trigger active (
+                {tripType === 'Logout' ? 'last drop is male' : 'first pickup is male'}).
+              </span>
+            </div>
+            <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+              Compliant
+            </span>
+          </div>
+        )
+      )}
 
       {/* Card 3: Location Options */}
       <div className="card p-5 bg-sky-50/70 border border-sky-200/90 rounded-2xl shadow-xs space-y-3">
