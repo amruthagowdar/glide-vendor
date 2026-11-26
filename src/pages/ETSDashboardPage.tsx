@@ -557,12 +557,12 @@ export const ETSDashboardPage: React.FC = () => {
                   <h1 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight">
                     ETS Command Center
                   </h1>
-                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300 uppercase tracking-wider">
-                    Frozen
+                  <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200 uppercase tracking-wider">
+                    Active
                   </span>
                 </div>
                 <p className="text-xs text-slate-500 mt-0.5">
-                  Live corporate fleet tracking (Module Frozen · Operations Suspended / Read-Only)
+                  Live corporate fleet tracking, algorithmic roster optimization & stage progression
                 </p>
               </div>
             </div>
@@ -573,10 +573,10 @@ export const ETSDashboardPage: React.FC = () => {
             {/* Button 1: Create Trip */}
             <button
               onClick={() => openModal('CREATE_TRIP')}
-              className="bg-slate-800 hover:bg-slate-900 text-white text-xs sm:text-sm font-bold flex items-center gap-1.5 shadow-sm px-3.5 py-2 rounded-xl border border-slate-700"
+              className="btn-accent text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm px-3.5 py-2"
             >
-              <Car className="w-4 h-4 text-slate-300" />
-              <span>Create Trip (Frozen)</span>
+              <Car className="w-4 h-4" />
+              <span>Create ETS Trip</span>
             </button>
 
             {/* Button 2: Employee Log */}
@@ -874,10 +874,10 @@ export const ETSDashboardPage: React.FC = () => {
           <div className="pt-3 border-t border-slate-200">
             <button
               onClick={() => openModal('CREATE_TRIP')}
-              className="bg-slate-800 hover:bg-slate-900 text-white text-xs font-bold w-full py-2.5 rounded-xl flex items-center justify-center gap-1.5 shadow-sm border border-slate-700"
+              className="btn-accent text-xs font-semibold w-full py-2.5 flex items-center justify-center gap-1.5 shadow-sm"
             >
-              <Plus className="w-3.5 h-3.5 text-slate-300" />
-              <span>Dispatch New Shift Trip (Frozen)</span>
+              <Plus className="w-3.5 h-3.5" />
+              <span>Dispatch New Shift Trip</span>
             </button>
           </div>
         </div>

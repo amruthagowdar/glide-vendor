@@ -1046,38 +1046,27 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 </div>
               )}
 
-              {/* Wallet Balance: Frozen and greyed out until admin portal connects for Airport Transfer, unchanged for Outstation & Packages */}
-              {serviceType === 'RAC' ? (
-                <div className="p-3 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 flex items-center justify-between text-xs">
-                  <div>
-                    <p className="font-semibold text-slate-900 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-slate-400" />
-                      Wallet Balance: Frozen (Admin Connect Pending)
-                    </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      Wallet balance is frozen and greyed out until the admin portal connects. Trip will be booked immediately without wallet balance.
-                    </p>
-                  </div>
-                  <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-200 text-slate-600 border border-slate-300">
-                    Frozen
-                  </span>
+              {/* Wallet Balance Status */}
+              <div className="p-3 rounded-xl bg-sky-50 border border-sky-100 text-sky-950 flex items-center justify-between text-xs">
+                <div>
+                  <p className="font-semibold text-sky-950 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    Available Wallet Balance: {formatCurrency(wallet?.balance ?? 0)}
+                  </p>
+                  <p className="text-[11px] text-sky-700 mt-0.5">
+                    Estimated trip fare will be atomically deducted and held in escrow.
+                  </p>
                 </div>
-              ) : (
-                <div className="p-3 rounded-xl bg-slate-50 border border-slate-200 text-slate-700 flex items-center justify-between text-xs">
-                  <div>
-                    <p className="font-semibold text-slate-900 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-slate-400" />
-                      Payment Method: Direct Corporate Billing
-                    </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      Prepaid wallet option is frozen. Trip will be booked immediately without wallet balance.
-                    </p>
-                  </div>
-                  <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-200 text-slate-600">
-                    Wallet Frozen
-                  </span>
-                </div>
-              )}
+                {onOpenRechargeModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenRechargeModal}
+                    className="text-xs text-blue-600 font-bold hover:underline ml-2 flex-shrink-0"
+                  >
+                    + Add Funds
+                  </button>
+                )}
+              </div>
 
               <div>
                 <label className="label">Passenger Notes / Special Instructions</label>
@@ -1203,23 +1192,27 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 )}
               </div>
 
-              {/* Airport Transfer Only: Wallet Balance Frozen Notice until Admin connects */}
-              {serviceType === 'RAC' && (
-                <div className="p-3.5 rounded-xl bg-slate-100 border border-slate-300 text-slate-700 flex items-center justify-between text-xs">
-                  <div>
-                    <p className="font-semibold text-slate-900 flex items-center gap-1.5">
-                      <span className="w-2 h-2 rounded-full bg-slate-400" />
-                      Wallet Balance: Frozen (Admin Connect Pending)
-                    </p>
-                    <p className="text-[11px] text-slate-500 mt-0.5">
-                      Wallet balance is frozen and greyed out until the admin portal connects. Booking proceeds via direct corporate billing.
-                    </p>
-                  </div>
-                  <span className="px-2 py-0.5 text-[10px] font-bold rounded bg-slate-200 text-slate-600 border border-slate-300">
-                    Frozen
-                  </span>
+              {/* Wallet Balance Status */}
+              <div className="p-3.5 rounded-xl bg-sky-50 border border-sky-100 text-sky-950 flex items-center justify-between text-xs">
+                <div>
+                  <p className="font-semibold text-sky-950 flex items-center gap-1.5">
+                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
+                    Wallet Balance: {formatCurrency(wallet?.balance ?? 0)}
+                  </p>
+                  <p className="text-[11px] text-sky-700 mt-0.5">
+                    Automated escrow deduction active on trip confirmation.
+                  </p>
                 </div>
-              )}
+                {onOpenRechargeModal && (
+                  <button
+                    type="button"
+                    onClick={onOpenRechargeModal}
+                    className="text-xs text-blue-600 font-bold hover:underline ml-2 flex-shrink-0"
+                  >
+                    + Add Funds
+                  </button>
+                )}
+              </div>
 
               {/* Action Toolbar: Download & Share */}
               <div className="flex items-center justify-between gap-2 pt-0.5 pb-0.5">

@@ -131,7 +131,7 @@ export const TripsPage: React.FC = () => {
         'Vehicle Category / Type': vehicleInfo,
         'Driver Assigned': t.driverName || 'Unassigned',
         'Trip Status': t.tripStatus,
-        'Fare / Billing': 'Direct Corporate Billing [Frozen]',
+        'Fare / Billing': formatCurrency(t.tripAmount || 0),
         'Special Notes': t.notes || '',
         'Created Date': t.createdAt ? t.createdAt.split('T')[0] : '',
       }
@@ -173,16 +173,14 @@ export const TripsPage: React.FC = () => {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <div
-            className="px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-100 text-slate-500 text-xs sm:text-sm font-semibold flex items-center gap-1.5 select-none cursor-not-allowed opacity-80 shadow-none"
-            title="ETS module is frozen and cannot be opened"
+          <button
+            onClick={() => navigate('/ets')}
+            className="btn-secondary text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-2xs"
+            title="Go to ETS Command"
           >
-            <Building2 className="w-4 h-4 text-slate-400" />
-            <span>ETS</span>
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 border border-slate-300">
-              Frozen
-            </span>
-          </div>
+            <Building2 className="w-4 h-4 text-slate-700" />
+            <span>ETS Command</span>
+          </button>
           <button
             onClick={handleExportTrips}
             className="px-3.5 py-2 rounded-xl border border-slate-200 bg-white hover:bg-slate-50 active:bg-slate-100 text-slate-700 text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-2xs transition"
@@ -351,18 +349,14 @@ export const TripsPage: React.FC = () => {
             {
               key: 'paymentStatus',
               header: 'Payment',
-              render: () => (
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-300">
-                  Frozen
-                </span>
-              ),
+              render: (row) => <PaymentBadge status={row.paymentStatus} />,
             },
             {
               key: 'tripAmount',
               header: 'Amount',
-              render: () => (
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-300">
-                  Frozen
+              render: (row) => (
+                <span className="font-semibold text-slate-800">
+                  {formatCurrency(row.tripAmount || 0)}
                 </span>
               ),
             },

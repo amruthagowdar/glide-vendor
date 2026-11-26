@@ -84,17 +84,19 @@ export const Navbar: React.FC<NavbarProps> = ({ onMenuClick, onOpenRechargeModal
       </div>
 
       <div className="flex items-center gap-3">
-        {/* Wallet Frozen Pill Indicator - Disabled / Cannot be opened */}
-        <div
-          className="flex items-center gap-1.5 px-3 py-1.5 rounded-full border border-slate-300 bg-slate-100/90 text-slate-500 text-xs font-semibold select-none cursor-not-allowed shadow-none opacity-80"
-          title="Wallet is frozen and cannot be opened"
+        {/* Wallet Active Pill Indicator */}
+        <button
+          type="button"
+          onClick={onOpenRechargeModal}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-full border text-xs font-semibold transition-all cursor-pointer shadow-sm hover:scale-[1.02] active:scale-[0.98] ${walletBadgeStyle}`}
+          title="Click to recharge wallet"
         >
-          <WalletIcon className="w-3.5 h-3.5 text-slate-400" />
-          <span>Wallet: ₹0</span>
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 border border-slate-300">
-            Frozen
+          <WalletIcon className="w-3.5 h-3.5" />
+          <span>Wallet: {formatCurrency(balance)}</span>
+          <span className="w-4 h-4 rounded-full bg-black/5 flex items-center justify-center text-[10px] ml-0.5">
+            +
           </span>
-        </div>
+        </button>
 
         {/* Notifications Icon with Interactive Dropdown */}
         <div className="relative" ref={dropdownRef}>

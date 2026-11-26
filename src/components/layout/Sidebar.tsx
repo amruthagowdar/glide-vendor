@@ -24,12 +24,11 @@ const navItems: Array<{
   path: string
   icon: React.ComponentType<{ className?: string }>
   badge?: boolean
-  tag?: string
 }> = [
   { name: 'Dashboard', path: '/', icon: LayoutDashboard },
-  { name: 'ETS Command', path: '/ets', icon: Building2, tag: 'Frozen' },
+  { name: 'ETS Command', path: '/ets', icon: Building2 },
   { name: 'Trips', path: '/trips', icon: Navigation },
-  { name: 'Wallet', path: '/wallet', icon: Wallet, tag: 'Frozen' },
+  { name: 'Wallet', path: '/wallet', icon: Wallet },
   { name: 'Notifications', path: '/notifications', icon: Bell, badge: true },
   { name: 'Reports', path: '/reports', icon: BarChart3 },
 ]
@@ -103,45 +102,31 @@ export const Sidebar: React.FC<SidebarProps> = ({ isOpen, onClose }) => {
 
         {/* Navigation links */}
         <div className="flex-1 px-3 py-6 space-y-1.5 overflow-y-auto bg-white">
-          {navItems.map((item) =>
-            item.tag === 'Frozen' ? (
-              <div
-                key={item.path}
-                className="flex items-center gap-3 px-3.5 py-2.5 rounded-full text-sm font-medium text-slate-400 cursor-not-allowed select-none bg-slate-50 border border-slate-100"
-                title={`${item.name} is frozen and cannot be opened`}
-              >
-                <item.icon className="w-5 h-5 flex-shrink-0 text-slate-400" />
-                <span className="flex-1 tracking-tight">{item.name}</span>
-                <span className="px-1.5 py-0.5 text-[10px] font-bold rounded-full bg-slate-200/80 text-slate-500 border border-slate-300/60">
-                  Frozen
-                </span>
-              </div>
-            ) : (
-              <NavLink
-                key={item.path}
-                to={item.path}
-                end={item.path === '/'}
-                onClick={handleNavClick}
-                className={({ isActive }) =>
-                  `sidebar-link ${isActive ? 'active' : ''}`
-                }
-              >
-                {({ isActive }) => (
-                  <>
-                    <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-blue-600'}`} />
-                    <span className="flex-1 tracking-tight">{item.name}</span>
-                    {item.badge && unreadCount > 0 && (
-                      <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${
-                        isActive ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'
-                      }`}>
-                        {unreadCount > 99 ? '99+' : unreadCount}
-                      </span>
-                    )}
-                  </>
-                )}
-              </NavLink>
-            )
-          )}
+          {navItems.map((item) => (
+            <NavLink
+              key={item.path}
+              to={item.path}
+              end={item.path === '/'}
+              onClick={handleNavClick}
+              className={({ isActive }) =>
+                `sidebar-link ${isActive ? 'active' : ''}`
+              }
+            >
+              {({ isActive }) => (
+                <>
+                  <item.icon className={`w-5 h-5 flex-shrink-0 ${isActive ? 'text-white' : 'text-slate-500 group-hover:text-blue-600'}`} />
+                  <span className="flex-1 tracking-tight">{item.name}</span>
+                  {item.badge && unreadCount > 0 && (
+                    <span className={`px-2 py-0.5 text-xs font-bold rounded-full ${
+                      isActive ? 'bg-white text-blue-600' : 'bg-blue-600 text-white'
+                    }`}>
+                      {unreadCount > 99 ? '99+' : unreadCount}
+                    </span>
+                  )}
+                </>
+              )}
+            </NavLink>
+          ))}
         </div>
 
         {/* User profile & Logout */}

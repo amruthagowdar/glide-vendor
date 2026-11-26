@@ -115,23 +115,13 @@ export const WalletPage: React.FC = () => {
             Prepaid balance for trip bookings and automated driver payout settlements
           </p>
         </div>
-      </div>
-
-      {/* Wallet Frozen Notice Banner in Grey */}
-      <div className="p-4 rounded-2xl bg-slate-100 border border-slate-300 text-slate-800 flex items-start gap-3.5 shadow-sm">
-        <div className="w-9 h-9 rounded-xl bg-slate-200 text-slate-600 flex items-center justify-center flex-shrink-0 mt-0.5 border border-slate-300/80">
-          <AlertTriangle className="w-5 h-5 text-slate-600" />
-        </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <h3 className="font-bold text-sm text-slate-900">Wallet System Frozen</h3>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300 uppercase tracking-wide">
-              Module Frozen
-            </span>
-          </div>
-          <p className="text-xs text-slate-600 mt-1 leading-relaxed">
-            Wallet deductions and prepaid escrow requirements are currently frozen across the portal (including Rent A Cab and ETS). All trips and corporate shifts are dispatched under direct billing without requiring advance wallet balance or prepaid escrow.
-          </p>
+        <div className="flex items-center gap-2">
+          <button
+            onClick={() => setRechargeOpen(true)}
+            className="btn-accent text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm"
+          >
+            <span>+ Recharge Wallet</span>
+          </button>
         </div>
       </div>
 

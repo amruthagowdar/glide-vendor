@@ -12,6 +12,7 @@ import toast from 'react-hot-toast'
 import { vendorApi } from '../lib/api'
 import { LoadingState } from '../components/ui/LoadingState'
 import { StatusBadge } from '../components/ui/StatusBadge'
+import { formatCurrency } from '../lib/utils'
 import type { Trip } from '../types'
 
 export const ReportsPage: React.FC = () => {
@@ -131,7 +132,7 @@ export const ReportsPage: React.FC = () => {
         'Vehicle Category / Type': vehicleInfo,
         'Driver Assigned': t.driverName || 'Unassigned',
         'Trip Status': t.tripStatus,
-        'Fare / Billing': 'Direct Corporate Billing [Frozen]',
+        'Fare / Billing': formatCurrency(t.tripAmount || 0),
         'Special Notes': t.notes || '',
         'Created Date': t.createdAt ? t.createdAt.split('T')[0] : '',
       }
@@ -328,8 +329,8 @@ export const ReportsPage: React.FC = () => {
               Cancelled: {cancelledCount}
             </span>
           )}
-          <span className="font-semibold text-slate-500 bg-slate-100 px-2 py-0.5 rounded border border-slate-200">
-            Settlement: Direct Corporate Billing [Frozen]
+          <span className="font-semibold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
+            Settlement: Wallet & Corporate Billing Active
           </span>
         </div>
 
@@ -411,8 +412,8 @@ export const ReportsPage: React.FC = () => {
                         <StatusBadge status={trip.tripStatus} />
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap">
-                        <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-slate-100 text-slate-600 border border-slate-300">
-                          [Frozen]
+                        <span className="font-semibold text-slate-800">
+                          {formatCurrency(trip.tripAmount || 0)}
                         </span>
                       </td>
                     </tr>

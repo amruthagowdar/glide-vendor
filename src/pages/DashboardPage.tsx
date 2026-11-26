@@ -132,8 +132,8 @@ export const DashboardPage: React.FC = () => {
 
   return (
     <div className="space-y-6">
-      {/* Low Balance Warning Banner suppressed while wallet is frozen across portal */}
-      {false && colorState !== 'green' && (
+      {/* Low Balance Warning Banner */}
+      {colorState !== 'green' && (
         <div
           className={`p-4 rounded-xl border flex items-center justify-between ${colorState === 'red'
             ? 'bg-red-50 border-red-200 text-red-900'
@@ -184,16 +184,13 @@ export const DashboardPage: React.FC = () => {
             <Car className="w-4 h-4" />
             <span>Rent A Cab</span>
           </button>
-          <div
-            className="px-3.5 py-2 rounded-xl border border-slate-300 bg-slate-100 text-slate-500 text-xs sm:text-sm font-semibold flex items-center gap-1.5 select-none cursor-not-allowed opacity-80 shadow-none"
-            title="ETS module is frozen and cannot be opened"
+          <button
+            onClick={() => navigate('/ets')}
+            className="btn-secondary text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-2xs"
           >
-            <Building2 className="w-4 h-4 text-slate-400" />
-            <span>ETS</span>
-            <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 border border-slate-300">
-              Frozen
-            </span>
-          </div>
+            <Building2 className="w-4 h-4 text-slate-700" />
+            <span>ETS Command</span>
+          </button>
         </div>
       </div>
 
@@ -209,11 +206,11 @@ export const DashboardPage: React.FC = () => {
         />
         <StatCard
           title="Wallet Balance"
-          value="₹0"
-          subtitle="Frozen · Admin Connect Pending"
-          icon={<Wallet className="w-5 h-5 text-slate-400" />}
-          colorClass="bg-slate-100 text-slate-700 border border-slate-300"
-          onClick={undefined}
+          value={formatCurrency(walletBalance)}
+          subtitle={walletBalance > 1000 ? 'Active Wallet Balance' : 'Click to Top Up'}
+          icon={<Wallet className="w-5 h-5 text-emerald-600" />}
+          colorClass="bg-emerald-50 text-emerald-700 border border-emerald-200"
+          onClick={() => setRechargeOpen(true)}
         />
         <StatCard
           title="Active Drivers"
@@ -303,9 +300,9 @@ export const DashboardPage: React.FC = () => {
               {
                 key: 'tripAmount',
                 header: 'Fare',
-                render: () => (
-                  <span className="px-2 py-0.5 rounded text-[11px] font-bold bg-slate-100 text-slate-600 border border-slate-300">
-                    Frozen
+                render: (row) => (
+                  <span className="font-semibold text-slate-800">
+                    {formatCurrency(row.tripAmount || 0)}
                   </span>
                 ),
               },
@@ -351,34 +348,44 @@ export const DashboardPage: React.FC = () => {
             <div>
               <div className="flex items-center gap-2">
                 <h2 className="text-base font-bold text-slate-900">Wallet Activity</h2>
-                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-100 text-slate-600 border border-slate-200">
-                  Frozen
+                <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-emerald-50 text-emerald-700 border border-emerald-200">
+                  Active
                 </span>
               </div>
               <p className="text-xs text-slate-500">Recent credits & debits</p>
             </div>
-            <span className="text-xs text-slate-400 font-semibold select-none cursor-not-allowed">
-              Inaccessible (Frozen)
-            </span>
+            <button
+              onClick={() => navigate('/wallet')}
+              className="text-xs text-blue-600 hover:text-blue-800 font-semibold flex items-center gap-1"
+            >
+              <span>View All</span>
+              <ArrowUpRight className="w-3.5 h-3.5" />
+            </button>
           </div>
 
           <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
-            <div className="w-10 h-10 rounded-full bg-slate-100 border border-slate-300 text-slate-400 flex items-center justify-center mb-2.5">
-              <Wallet className="w-5 h-5" />
+            <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mb-3 shadow-inner">
+              <Wallet className="w-6 h-6" />
             </div>
-            <p className="font-bold text-slate-800 text-xs sm:text-sm">Prepaid Wallet Frozen</p>
-            <p className="text-[11px] text-slate-500 mt-1 max-w-[260px] leading-relaxed">
-              All wallet debits, escrow holds, and transaction activity are frozen until the admin portal connects.
+            <p className="text-xs text-slate-500 font-medium">Available Balance</p>
+            <p className="text-2xl font-black text-slate-900 mt-0.5 tracking-tight">
+              {formatCurrency(walletBalance)}
             </p>
-            <span className="mt-3 px-2.5 py-1 rounded-full text-[10px] font-bold bg-slate-200 text-slate-700 border border-slate-300">
-              Direct Corporate Billing Active
-            </span>
+            <p className="text-[11px] text-slate-500 mt-1 max-w-[260px] leading-relaxed">
+              Real-time automated escrow holds and instant trip settlement are fully active.
+            </p>
+            <button
+              onClick={() => setRechargeOpen(true)}
+              className="mt-4 btn-accent text-xs font-semibold px-4 py-2 flex items-center gap-1.5 shadow-sm"
+            >
+              <span>+ Recharge Wallet</span>
+            </button>
           </div>
 
-          <div className="p-3 bg-slate-50 border-t border-slate-200 text-center">
-            <span className="text-xs font-semibold text-slate-500 flex items-center justify-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-slate-400" />
-              Prepaid Wallet Frozen · Direct Billing Active
+          <div className="p-3 bg-slate-50 border-t border-slate-100 text-center">
+            <span className="text-xs font-semibold text-emerald-700 flex items-center justify-center gap-1.5">
+              <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
+              Prepaid & Corporate Wallet Online
             </span>
           </div>
         </div>
