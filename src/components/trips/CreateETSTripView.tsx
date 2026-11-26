@@ -418,7 +418,7 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
             >
               <div className="w-full h-32 flex items-center justify-center p-2">
                 <img
-                  src="/cars/swift-dzire.svg"
+                  src="/cars/swift-dzire.png"
                   alt="Sedan - Swift Dzire"
                   className="max-h-full max-w-full object-contain drop-shadow-sm transition-transform duration-200 hover:scale-105"
                 />
@@ -443,7 +443,7 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
             >
               <div className="w-full h-32 flex items-center justify-center p-2">
                 <img
-                  src="/cars/ertiga.svg"
+                  src="/cars/ertiga.png"
                   alt="SUV - Ertiga"
                   className="max-h-full max-w-full object-contain drop-shadow-sm transition-transform duration-200 hover:scale-105"
                 />
