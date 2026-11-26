@@ -11,6 +11,7 @@ import {
   MessageCircle,
   Mail,
   Compass,
+  Navigation,
   ArrowLeft,
   CheckCircle2,
   AlertCircle,
@@ -68,6 +69,7 @@ export interface EmployeeSlot {
   lat: string
   lng: string
   pickupTime?: string
+  geoCode?: string
 }
 
 export interface CorporateEmployee {
@@ -102,15 +104,14 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
   const [tripType, setTripType] = useState<'Login' | 'Logout'>('Login')
   const [companyName, setCompanyName] = useState('Atharva Tech Hub')
 
-  // Employee Slots: 3 for Sedan, 6 for SUV
   // Employee Slots: 3 for Sedan, 6 for SUV (with pickup times)
   const [employees, setEmployees] = useState<EmployeeSlot[]>([
-    { name: '', phone: '', address: '', lat: '', lng: '' },
-    { name: '', phone: '', address: '', lat: '', lng: '' },
-    { name: '', phone: '', address: '', lat: '', lng: '' },
-    { name: '', phone: '', address: '', lat: '', lng: '', pickupTime: '07:30' },
-    { name: '', phone: '', address: '', lat: '', lng: '', pickupTime: '07:45' },
-    { name: '', phone: '', address: '', lat: '', lng: '', pickupTime: '08:00' },
+    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '' },
+    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '' },
+    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '' },
+    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '', pickupTime: '07:30' },
+    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '', pickupTime: '07:45' },
+    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '', pickupTime: '08:00' },
   ])
 
   // Map Picker Modal state for pinpointing coordinates
@@ -209,45 +210,154 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
             address: '',
             lat: '',
             lng: '',
+            geoCode: '',
             pickupTime: defaultTimes[prev.length + idx] || '08:00',
           })
         )
-return [...prev, ...extra]
+        return [...prev, ...extra]
       }
-return prev.slice(0, targetCount)
+      return prev.slice(0, targetCount)
     })
   }
 
-// Update specific employee field
-const updateEmployeeField = (
-  index: number,
-  field: keyof EmployeeSlot,
-  value: string
-) => {
-  setEmployees((prev) => {
-    const copy = [...prev]
-    copy[index] = { ...copy[index], [field]: value }
-    return copy
-  })
-}
+  // Update specific employee field
+  const updateEmployeeField = (
+    index: number,
+    field: keyof EmployeeSlot,
+    value: string
+  ) => {
+    setEmployees((prev) => {
+      const copy = [...prev]
+      copy[index] = { ...copy[index], [field]: value }
+      return copy
+    })
+  }
 
-// Fill employee from directory selection
-const handleSelectFromDirectory = (index: number, emp: CorporateEmployee) => {
-  setEmployees((prev) => {
-    const copy = [...prev]
-    copy[index] = {
-      name: emp.name,
-      phone: emp.phone,
-      address: emp.address,
-      lat: String(emp.lat),
-      lng: String(emp.lng),
+  // Helper to extract lat & lng from geo code text, coordinate string, or Maps links
+  const extractCoordinatesFromGeoCode = (input: string): { lat: number; lng: number } | null => {
+    if (!input) return null
+    const clean = input.trim()
+
+    // 1. Direct coordinate match e.g. "12.9716, 77.5946" or "12.9716 77.5946"
+    const rawMatch = clean.match(/([-+]?\d{1,2}\.\d+)[,\s]+([-+]?\d{1,3}\.\d+)/)
+    if (rawMatch) {
+      const lat = parseFloat(rawMatch[1])
+      const lng = parseFloat(rawMatch[2])
+      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return { lat, lng }
+      }
     }
-    return copy
-  })
-  setSearchQueries((prev) => ({ ...prev, [index]: emp.name }))
-  setActiveSearchSlot(null)
-  toast.success(`Loaded details for ${emp.name}`)
-}
+
+    // 2. Standard Google Maps /@lat,lng match
+    const atMatch = clean.match(/@([-+]?\d{1,2}\.\d+),([-+]?\d{1,3}\.\d+)/)
+    if (atMatch) {
+      const lat = parseFloat(atMatch[1])
+      const lng = parseFloat(atMatch[2])
+      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return { lat, lng }
+      }
+    }
+
+    // 3. Google Maps ?q=lat,lng or &q=lat,lng
+    const qMatch = clean.match(/[?&](?:q|ll)=([-+]?\d{1,2}\.\d+)[,%20]+([-+]?\d{1,3}\.\d+)/)
+    if (qMatch) {
+      const lat = parseFloat(qMatch[1])
+      const lng = parseFloat(qMatch[2])
+      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        return { lat, lng }
+      }
+    }
+
+    return null
+  }
+
+  // Reverse geocode lat/lng to real address
+  const reverseGeocodeCoords = async (lat: number, lng: number): Promise<string | null> => {
+    try {
+      const res = await fetch(
+        `https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lng}&zoom=18&addressdetails=1`
+      )
+      if (res.ok) {
+        const data = await res.json()
+        if (data && data.display_name) {
+          return data.display_name
+        }
+      }
+    } catch {}
+
+    try {
+      const res = await fetch(`https://photon.komoot.io/reverse?lat=${lat}&lon=${lng}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data?.features?.[0]?.properties) {
+          const p = data.features[0].properties
+          const name = p.name || p.street || ''
+          const locality = p.city || p.district || p.county || ''
+          const state = p.state || 'Karnataka'
+          const parts = [name, locality, state, p.postcode].filter(Boolean)
+          if (parts.length > 0) return parts.join(', ')
+        }
+      }
+    } catch {}
+
+    return null
+  }
+
+  // Handle user entering / pasting a Geo Code in that employee's input box
+  const handleGeoCodeChange = async (index: number, val: string) => {
+    updateEmployeeField(index, 'geoCode', val)
+
+    const coords = extractCoordinatesFromGeoCode(val)
+    if (coords) {
+      const toastId = toast.loading('Resolving address from Geo Code...')
+      setEmployees((prev) => {
+        const copy = [...prev]
+        copy[index] = {
+          ...copy[index],
+          geoCode: val,
+          lat: String(coords.lat),
+          lng: String(coords.lng),
+        }
+        return copy
+      })
+
+      const resolvedAddress = await reverseGeocodeCoords(coords.lat, coords.lng)
+      if (resolvedAddress) {
+        setEmployees((prev) => {
+          const copy = [...prev]
+          copy[index] = {
+            ...copy[index],
+            address: resolvedAddress,
+          }
+          return copy
+        })
+        toast.success(`Address auto-filled from Geo Code!`, { id: toastId })
+      } else {
+        toast.success(`GPS coordinates saved (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, {
+          id: toastId,
+        })
+      }
+    }
+  }
+
+  // Fill employee from directory selection
+  const handleSelectFromDirectory = (index: number, emp: CorporateEmployee) => {
+    setEmployees((prev) => {
+      const copy = [...prev]
+      copy[index] = {
+        name: emp.name,
+        phone: emp.phone,
+        address: emp.address,
+        lat: String(emp.lat),
+        lng: String(emp.lng),
+        geoCode: emp.lat && emp.lng ? `${emp.lat}, ${emp.lng}` : copy[index].geoCode || '',
+      }
+      return copy
+    })
+    setSearchQueries((prev) => ({ ...prev, [index]: emp.name }))
+    setActiveSearchSlot(null)
+    toast.success(`Loaded details for ${emp.name}`)
+  }
 
   // Helper to strictly validate and normalize 10-digit Indian mobile number
   const getStrictMobileNumber = (rawPhone: string) => {
@@ -277,7 +387,9 @@ const handleSelectFromDirectory = (index: number, emp: CorporateEmployee) => {
 
     const name = slot.name.trim() || `Employee ${slotIndex + 1}`
     const msg = encodeURIComponent(
-      `Hi ${name}, please share your live home pickup location with Atharva Travels for your upcoming ETS corporate shift on ${tripDate} at ${shiftTiming}. Reply with a Google Maps location link.`
+      tripType === 'Login'
+        ? `Hi ${name}, please share your live home pickup location with Atharva Travels for your upcoming ETS corporate shift on ${tripDate} at ${shiftTiming}. Reply with a Google Maps location link or coordinates.`
+        : `Hi ${name}, please share your live home drop location with Atharva Travels for your upcoming ETS corporate shift on ${tripDate}. Reply with a Google Maps location link or coordinates.`
     )
     // STRICT: Only opens to the exact phone entered with 91 country code prefix, never generic
     const targetPhone = `91${valid10Digits}`
@@ -297,7 +409,9 @@ const handleSelectFromDirectory = (index: number, emp: CorporateEmployee) => {
 
     const name = slot.name.trim() || `Employee ${slotIndex + 1}`
     const body = encodeURIComponent(
-      `Hi ${name}, please share your home pickup location link for your ETS corporate shift on ${tripDate} at ${shiftTiming}.`
+      tripType === 'Login'
+        ? `Hi ${name}, please share your home pickup location link or coordinates for your ETS corporate shift on ${tripDate} at ${shiftTiming}.`
+        : `Hi ${name}, please share your home drop location link or coordinates for your ETS corporate shift on ${tripDate}.`
     )
     // STRICT: Only sends SMS to the exact entered 10-digit number
     window.open(`sms:+91${valid10Digits}?body=${body}`, '_blank')
@@ -502,8 +616,12 @@ return (
         </div>
       </div>
 
-      {/* 2x2 Grid of Trip & Shift Details */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-4 border-t border-slate-100">
+      {/* Grid of Trip & Shift Details (Shift Timing hidden for Home Drop) */}
+      <div
+        className={`grid grid-cols-1 ${
+          tripType === 'Login' ? 'sm:grid-cols-2' : 'sm:grid-cols-3'
+        } gap-4 pt-4 border-t border-slate-100`}
+      >
         {/* Trip Date */}
         <div>
           <label className="label">Trip Date</label>
@@ -517,26 +635,28 @@ return (
           </div>
         </div>
 
-        {/* Shift Timing */}
-        <div>
-          <label className="label">Shift Timing</label>
-          <select
-            value={shiftTiming}
-            onChange={(e) => setShiftTiming(e.target.value)}
-            className="input text-xs sm:text-sm font-medium"
-          >
-            <option value="06:00 AM">06:00 AM (Early Login Shift)</option>
-            <option value="07:00 AM">07:00 AM (Morning Shift)</option>
-            <option value="08:00 AM">08:00 AM</option>
-            <option value="08:30 AM">08:30 AM (Standard General Shift)</option>
-            <option value="09:00 AM">09:00 AM</option>
-            <option value="01:00 PM">01:00 PM (Afternoon Shift)</option>
-            <option value="02:00 PM">02:00 PM</option>
-            <option value="06:00 PM">06:00 PM (Evening Logout)</option>
-            <option value="08:00 PM">08:00 PM</option>
-            <option value="10:00 PM">10:00 PM (Night Shift)</option>
-          </select>
-        </div>
+        {/* Shift Timing - Only visible for Login (Home -> Office Pickup) */}
+        {tripType === 'Login' && (
+          <div>
+            <label className="label">Shift Timing</label>
+            <select
+              value={shiftTiming}
+              onChange={(e) => setShiftTiming(e.target.value)}
+              className="input text-xs sm:text-sm font-medium"
+            >
+              <option value="06:00 AM">06:00 AM (Early Login Shift)</option>
+              <option value="07:00 AM">07:00 AM (Morning Shift)</option>
+              <option value="08:00 AM">08:00 AM</option>
+              <option value="08:30 AM">08:30 AM (Standard General Shift)</option>
+              <option value="09:00 AM">09:00 AM</option>
+              <option value="01:00 PM">01:00 PM (Afternoon Shift)</option>
+              <option value="02:00 PM">02:00 PM</option>
+              <option value="06:00 PM">06:00 PM (Evening Logout)</option>
+              <option value="08:00 PM">08:00 PM</option>
+              <option value="10:00 PM">10:00 PM (Night Shift)</option>
+            </select>
+          </div>
+        )}
 
         {/* Trip Type */}
         <div>
@@ -615,8 +735,12 @@ return (
                 )}
               </div>
 
-                {/* Row 1: Employee Name, Contact Number & Pickup Time */}
-                <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {/* Row 1: Employee Name, Contact Number & (if Login) Pickup Time */}
+                <div
+                  className={`grid grid-cols-1 ${
+                    tripType === 'Login' ? 'sm:grid-cols-3' : 'sm:grid-cols-2'
+                  } gap-4`}
+                >
                   <div>
                     <label className="label">Employee Name *</label>
                     <input
@@ -670,64 +794,114 @@ return (
                     </div>
                   </div>
 
-                  <div>
-                    <label className="label">Pickup Time *</label>
-                    <div className="relative">
-                      <Clock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
-                      <input
-                        type="time"
-                        value={slot.pickupTime || ''}
-                        onChange={(e) => updateEmployeeField(idx, 'pickupTime', e.target.value)}
-                        className="input pl-9 text-xs sm:text-sm font-medium"
-                      />
+                  {/* Pickup Time - ONLY for Login (Home -> Office Pickup) */}
+                  {tripType === 'Login' && (
+                    <div>
+                      <label className="label">Pickup Time *</label>
+                      <div className="relative">
+                        <Clock className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+                        <input
+                          type="time"
+                          value={slot.pickupTime || ''}
+                          onChange={(e) => updateEmployeeField(idx, 'pickupTime', e.target.value)}
+                          className="input pl-9 text-xs sm:text-sm font-medium"
+                        />
+                      </div>
+                      <span className="text-[10px] text-slate-500 mt-1 block">Scheduled pickup for stop #{slotNumber}</span>
                     </div>
-                    <span className="text-[10px] text-slate-500 mt-1 block">Scheduled pickup for stop #{slotNumber}</span>
-                  </div>
+                  )}
                 </div>
 
-                {/* Row 2: Address & Saved Employee Search */}
+                {/* Row 2: Geo Code & Address (Left) + Saved Employee Search (Right) */}
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  <div>
-                    <label className="label">Address *</label>
-                    <textarea
-                      placeholder="Enter full pickup address"
-                      value={slot.address}
-                      onChange={(e) => updateEmployeeField(idx, 'address', e.target.value)}
-                      rows={2}
-                      className="input text-xs sm:text-sm resize-none"
-                    />
-                  </div>
-
-                  <div className="relative">
-                    <label className="label">Saved Employee Search (optional)</label>
-                    <div className="relative">
+                  <div className="space-y-3">
+                    {/* Geo Code Input */}
+                    <div>
+                      <div className="flex items-center justify-between mb-1">
+                        <label className="label !mb-0 flex items-center gap-1.5 text-blue-700 font-bold">
+                          <Navigation className="w-3.5 h-3.5 text-blue-600" />
+                          <span>Geo Code / GPS Link</span>
+                        </label>
+                        <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
+                          Auto-fills Address
+                        </span>
+                      </div>
                       <input
                         type="text"
-                        placeholder="Search employee name or mobile"
-                        value={currentSearch}
-                        onChange={(e) => {
-                          setSearchQueries((prev) => ({ ...prev, [idx]: e.target.value }))
-                          setActiveSearchSlot(idx)
-                        }}
-                        onFocus={() => setActiveSearchSlot(idx)}
-                        className="input text-xs sm:text-sm pl-9"
+                        placeholder="Paste coordinates e.g. 12.9716, 77.5946 or Maps link"
+                        value={slot.geoCode || ''}
+                        onChange={(e) => handleGeoCodeChange(idx, e.target.value)}
+                        className="input text-xs sm:text-sm font-medium border-blue-200 focus:border-blue-500 bg-blue-50/20"
                       />
-                      <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      <span className="text-[10px] text-slate-500 mt-1 block">
+                        If employee shared a Maps link or coordinates, enter here to auto-fill address
+                      </span>
                     </div>
 
-                    {/* Autocomplete Dropdown */}
-                    {activeSearchSlot === idx && filteredEmps.length > 0 && (
-                      <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 max-h-48 overflow-y-auto divide-y divide-slate-100">
-                        {filteredEmps.map((emp) => (
-                          <div
-                            key={emp.id}
-                            onClick={() => handleSelectFromDirectory(idx, emp)}
-                            className="p-2.5 hover:bg-slate-50 cursor-pointer text-xs"
-                          >
-                            <p className="font-bold text-slate-900">{emp.name}</p>
-                            <p className="text-[11px] text-slate-500">{emp.phone} • {emp.address}</p>
-                          </div>
-                        ))}
+                    {/* Address Textarea */}
+                    <div>
+                      <label className="label">
+                        {tripType === 'Login' ? 'Pickup Address *' : 'Drop Address *'}
+                      </label>
+                      <textarea
+                        placeholder={
+                          tripType === 'Login'
+                            ? 'Enter full home pickup address'
+                            : 'Enter full home drop address'
+                        }
+                        value={slot.address}
+                        onChange={(e) => updateEmployeeField(idx, 'address', e.target.value)}
+                        rows={2}
+                        className="input text-xs sm:text-sm resize-none"
+                      />
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    <div className="relative">
+                      <label className="label">Saved Employee Search (optional)</label>
+                      <div className="relative">
+                        <input
+                          type="text"
+                          placeholder="Search employee name or mobile"
+                          value={currentSearch}
+                          onChange={(e) => {
+                            setSearchQueries((prev) => ({ ...prev, [idx]: e.target.value }))
+                            setActiveSearchSlot(idx)
+                          }}
+                          onFocus={() => setActiveSearchSlot(idx)}
+                          className="input text-xs sm:text-sm pl-9"
+                        />
+                        <Search className="w-4 h-4 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
+                      </div>
+
+                      {/* Autocomplete Dropdown */}
+                      {activeSearchSlot === idx && filteredEmps.length > 0 && (
+                        <div className="absolute left-0 right-0 top-full mt-1 bg-white border border-slate-200 rounded-xl shadow-xl z-20 max-h-48 overflow-y-auto divide-y divide-slate-100">
+                          {filteredEmps.map((emp) => (
+                            <div
+                              key={emp.id}
+                              onClick={() => handleSelectFromDirectory(idx, emp)}
+                              className="p-2.5 hover:bg-slate-50 cursor-pointer text-xs"
+                            >
+                              <p className="font-bold text-slate-900">{emp.name}</p>
+                              <p className="text-[11px] text-slate-500">{emp.phone} • {emp.address}</p>
+                            </div>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* GPS Locked Badge */}
+                    {slot.lat && slot.lng && (
+                      <div className="p-2.5 rounded-xl bg-emerald-50 border border-emerald-200 text-xs flex items-center justify-between text-emerald-800">
+                        <div className="flex items-center gap-1.5 font-medium">
+                          <Check className="w-3.5 h-3.5 text-emerald-600" />
+                          <span>GPS Locked: {parseFloat(slot.lat).toFixed(4)}, {parseFloat(slot.lng).toFixed(4)}</span>
+                        </div>
+                        <span className="text-[10px] font-bold uppercase tracking-wider bg-emerald-200/70 text-emerald-900 px-2 py-0.5 rounded-md">
+                          Verified
+                        </span>
                       </div>
                     )}
                   </div>
@@ -865,12 +1039,25 @@ return (
         <LocationMapModal
           isOpen={mapPickerSlotIndex !== null}
           onClose={() => setMapPickerSlotIndex(null)}
-          title={`Select Geo-Code for Employee #${mapPickerSlotIndex + 1}`}
+          title={`Home Location - ${employees[mapPickerSlotIndex]?.name || `Employee #${mapPickerSlotIndex + 1}`}`}
           initialAddress={employees[mapPickerSlotIndex]?.address || ''}
+          initialLat={
+            employees[mapPickerSlotIndex]?.lat
+              ? parseFloat(employees[mapPickerSlotIndex].lat)
+              : undefined
+          }
+          initialLng={
+            employees[mapPickerSlotIndex]?.lng
+              ? parseFloat(employees[mapPickerSlotIndex].lng)
+              : undefined
+          }
           onSelectLocation={(address, lat, lng) => {
             updateEmployeeField(mapPickerSlotIndex, 'address', address)
             if (lat) updateEmployeeField(mapPickerSlotIndex, 'lat', String(lat))
             if (lng) updateEmployeeField(mapPickerSlotIndex, 'lng', String(lng))
+            if (lat && lng) {
+              updateEmployeeField(mapPickerSlotIndex, 'geoCode', `${lat.toFixed(5)}, ${lng.toFixed(5)}`)
+            }
             setMapPickerSlotIndex(null)
             toast.success('Location confirmed from map!')
           }}

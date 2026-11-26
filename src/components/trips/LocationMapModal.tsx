@@ -9,6 +9,8 @@ interface LocationMapModalProps {
   onSelectLocation: (address: string, lat?: number, lng?: number) => void
   title?: string
   initialAddress?: string
+  initialLat?: number
+  initialLng?: number
 }
 
 export interface LocationSuggestion {
@@ -698,9 +700,16 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
   onSelectLocation,
   title = 'Select Location on Map',
   initialAddress = '',
+  initialLat,
+  initialLng,
 }) => {
   const [selectedAddress, setSelectedAddress] = useState(initialAddress)
-  const [selectedCoords, setSelectedCoords] = useState<{ lat: number; lng: number }>({ lat: 12.9716, lng: 77.5946 })
+  const [selectedCoords, setSelectedCoords] = useState<{ lat: number; lng: number }>(() => {
+    if (typeof initialLat === 'number' && typeof initialLng === 'number' && !isNaN(initialLat) && !isNaN(initialLng)) {
+      return { lat: initialLat, lng: initialLng }
+    }
+    return { lat: 12.9716, lng: 77.5946 }
+  })
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
   const [isGettingGps, setIsGettingGps] = useState(false)
@@ -716,12 +725,72 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
   const debounceTimerRef = useRef<any>(null)
   const activeReqRef = useRef<number>(0)
 
+  // Auto search address on map helper
+  const executeAutoSearch = async (addr: string, map: any, marker: any) => {
+    if (!addr || addr.trim().length < 2) return
+    const clean = addr.trim().toLowerCase()
+
+    // 1. Direct coordinate check in address text
+    const coordMatch =
+      clean.match(/([-+]?\d{1,2}\.\d+)[,\s]+([-+]?\d{1,3}\.\d+)/) ||
+      clean.match(/@([-+]?\d{1,2}\.\d+),([-+]?\d{1,3}\.\d+)/)
+    if (coordMatch) {
+      const lat = parseFloat(coordMatch[1])
+      const lng = parseFloat(coordMatch[2])
+      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        map.setView([lat, lng], 17)
+        marker.setLatLng([lat, lng])
+        marker.bindPopup(`<b>${title}</b><br/>📍 Coordinates: ${lat.toFixed(5)}, ${lng.toFixed(5)}`).openPopup()
+        setSelectedCoords({ lat, lng })
+        return
+      }
+    }
+
+    // 2. Instant Local Filter from KNOWN_LOCALITIES
+    const localMatch = KNOWN_LOCALITIES.find(
+      (loc) =>
+        clean.includes(loc.name.toLowerCase()) ||
+        loc.name.toLowerCase().includes(clean) ||
+        loc.address.toLowerCase().includes(clean)
+    )
+    if (localMatch) {
+      map.setView([localMatch.lat, localMatch.lng], 16)
+      marker.setLatLng([localMatch.lat, localMatch.lng])
+      marker.bindPopup(`<b>${localMatch.name}</b><br/>${localMatch.address}`).openPopup()
+      setSelectedCoords({ lat: localMatch.lat, lng: localMatch.lng })
+      setSelectedAddress(localMatch.address)
+      return
+    }
+
+    // 3. Fallback to online Photon geocode
+    try {
+      const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(
+        addr.trim()
+      )}&lat=12.9716&lon=77.5946&limit=1`
+      const res = await fetch(photonUrl)
+      const data = await res.json()
+      if (data?.features?.[0]?.geometry?.coordinates) {
+        const [lon, lat] = data.features[0].geometry.coordinates
+        map.setView([lat, lon], 16)
+        marker.setLatLng([lat, lon])
+        const p = data.features[0].properties || {}
+        const name = p.name || p.street || addr
+        marker.bindPopup(`<b>${name}</b><br/>${addr}`).openPopup()
+        setSelectedCoords({ lat, lng: lon })
+        setSelectedAddress(addr)
+      }
+    } catch {}
+  }
+
   useEffect(() => {
     if (initialAddress) {
       setSelectedAddress(initialAddress)
       setSearchQuery(initialAddress)
     }
-  }, [initialAddress])
+    if (typeof initialLat === 'number' && typeof initialLng === 'number' && !isNaN(initialLat) && !isNaN(initialLng)) {
+      setSelectedCoords({ lat: initialLat, lng: initialLng })
+    }
+  }, [initialAddress, initialLat, initialLng])
 
   // Initialize Leaflet Map when modal opens
   useEffect(() => {
@@ -739,16 +808,21 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
       const L = (window as any).L
       if (!L || !mapContainerRef.current) return
 
+      const hasCoords = typeof initialLat === 'number' && typeof initialLng === 'number' && !isNaN(initialLat) && !isNaN(initialLng)
+      const startLat = hasCoords ? initialLat : selectedCoords.lat
+      const startLng = hasCoords ? initialLng : selectedCoords.lng
+      const zoomLevel = hasCoords ? 17 : 14
+
       if (!mapInstanceRef.current) {
-        const map = L.map(mapContainerRef.current).setView([selectedCoords.lat, selectedCoords.lng], 14)
+        const map = L.map(mapContainerRef.current).setView([startLat, startLng], zoomLevel)
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,
           attribution: '&copy; OpenStreetMap contributors',
         }).addTo(map)
 
-        const marker = L.marker([selectedCoords.lat, selectedCoords.lng], { draggable: true }).addTo(map)
-        marker.bindPopup('<b>Selected Location</b><br>Drag pin or click map to pinpoint exact house').openPopup()
+        const marker = L.marker([startLat, startLng], { draggable: true }).addTo(map)
+        marker.bindPopup(`<b>${title}</b><br>${initialAddress || 'Home Location'}<br><span style="color:#0284c7;font-size:10px;font-weight:bold;">📍 Drag pin to fine-tune exact house door</span>`).openPopup()
 
         marker.on('dragend', async () => {
           const pos = marker.getLatLng()
@@ -764,13 +838,29 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
 
         mapInstanceRef.current = map
         markerRef.current = marker
+
+        if (hasCoords) {
+          setSelectedCoords({ lat: startLat, lng: startLng })
+        } else if (initialAddress && initialAddress.trim().length > 2) {
+          executeAutoSearch(initialAddress, map, marker)
+        }
       } else {
         mapInstanceRef.current.invalidateSize()
+        if (hasCoords) {
+          mapInstanceRef.current.setView([startLat, startLng], 17)
+          if (markerRef.current) {
+            markerRef.current.setLatLng([startLat, startLng])
+            markerRef.current.bindPopup(`<b>${title}</b><br>${initialAddress || 'Home Location'}<br><span style="color:#0284c7;font-size:10px;font-weight:bold;">📍 Drag pin to fine-tune exact house door</span>`).openPopup()
+          }
+          setSelectedCoords({ lat: startLat, lng: startLng })
+        } else if (initialAddress && initialAddress.trim().length > 2) {
+          executeAutoSearch(initialAddress, mapInstanceRef.current, markerRef.current)
+        }
       }
     }, 200)
 
     return () => clearTimeout(timer)
-  }, [isOpen])
+  }, [isOpen, initialLat, initialLng, initialAddress])
 
   // Close dropdown on outside click
   useEffect(() => {
