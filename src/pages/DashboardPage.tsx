@@ -115,6 +115,30 @@ export const DashboardPage: React.FC = () => {
     },
   })
 
+  const { data: txQuery } = useQuery<{ data: WalletTransaction[] }>({
+    queryKey: ['dashboard-transactions'],
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
+    queryFn: async () => {
+      try {
+        const res = await vendorApi.getTransactions({ limit: '6' })
+        const list = Array.isArray(res.data)
+          ? res.data
+          : Array.isArray(res.data?.data)
+          ? res.data.data
+          : []
+        return { data: list }
+      } catch {
+        return { data: [] }
+      }
+    },
+  })
+
+  const recentTransactions: WalletTransaction[] =
+    txQuery?.data && txQuery.data.length > 0
+      ? txQuery.data
+      : (data?.recentTransactions || [])
+
   if (isLoading) {
     return <LoadingState message="Loading vendor operations dashboard..." />
   }
@@ -364,30 +388,83 @@ export const DashboardPage: React.FC = () => {
             </button>
           </div>
 
-          <div className="flex-1 p-6 flex flex-col items-center justify-center text-center">
-            <div className="w-12 h-12 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-600 flex items-center justify-center mb-3 shadow-inner">
-              <Wallet className="w-6 h-6" />
-            </div>
-            <p className="text-xs text-slate-500 font-medium">Available Balance</p>
-            <p className="text-2xl font-black text-slate-900 mt-0.5 tracking-tight">
-              {formatCurrency(walletBalance)}
-            </p>
-            <p className="text-[11px] text-slate-500 mt-1 max-w-[260px] leading-relaxed">
-              Real-time automated escrow holds and instant trip settlement are fully active.
-            </p>
-            <button
-              onClick={() => setRechargeOpen(true)}
-              className="mt-4 btn-accent text-xs font-semibold px-4 py-2 flex items-center gap-1.5 shadow-sm"
-            >
-              <span>+ Recharge Wallet</span>
-            </button>
+          <div className="flex-1 divide-y divide-sky-50 overflow-y-auto max-h-[380px]">
+            {recentTransactions.length === 0 ? (
+              <div className="p-8 text-center text-xs text-slate-400">
+                <div className="w-10 h-10 rounded-full bg-slate-100 text-slate-400 mx-auto flex items-center justify-center mb-2">
+                  <Wallet className="w-5 h-5" />
+                </div>
+                No recent transactions recorded.
+              </div>
+            ) : (
+              recentTransactions.slice(0, 6).map((tx: WalletTransaction) => (
+                <SlideToDeleteItem
+                  key={tx.id}
+                  onDelete={() =>
+                    setDeletingItem({
+                      type: 'TRANSACTION',
+                      id: tx.id,
+                      title: tx.description,
+                      details: `Amount: ${formatCurrency(tx.amount)} • Ref: ${tx.reference || 'N/A'}`,
+                    })
+                  }
+                >
+                  <div className="p-3 text-xs flex items-center justify-between w-full group">
+                    <div className="min-w-0 pr-2">
+                      <p className="font-medium text-slate-800 truncate">{tx.description}</p>
+                      <p className="text-[11px] text-slate-400">{formatDateTime(tx.createdAt)}</p>
+                    </div>
+                    <div className="flex items-center gap-2 flex-shrink-0">
+                      <div className="text-right">
+                        <span
+                          className={`font-semibold text-xs ${
+                            tx.type === 'CREDIT' ? 'text-emerald-600' : 'text-red-600'
+                          }`}
+                        >
+                          {tx.type === 'CREDIT' ? '+' : '-'} {formatCurrency(tx.amount)}
+                        </span>
+                        <div className="mt-0.5">
+                          <TransactionBadge type={tx.type} />
+                        </div>
+                      </div>
+                      <SlideDeleteAction
+                        itemLabel="transaction"
+                        onEdit={() => setEditingTx(tx)}
+                        onDelete={() =>
+                          setDeletingItem({
+                            type: 'TRANSACTION',
+                            id: tx.id,
+                            title: tx.description,
+                            details: `Amount: ${formatCurrency(tx.amount)} • Ref: ${tx.reference || 'N/A'}`,
+                          })
+                        }
+                        onSlideDelete={() =>
+                          setDeletingItem({
+                            type: 'TRANSACTION',
+                            id: tx.id,
+                            title: tx.description,
+                            details: `Amount: ${formatCurrency(tx.amount)} • Ref: ${tx.reference || 'N/A'}`,
+                          })
+                        }
+                      />
+                    </div>
+                  </div>
+                </SlideToDeleteItem>
+              ))
+            )}
           </div>
 
-          <div className="p-3 bg-slate-50 border-t border-slate-100 text-center">
-            <span className="text-xs font-semibold text-emerald-700 flex items-center justify-center gap-1.5">
+          <div className="p-3 bg-slate-50 border-t border-slate-100 flex items-center justify-between">
+            <span className="text-xs font-semibold text-emerald-700 flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse" />
               Prepaid & Corporate Wallet Online
             </span>
+            <button
+              onClick={() => setRechargeOpen(true)}
+              className="text-xs text-sky-700 hover:text-sky-900 font-semibold"
+            >
+              + Recharge
+            </button>
           </div>
         </div>
       </div>
