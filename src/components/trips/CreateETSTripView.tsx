@@ -249,26 +249,59 @@ const handleSelectFromDirectory = (index: number, emp: CorporateEmployee) => {
   toast.success(`Loaded details for ${emp.name}`)
 }
 
-// WhatsApp location request link
-const handleWhatsAppRequest = (slot: EmployeeSlot) => {
-  const phone = slot.phone.replace(/\D/g, '')
-  const name = slot.name.trim() || 'Employee'
-  const msg = encodeURIComponent(
-    `Hi ${name}, please share your live home pickup location with Atharva Travels for your upcoming ETS corporate shift on ${tripDate} at ${shiftTiming}. Reply with a Google Maps location link.`
-  )
-  const url = phone ? `https://wa.me/${phone}?text=${msg}` : `https://wa.me/?text=${msg}`
-  window.open(url, '_blank')
-}
+  // Helper to strictly validate and normalize 10-digit Indian mobile number
+  const getStrictMobileNumber = (rawPhone: string) => {
+    let digits = (rawPhone || '').replace(/\D/g, '')
+    // Handle +91 or 91 country code prefix
+    if (digits.length === 12 && digits.startsWith('91')) {
+      digits = digits.slice(2)
+    } else if (digits.length === 11 && digits.startsWith('0')) {
+      digits = digits.slice(1)
+    }
+    // Must be exactly 10 digits
+    if (/^[6-9]\d{9}$/.test(digits) || digits.length === 10) {
+      return digits
+    }
+    return null
+  }
 
-// SMS location request link
-const handleSMSRequest = (slot: EmployeeSlot) => {
-  const phone = slot.phone.replace(/\D/g, '')
-  const name = slot.name.trim() || 'Employee'
-  const body = encodeURIComponent(
-    `Hi ${name}, please share your home pickup location link for your ETS corporate shift on ${tripDate} at ${shiftTiming}.`
-  )
-  window.open(`sms:${phone}?body=${body}`, '_blank')
-}
+  // WhatsApp location request link - strictly restricted to entered number
+  const handleWhatsAppRequest = (slot: EmployeeSlot, slotIndex: number = 0) => {
+    const valid10Digits = getStrictMobileNumber(slot.phone)
+    if (!valid10Digits) {
+      toast.error(
+        `Please enter a valid 10-digit mobile number for Employee #${slotIndex + 1} first.`
+      )
+      return
+    }
+
+    const name = slot.name.trim() || `Employee ${slotIndex + 1}`
+    const msg = encodeURIComponent(
+      `Hi ${name}, please share your live home pickup location with Atharva Travels for your upcoming ETS corporate shift on ${tripDate} at ${shiftTiming}. Reply with a Google Maps location link.`
+    )
+    // STRICT: Only opens to the exact phone entered with 91 country code prefix, never generic
+    const targetPhone = `91${valid10Digits}`
+    const url = `https://wa.me/${targetPhone}?text=${msg}`
+    window.open(url, '_blank')
+  }
+
+  // SMS location request link - strictly restricted to entered number
+  const handleSMSRequest = (slot: EmployeeSlot, slotIndex: number = 0) => {
+    const valid10Digits = getStrictMobileNumber(slot.phone)
+    if (!valid10Digits) {
+      toast.error(
+        `Please enter a valid 10-digit mobile number for Employee #${slotIndex + 1} first.`
+      )
+      return
+    }
+
+    const name = slot.name.trim() || `Employee ${slotIndex + 1}`
+    const body = encodeURIComponent(
+      `Hi ${name}, please share your home pickup location link for your ETS corporate shift on ${tripDate} at ${shiftTiming}.`
+    )
+    // STRICT: Only sends SMS to the exact entered 10-digit number
+    window.open(`sms:+91${valid10Digits}?body=${body}`, '_blank')
+  }
 
 // Count filled employee slots
 const filledEmployees = employees.filter((e) => e.name.trim() && e.address.trim())
@@ -609,9 +642,13 @@ return (
                     <div className="flex items-center gap-2 mt-2">
                       <button
                         type="button"
-                        onClick={() => handleWhatsAppRequest(slot)}
+                        onClick={() => handleWhatsAppRequest(slot, idx)}
                         className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 flex items-center gap-1 transition-colors cursor-pointer"
-                        title="Send WhatsApp location request to this employee"
+                        title={
+                          slot.phone.trim()
+                            ? `Send WhatsApp location request strictly to ${slot.phone}`
+                            : 'Enter a 10-digit mobile number above to send WhatsApp request'
+                        }
                       >
                         <span className="w-2 h-2 rounded-full bg-emerald-500" />
                         <span>WhatsApp Request</span>
@@ -619,9 +656,13 @@ return (
 
                       <button
                         type="button"
-                        onClick={() => handleSMSRequest(slot)}
+                        onClick={() => handleSMSRequest(slot, idx)}
                         className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 flex items-center gap-1 transition-colors cursor-pointer"
-                        title="Send SMS location request to this employee"
+                        title={
+                          slot.phone.trim()
+                            ? `Send SMS location request strictly to ${slot.phone}`
+                            : 'Enter a 10-digit mobile number above to send SMS request'
+                        }
                       >
                         <Mail className="w-3 h-3" />
                         <span>SMS Request</span>
@@ -739,8 +780,17 @@ return (
           {/* Send Location Link */}
           <div
             onClick={() => {
-              filledEmployees.forEach((slot) => handleWhatsAppRequest(slot))
-              toast.success('Triggered location request to employees!')
+              const validSlots = employees
+                .map((slot, i) => ({ slot, i, validPhone: getStrictMobileNumber(slot.phone) }))
+                .filter((item) => Boolean(item.validPhone))
+
+              if (validSlots.length === 0) {
+                toast.error('Please enter a valid 10-digit mobile number for at least one employee.')
+                return
+              }
+
+              validSlots.forEach(({ slot, i }) => handleWhatsAppRequest(slot, i))
+              toast.success(`Triggered WhatsApp request strictly to ${validSlots.length} employee number(s)!`)
             }}
             className="p-3.5 rounded-xl bg-white border border-sky-200 hover:border-sky-400 cursor-pointer transition shadow-2xs"
           >
