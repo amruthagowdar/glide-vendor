@@ -1,6 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import toast from 'react-hot-toast'
 import { getMockResponse } from './mockData'
+import { fetchTripsFromNeon, createTripInNeon, deleteTripFromNeon } from './neonClient'
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
@@ -32,8 +33,70 @@ api.interceptors.request.use(
       config.headers.Authorization = `Bearer ${token}`
     }
 
-    // If deployed on static host (Netlify) without a configured backend endpoint, serve mock directly
+    // If deployed on static host (Netlify) without a configured backend endpoint, serve live Neon DB or mock
     if (isStaticOrUnreachableHost()) {
+      const cleanUrl = config.url?.split('?')[0] || ''
+      const method = (config.method || 'get').toLowerCase()
+
+      // 1. Fetch live trips from Neon DB
+      if (cleanUrl.endsWith('/vendor/trips') && method === 'get') {
+        config.adapter = async () => {
+          const trips = await fetchTripsFromNeon()
+          return {
+            data: {
+              status: 'success',
+              data: trips,
+              total: trips.length,
+              page: 1,
+              totalPages: 1,
+            },
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config,
+          }
+        }
+        return config
+      }
+
+      // 2. Create trip directly in Neon DB
+      if (cleanUrl.endsWith('/vendor/trips/create') && method === 'post') {
+        config.adapter = async () => {
+          const payload = typeof config.data === 'string' ? JSON.parse(config.data) : config.data
+          const newTrip = await createTripInNeon(payload)
+          return {
+            data: {
+              status: 'success',
+              data: newTrip,
+            },
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config,
+          }
+        }
+        return config
+      }
+
+      // 3. Delete trip in Neon DB
+      if (cleanUrl.includes('/vendor/trips/') && method === 'delete') {
+        const id = cleanUrl.split('/vendor/trips/')[1]?.split('/')[0]
+        config.adapter = async () => {
+          await deleteTripFromNeon(id)
+          return {
+            data: {
+              status: 'success',
+              data: { id, deleted: true },
+            },
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config,
+          }
+        }
+        return config
+      }
+
       const mock = getMockResponse(config.url, config.method, config.data)
       if (mock !== null) {
         config.adapter = async () => ({
@@ -64,9 +127,38 @@ const processQueue = (error: unknown, token: string | null = null) => {
 
 // Response interceptor — fallback on HTML / 404 / 401
 api.interceptors.response.use(
-  (response) => {
+  async (response) => {
     // If static host returns index.html for unmatched /api routes
     if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
+      const cleanUrl = response.config.url?.split('?')[0] || ''
+      const method = (response.config.method || 'get').toLowerCase()
+
+      if (cleanUrl.endsWith('/vendor/trips') && method === 'get') {
+        const trips = await fetchTripsFromNeon()
+        return {
+          ...response,
+          data: {
+            status: 'success',
+            data: trips,
+            total: trips.length,
+            page: 1,
+            totalPages: 1,
+          },
+        }
+      }
+
+      if (cleanUrl.endsWith('/vendor/trips/create') && method === 'post') {
+        const payload = typeof response.config.data === 'string' ? JSON.parse(response.config.data) : response.config.data
+        const newTrip = await createTripInNeon(payload)
+        return {
+          ...response,
+          data: {
+            status: 'success',
+            data: newTrip,
+          },
+        }
+      }
+
       const mock = getMockResponse(response.config.url, response.config.method, response.config.data)
       if (mock !== null) {
         return {
@@ -80,11 +172,60 @@ api.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as (InternalAxiosRequestConfig & { _retry?: boolean }) | undefined
 
-    // Fallback to mock data if network failed or endpoint not found on static host
+    // Fallback to Neon DB or mock data if network failed or endpoint not found on static host
     if (originalRequest) {
       const url = originalRequest.url
-      const method = originalRequest.method || 'get'
+      const method = (originalRequest.method || 'get').toLowerCase()
+      const cleanUrl = url?.split('?')[0] || ''
       const requestData = originalRequest.data
+
+      if (cleanUrl.endsWith('/vendor/trips') && method === 'get') {
+        const trips = await fetchTripsFromNeon()
+        return {
+          data: {
+            status: 'success',
+            data: trips,
+            total: trips.length,
+            page: 1,
+            totalPages: 1,
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: originalRequest,
+        }
+      }
+
+      if (cleanUrl.endsWith('/vendor/trips/create') && method === 'post') {
+        const payload = typeof requestData === 'string' ? JSON.parse(requestData) : requestData
+        const newTrip = await createTripInNeon(payload)
+        return {
+          data: {
+            status: 'success',
+            data: newTrip,
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: originalRequest,
+        }
+      }
+
+      if (cleanUrl.includes('/vendor/trips/') && method === 'delete') {
+        const id = cleanUrl.split('/vendor/trips/')[1]?.split('/')[0]
+        await deleteTripFromNeon(id)
+        return {
+          data: {
+            status: 'success',
+            data: { id, deleted: true },
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: originalRequest,
+        }
+      }
+
       const mock = getMockResponse(url, method, requestData)
       if (mock !== null) {
         return {

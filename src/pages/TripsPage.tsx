@@ -73,6 +73,8 @@ export const TripsPage: React.FC = () => {
   // Fetch Trips
   const { data, isLoading } = useQuery<{ data: Trip[]; total: number; totalPages: number }>({
     queryKey: ['trips', page, statusFilter, serviceFilter, driverFilter, dateFilter],
+    refetchOnWindowFocus: true,
+    refetchInterval: 15000,
     queryFn: async () => {
       const params: Record<string, string> = {
         page: String(page),

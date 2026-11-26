@@ -21,6 +21,7 @@ import {
 import { LocationMapModal } from './LocationMapModal'
 import { sortStopsFarthestFirst, type LiveShiftCab } from '../../lib/routing'
 import { formatCurrency } from '../../lib/utils'
+import { createTripInNeon } from '../../lib/neonClient'
 import toast from 'react-hot-toast'
 
 export interface CorporateOffice {
@@ -676,6 +677,20 @@ const handleSaveAndCreateTrip = async () => {
     } catch (err) {
       console.error('Failed to save to localStorage:', err)
     }
+
+    // Sync to Neon DB in background so all laptops see this trip
+    createTripInNeon({
+      tripNo: shiftCode,
+      serviceType: 'RAC',
+      passengerName: filledEmployees.map((e) => e.name).join(', ') || 'Corporate Employees',
+      passengerPhone: filledEmployees[0]?.phone || '9999999999',
+      pickup: tripType === 'Login' ? filledEmployees[0]?.address || 'Employee Home Pickup' : companyName,
+      drop: tripType === 'Login' ? companyName : (filledEmployees[0]?.address || 'Employee Home Drop'),
+      scheduledDate: tripDate,
+      scheduledTime: shiftTiming,
+      tripAmount: filledEmployees.length * 600,
+      notes: `ETS ${tripType.toUpperCase()} Shift [Vehicle: ${vehicleChoice === 'SEDAN' ? 'Sedan 4+1' : 'SUV 6+1'}] Hub: ${companyName}`,
+    }).catch((err) => console.warn('ETS trip Neon sync notice:', err))
 
     // Save filled employees to Permanent Directory
     try {
