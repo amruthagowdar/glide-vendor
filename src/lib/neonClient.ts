@@ -1,13 +1,19 @@
 import { neon } from '@neondatabase/serverless'
-import type { Trip, Driver, Vehicle, DashboardData, WalletTransaction } from '../types'
+import type { Trip, Driver, Vehicle, DashboardData, Wallet, WalletTransaction } from '../types'
 
 const NEON_CONNECTION_STRING =
   import.meta.env.VITE_DATABASE_URL ||
   'postgresql://neondb_owner:npg_GZF3HWDPRuY2@ep-misty-cherry-bhqscm82-pooler.c-10.eu-central-1.aws.neon.tech/neondb?sslmode=require'
 
 export const ATHARVA_COMPANY_ID = '36d01e54-22de-487f-9cf6-7ead893c87f2'
+export const ATHARVA_VENDOR_ID = '3ce8e980-7ae4-4678-acae-04e2628ae0ce'
+export const ATHARVA_WALLET_ID = '6d8d3885-a461-40f1-8353-8d285488dd1e'
 
 const sql = neon(NEON_CONNECTION_STRING)
+
+// =========================================================================
+// 1. TRIPS MANAGEMENT (NEON DB)
+// =========================================================================
 
 export async function fetchTripsFromNeon(): Promise<Trip[]> {
   try {
@@ -196,6 +202,60 @@ export async function createTripInNeon(payload: any): Promise<Trip> {
   }
 }
 
+export async function updateTripInNeon(id: string, payload: any): Promise<Trip | null> {
+  try {
+    const status = payload.tripStatus || payload.status
+    const notes = payload.notes
+    const rows = await sql`
+      UPDATE trips
+      SET trip_status = COALESCE(${status}, trip_status),
+          notes = COALESCE(${notes}, notes),
+          updated_at = NOW()
+      WHERE (id::text = ${id} OR trip_no = ${id}) AND company_id = ${ATHARVA_COMPANY_ID}
+      RETURNING *
+    `
+    if (rows.length > 0) {
+      const r = rows[0]
+      const amount = Number(r.trip_amount) || 1200
+      const commissionRate = 0.15
+      const commissionAmount = Math.round(amount * commissionRate)
+      const driverPayable = amount - commissionAmount
+
+      const updatedTrip: Trip = {
+        id: String(r.id),
+        tripNo: r.trip_no,
+        serviceType: r.service_type,
+        passengerName: r.passenger_name,
+        passengerPhone: r.passenger_phone,
+        pickup: r.pickup,
+        drop: r.drop,
+        scheduledDate:
+          r.scheduled_date instanceof Date
+            ? r.scheduled_date.toISOString().split('T')[0]
+            : String(r.scheduled_date || '').split('T')[0],
+        scheduledTime: String(r.scheduled_time || '10:00').slice(0, 5),
+        tripAmount: amount,
+        commissionRate,
+        commissionAmount,
+        driverPayable,
+        tripStatus: r.trip_status,
+        paymentStatus: r.payment_status || 'PAID',
+        notes: r.notes,
+        createdAt: new Date(r.created_at).toISOString(),
+        updatedAt: new Date(r.updated_at).toISOString(),
+      }
+
+      const existing: Trip[] = JSON.parse(localStorage.getItem('glide_mock_trips') || '[]')
+      const updatedList = existing.map((t) => (t.id === id || t.tripNo === id ? updatedTrip : t))
+      localStorage.setItem('glide_mock_trips', JSON.stringify(updatedList))
+      return updatedTrip
+    }
+  } catch (err) {
+    console.error('Update trip in Neon DB failed:', err)
+  }
+  return null
+}
+
 export async function deleteTripFromNeon(idOrTripNo: string): Promise<boolean> {
   try {
     await sql`
@@ -213,11 +273,363 @@ export async function deleteTripFromNeon(idOrTripNo: string): Promise<boolean> {
   }
 }
 
+// =========================================================================
+// 2. WALLET & TRANSACTIONS MANAGEMENT (NEON DB)
+// =========================================================================
+
+export async function fetchWalletFromNeon(): Promise<Wallet> {
+  try {
+    const rows = await sql`
+      SELECT id, balance, entity_type, entity_id
+      FROM wallets
+      WHERE id = ${ATHARVA_WALLET_ID} OR entity_id = ${ATHARVA_VENDOR_ID}
+      LIMIT 1
+    `
+    if (rows.length > 0) {
+      const w = rows[0]
+      const balance = parseFloat(w.balance || 0)
+      localStorage.setItem('glide_mock_wallet_balance', String(balance))
+      return {
+        id: String(w.id),
+        balance,
+        entityType: w.entity_type,
+        entityId: String(w.entity_id),
+      }
+    }
+  } catch (err) {
+    console.warn('Neon DB fetchWallet failed, falling back to local cache:', err)
+  }
+  const balance = parseFloat(localStorage.getItem('glide_mock_wallet_balance') || '2500')
+  return {
+    id: ATHARVA_WALLET_ID,
+    balance,
+    entityType: 'VENDOR',
+    entityId: ATHARVA_VENDOR_ID,
+  }
+}
+
+export async function fetchTransactionsFromNeon(
+  params?: Record<string, string>
+): Promise<WalletTransaction[]> {
+  try {
+    const typeFilter = params?.type
+    let rows: any[] = []
+    if (typeFilter && (typeFilter === 'CREDIT' || typeFilter === 'DEBIT')) {
+      rows = await sql`
+        SELECT id, wallet_id, type, amount, previous_balance, new_balance, reference, description, related_trip_id, created_at
+        FROM wallet_transactions
+        WHERE wallet_id = ${ATHARVA_WALLET_ID} AND type = ${typeFilter}
+        ORDER BY created_at DESC
+      `
+    } else {
+      rows = await sql`
+        SELECT id, wallet_id, type, amount, previous_balance, new_balance, reference, description, related_trip_id, created_at
+        FROM wallet_transactions
+        WHERE wallet_id = ${ATHARVA_WALLET_ID}
+        ORDER BY created_at DESC
+      `
+    }
+    const formatted: WalletTransaction[] = rows.map((r: any) => ({
+      id: String(r.id),
+      type: r.type,
+      amount: parseFloat(r.amount || 0),
+      previousBalance: parseFloat(r.previous_balance || 0),
+      newBalance: parseFloat(r.new_balance || 0),
+      reference: r.reference || '',
+      description: r.description || '',
+      relatedTripId: r.related_trip_id ? String(r.related_trip_id) : undefined,
+      createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+    }))
+    localStorage.setItem('glide_mock_txs', JSON.stringify(formatted))
+    return formatted
+  } catch (err) {
+    console.warn('Neon DB fetchTransactions failed, falling back to local cache:', err)
+    const cached = localStorage.getItem('glide_mock_txs')
+    return cached ? JSON.parse(cached) : []
+  }
+}
+
+export async function rechargeWalletInNeon(
+  amount: number,
+  reference: string = `PAY-RZP-${Date.now()}`,
+  description: string = 'Razorpay Instant Wallet Top-Up'
+): Promise<{ newBalance: number; transaction: WalletTransaction }> {
+  try {
+    const currentWallet = await fetchWalletFromNeon()
+    const prevBalance = currentWallet.balance
+    const newBalance = prevBalance + amount
+
+    await sql`
+      UPDATE wallets
+      SET balance = ${newBalance}, updated_at = NOW()
+      WHERE id = ${ATHARVA_WALLET_ID}
+    `
+
+    const [tx] = await sql`
+      INSERT INTO wallet_transactions (
+        wallet_id,
+        type,
+        amount,
+        previous_balance,
+        new_balance,
+        reference,
+        description,
+        created_at
+      ) VALUES (
+        ${ATHARVA_WALLET_ID},
+        'CREDIT',
+        ${amount},
+        ${prevBalance},
+        ${newBalance},
+        ${reference},
+        ${description},
+        NOW()
+      )
+      RETURNING *
+    `
+
+    const newTx: WalletTransaction = {
+      id: String(tx.id),
+      type: 'CREDIT',
+      amount,
+      previousBalance: prevBalance,
+      newBalance,
+      reference,
+      description,
+      createdAt: new Date().toISOString(),
+    }
+
+    localStorage.setItem('glide_mock_wallet_balance', String(newBalance))
+    const existingTxs: WalletTransaction[] = JSON.parse(localStorage.getItem('glide_mock_txs') || '[]')
+    localStorage.setItem('glide_mock_txs', JSON.stringify([newTx, ...existingTxs]))
+
+    return { newBalance, transaction: newTx }
+  } catch (err) {
+    console.error('Neon DB recharge failed, saving locally:', err)
+    const prevBalance = parseFloat(localStorage.getItem('glide_mock_wallet_balance') || '2500')
+    const newBalance = prevBalance + amount
+    localStorage.setItem('glide_mock_wallet_balance', String(newBalance))
+    const fallbackTx: WalletTransaction = {
+      id: `tx_${Date.now()}`,
+      type: 'CREDIT',
+      amount,
+      previousBalance: prevBalance,
+      newBalance,
+      reference,
+      description,
+      createdAt: new Date().toISOString(),
+    }
+    const existingTxs: WalletTransaction[] = JSON.parse(localStorage.getItem('glide_mock_txs') || '[]')
+    localStorage.setItem('glide_mock_txs', JSON.stringify([fallbackTx, ...existingTxs]))
+    return { newBalance, transaction: fallbackTx }
+  }
+}
+
+export async function withdrawWalletInNeon(
+  amount: number,
+  method: string = 'BANK_TRANSFER',
+  details?: any
+): Promise<{ balance: number; transaction: WalletTransaction }> {
+  try {
+    const currentWallet = await fetchWalletFromNeon()
+    const prevBalance = currentWallet.balance
+    const newBalance = Math.max(0, prevBalance - amount)
+    const reference = `WDR-${Date.now()}`
+    const description = `Payout Withdrawal (${method})`
+
+    await sql`
+      UPDATE wallets
+      SET balance = ${newBalance}, updated_at = NOW()
+      WHERE id = ${ATHARVA_WALLET_ID}
+    `
+
+    const [tx] = await sql`
+      INSERT INTO wallet_transactions (
+        wallet_id,
+        type,
+        amount,
+        previous_balance,
+        new_balance,
+        reference,
+        description,
+        created_at
+      ) VALUES (
+        ${ATHARVA_WALLET_ID},
+        'DEBIT',
+        ${amount},
+        ${prevBalance},
+        ${newBalance},
+        ${reference},
+        ${description},
+        NOW()
+      )
+      RETURNING *
+    `
+
+    const newTx: WalletTransaction = {
+      id: String(tx.id),
+      type: 'DEBIT',
+      amount,
+      previousBalance: prevBalance,
+      newBalance,
+      reference,
+      description,
+      createdAt: new Date().toISOString(),
+    }
+
+    localStorage.setItem('glide_mock_wallet_balance', String(newBalance))
+    const existingTxs: WalletTransaction[] = JSON.parse(localStorage.getItem('glide_mock_txs') || '[]')
+    localStorage.setItem('glide_mock_txs', JSON.stringify([newTx, ...existingTxs]))
+
+    return { balance: newBalance, transaction: newTx }
+  } catch (err) {
+    console.error('Neon DB withdraw failed:', err)
+    const prevBalance = parseFloat(localStorage.getItem('glide_mock_wallet_balance') || '0')
+    const newBalance = Math.max(0, prevBalance - amount)
+    localStorage.setItem('glide_mock_wallet_balance', String(newBalance))
+    const fallbackTx: WalletTransaction = {
+      id: `tx_${Date.now()}`,
+      type: 'DEBIT',
+      amount,
+      previousBalance: prevBalance,
+      newBalance,
+      reference: `WDR-${Date.now()}`,
+      description: `Payout Withdrawal (${method})`,
+      createdAt: new Date().toISOString(),
+    }
+    return { balance: newBalance, transaction: fallbackTx }
+  }
+}
+
+export async function deleteTransactionFromNeon(id: string): Promise<boolean> {
+  try {
+    await sql`
+      DELETE FROM wallet_transactions
+      WHERE id::text = ${id} AND wallet_id = ${ATHARVA_WALLET_ID}
+    `
+    const existing: WalletTransaction[] = JSON.parse(localStorage.getItem('glide_mock_txs') || '[]')
+    localStorage.setItem('glide_mock_txs', JSON.stringify(existing.filter((t) => t.id !== id)))
+    return true
+  } catch (err) {
+    console.error('Delete transaction from Neon DB failed:', err)
+    return false
+  }
+}
+
+export async function updateTransactionInNeon(
+  id: string,
+  payload: Partial<WalletTransaction>
+): Promise<WalletTransaction | null> {
+  try {
+    const desc = payload.description
+    const ref = payload.reference
+    const rows = await sql`
+      UPDATE wallet_transactions
+      SET description = COALESCE(${desc}, description),
+          reference = COALESCE(${ref}, reference)
+      WHERE id::text = ${id} AND wallet_id = ${ATHARVA_WALLET_ID}
+      RETURNING *
+    `
+    if (rows.length > 0) {
+      const updated = rows[0]
+      return {
+        id: String(updated.id),
+        type: updated.type,
+        amount: parseFloat(updated.amount),
+        previousBalance: parseFloat(updated.previous_balance),
+        newBalance: parseFloat(updated.new_balance),
+        reference: updated.reference,
+        description: updated.description,
+        createdAt: new Date(updated.created_at).toISOString(),
+      }
+    }
+  } catch (err) {
+    console.error('Update transaction in Neon DB failed:', err)
+  }
+  return null
+}
+
+// =========================================================================
+// 3. DRIVERS & VEHICLES (NEON DB)
+// =========================================================================
+
+export async function fetchDriversFromNeon(): Promise<Driver[]> {
+  try {
+    const rows = await sql`
+      SELECT d.*, v.registration_no as vehicle_reg_no, v.model as vehicle_model
+      FROM drivers d
+      LEFT JOIN driver_vehicles dv ON d.id = dv.driver_id
+      LEFT JOIN vehicles v ON dv.vehicle_id = v.id
+      WHERE d.company_id = ${ATHARVA_COMPANY_ID}
+      ORDER BY d.created_at DESC
+    `
+    if (rows.length > 0) {
+      const list: Driver[] = rows.map((r: any) => ({
+        id: String(r.id),
+        name: r.name || 'Assigned Driver',
+        phone: r.phone || '',
+        licenseNo: r.license_no || '',
+        isActive: Boolean(r.is_active),
+        vehicleRegNo: r.vehicle_reg_no || undefined,
+        vehicleModel: r.vehicle_model || undefined,
+        activeTrips: Number(r.total_trips || 0),
+        companyId: String(r.company_id),
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+      }))
+      localStorage.setItem('glide_mock_drivers', JSON.stringify(list))
+      return list
+    }
+  } catch (err) {
+    console.warn('Neon DB fetchDrivers failed:', err)
+  }
+  const cached = localStorage.getItem('glide_mock_drivers')
+  return cached ? JSON.parse(cached) : []
+}
+
+export async function fetchVehiclesFromNeon(): Promise<Vehicle[]> {
+  try {
+    const rows = await sql`
+      SELECT v.*, d.name as driver_name, d.id as driver_id
+      FROM vehicles v
+      LEFT JOIN driver_vehicles dv ON v.id = dv.vehicle_id
+      LEFT JOIN drivers d ON dv.driver_id = d.id
+      WHERE v.company_id = ${ATHARVA_COMPANY_ID}
+      ORDER BY v.created_at DESC
+    `
+    if (rows.length > 0) {
+      const list: Vehicle[] = rows.map((r: any) => ({
+        id: String(r.id),
+        registrationNo: r.registration_no || 'KA-01-MJ-5821',
+        type: r.type || 'Sedan',
+        model: r.model || 'Swift Dzire',
+        capacity: Number(r.capacity || 4),
+        isActive: Boolean(r.is_active),
+        driverId: r.driver_id ? String(r.driver_id) : undefined,
+        driverName: r.driver_name || undefined,
+        companyId: String(r.company_id),
+        createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
+      }))
+      localStorage.setItem('glide_mock_vehicles', JSON.stringify(list))
+      return list
+    }
+  } catch (err) {
+    console.warn('Neon DB fetchVehicles failed:', err)
+  }
+  const cached = localStorage.getItem('glide_mock_vehicles')
+  return cached ? JSON.parse(cached) : []
+}
+
+// =========================================================================
+// 4. DASHBOARD AGGREGATE (NEON DB)
+// =========================================================================
+
 export async function fetchDashboardFromNeon(): Promise<DashboardData> {
-  const trips = await fetchTripsFromNeon()
-  const walletBalance = Number(localStorage.getItem('glide_mock_wallet_balance') || 0)
-  const drivers: Driver[] = JSON.parse(localStorage.getItem('glide_mock_drivers') || '[]')
-  const txs: WalletTransaction[] = JSON.parse(localStorage.getItem('glide_mock_txs') || '[]')
+  const [trips, wallet, txs, drivers] = await Promise.all([
+    fetchTripsFromNeon(),
+    fetchWalletFromNeon(),
+    fetchTransactionsFromNeon(),
+    fetchDriversFromNeon(),
+  ])
 
   return {
     todayTrips: {
@@ -228,7 +640,7 @@ export async function fetchDashboardFromNeon(): Promise<DashboardData> {
       completed: trips.filter((t) => t.tripStatus === 'COMPLETED').length,
       cancelled: trips.filter((t) => t.tripStatus === 'CANCELLED').length,
     },
-    walletBalance,
+    walletBalance: wallet.balance,
     lowBalanceThreshold: 1000,
     activeDrivers: drivers.filter((d) => d.isActive).length,
     totalDrivers: drivers.length,

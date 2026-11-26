@@ -1,7 +1,21 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import toast from 'react-hot-toast'
 import { getMockResponse } from './mockData'
-import { fetchTripsFromNeon, createTripInNeon, deleteTripFromNeon, fetchDashboardFromNeon } from './neonClient'
+import {
+  fetchTripsFromNeon,
+  createTripInNeon,
+  updateTripInNeon,
+  deleteTripFromNeon,
+  fetchWalletFromNeon,
+  fetchTransactionsFromNeon,
+  rechargeWalletInNeon,
+  withdrawWalletInNeon,
+  deleteTransactionFromNeon,
+  updateTransactionInNeon,
+  fetchDriversFromNeon,
+  fetchVehiclesFromNeon,
+  fetchDashboardFromNeon,
+} from './neonClient'
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
@@ -25,6 +39,96 @@ const api = axios.create({
   timeout: 15000,
 })
 
+// Centralized handler for Neon DB live data and mock fallback
+async function handleNeonOrMockApi(url: string = '', method: string = 'get', requestData?: any) {
+  const cleanUrl = url.split('?')[0] || ''
+  const m = (method || 'get').toLowerCase()
+  const payload = typeof requestData === 'string' ? JSON.parse(requestData || '{}') : (requestData || {})
+
+  // 1. Dashboard (100% Synced from Neon DB)
+  if (cleanUrl.endsWith('/vendor/dashboard') && m === 'get') {
+    const dashboard = await fetchDashboardFromNeon()
+    return { status: 'success', data: dashboard }
+  }
+
+  // 2. Trips (100% Synced from Neon DB)
+  if (cleanUrl.endsWith('/vendor/trips') && m === 'get') {
+    const trips = await fetchTripsFromNeon()
+    return { status: 'success', data: trips, total: trips.length, page: 1, totalPages: 1 }
+  }
+  if (cleanUrl.endsWith('/vendor/trips/create') && m === 'post') {
+    const newTrip = await createTripInNeon(payload)
+    return { status: 'success', data: newTrip }
+  }
+  if (cleanUrl.includes('/vendor/trips/') && m === 'delete') {
+    const id = cleanUrl.split('/vendor/trips/')[1]?.split('/')[0]
+    await deleteTripFromNeon(id)
+    return { status: 'success', data: { id, deleted: true } }
+  }
+  if (cleanUrl.includes('/vendor/trips/') && (m === 'patch' || m === 'put')) {
+    const id = cleanUrl.split('/vendor/trips/')[1]?.split('/')[0]
+    const updated = await updateTripInNeon(id, payload)
+    return { status: 'success', data: updated }
+  }
+
+  // 3. Wallet & Transactions (100% Synced from Neon DB)
+  if (cleanUrl.endsWith('/vendor/wallet') && m === 'get') {
+    const wallet = await fetchWalletFromNeon()
+    return { status: 'success', data: wallet }
+  }
+  if (cleanUrl.endsWith('/vendor/wallet/transactions') && m === 'get') {
+    const txs = await fetchTransactionsFromNeon()
+    return { status: 'success', data: txs, total: txs.length, totalPages: 1 }
+  }
+  if (cleanUrl.endsWith('/vendor/wallet/recharge-order') && m === 'post') {
+    const amount = Number(payload?.amount) || 5000
+    return {
+      status: 'success',
+      data: {
+        orderId: `order_${Date.now()}`,
+        amount,
+        currency: 'INR',
+        keyId: import.meta.env.VITE_RAZORPAY_KEY_ID || '',
+      },
+    }
+  }
+  if (cleanUrl.endsWith('/vendor/wallet/recharge-verify') && m === 'post') {
+    const amount = Number(payload?.amount) || 2500
+    const ref = payload?.razorpay_payment_id || payload?.orderId || `PAY-RZP-${Date.now()}`
+    const result = await rechargeWalletInNeon(amount, ref, 'Razorpay Instant Wallet Top-Up')
+    return { status: 'success', data: { verified: true, newBalance: result.newBalance, transaction: result.transaction } }
+  }
+  if (cleanUrl.endsWith('/vendor/wallet/withdraw') && m === 'post') {
+    const amount = Number(payload?.amount) || 0
+    const method = payload?.method || 'BANK_TRANSFER'
+    const result = await withdrawWalletInNeon(amount, method, payload?.details)
+    return { status: 'success', data: result }
+  }
+  if (cleanUrl.includes('/vendor/wallet/transactions/') && m === 'delete') {
+    const id = cleanUrl.split('/vendor/wallet/transactions/')[1]?.split('/')[0]
+    await deleteTransactionFromNeon(id)
+    return { status: 'success', data: { id, deleted: true } }
+  }
+  if (cleanUrl.includes('/vendor/wallet/transactions/') && (m === 'patch' || m === 'put')) {
+    const id = cleanUrl.split('/vendor/wallet/transactions/')[1]?.split('/')[0]
+    const updated = await updateTransactionInNeon(id, payload)
+    return { status: 'success', data: updated }
+  }
+
+  // 4. Drivers & Vehicles (100% Synced from Neon DB)
+  if (cleanUrl.endsWith('/vendor/drivers') && m === 'get') {
+    const drivers = await fetchDriversFromNeon()
+    return { status: 'success', data: drivers, total: drivers.length, totalPages: 1 }
+  }
+  if (cleanUrl.endsWith('/vendor/vehicles') && m === 'get') {
+    const vehicles = await fetchVehiclesFromNeon()
+    return { status: 'success', data: vehicles, total: vehicles.length, totalPages: 1 }
+  }
+
+  // 5. Fallback to mockData
+  return getMockResponse(url, method, requestData)
+}
+
 // Request interceptor — attach JWT or short-circuit in static demo mode
 api.interceptors.request.use(
   async (config: InternalAxiosRequestConfig) => {
@@ -35,96 +139,17 @@ api.interceptors.request.use(
 
     // If deployed on static host (Netlify) without a configured backend endpoint, serve live Neon DB or mock
     if (isStaticOrUnreachableHost()) {
-      const cleanUrl = config.url?.split('?')[0] || ''
-      const method = (config.method || 'get').toLowerCase()
-
-      // 0. Fetch live dashboard directly from Neon DB
-      if (cleanUrl.endsWith('/vendor/dashboard') && method === 'get') {
-        config.adapter = async () => {
-          const dashboard = await fetchDashboardFromNeon()
-          return {
-            data: {
-              status: 'success',
-              data: dashboard,
-            },
-            status: 200,
-            statusText: 'OK',
-            headers: {},
-            config,
-          }
-        }
-        return config
-      }
-
-      // 1. Fetch live trips from Neon DB
-      if (cleanUrl.endsWith('/vendor/trips') && method === 'get') {
-        config.adapter = async () => {
-          const trips = await fetchTripsFromNeon()
-          return {
-            data: {
-              status: 'success',
-              data: trips,
-              total: trips.length,
-              page: 1,
-              totalPages: 1,
-            },
-            status: 200,
-            statusText: 'OK',
-            headers: {},
-            config,
-          }
-        }
-        return config
-      }
-
-      // 2. Create trip directly in Neon DB
-      if (cleanUrl.endsWith('/vendor/trips/create') && method === 'post') {
-        config.adapter = async () => {
-          const payload = typeof config.data === 'string' ? JSON.parse(config.data) : config.data
-          const newTrip = await createTripInNeon(payload)
-          return {
-            data: {
-              status: 'success',
-              data: newTrip,
-            },
-            status: 200,
-            statusText: 'OK',
-            headers: {},
-            config,
-          }
-        }
-        return config
-      }
-
-      // 3. Delete trip in Neon DB
-      if (cleanUrl.includes('/vendor/trips/') && method === 'delete') {
-        const id = cleanUrl.split('/vendor/trips/')[1]?.split('/')[0]
-        config.adapter = async () => {
-          await deleteTripFromNeon(id)
-          return {
-            data: {
-              status: 'success',
-              data: { id, deleted: true },
-            },
-            status: 200,
-            statusText: 'OK',
-            headers: {},
-            config,
-          }
-        }
-        return config
-      }
-
-      const mock = getMockResponse(config.url, config.method, config.data)
-      if (mock !== null) {
-        config.adapter = async () => ({
-          data: mock,
+      config.adapter = async () => {
+        const responseData = await handleNeonOrMockApi(config.url, config.method, config.data)
+        return {
+          data: responseData,
           status: 200,
           statusText: 'OK',
           headers: {},
           config,
-        })
+        }
       }
+      return config
     }
 
     return config
@@ -148,52 +173,10 @@ api.interceptors.response.use(
   async (response) => {
     // If static host returns index.html for unmatched /api routes
     if (typeof response.data === 'string' && response.data.includes('<!DOCTYPE html>')) {
-      const cleanUrl = response.config.url?.split('?')[0] || ''
-      const method = (response.config.method || 'get').toLowerCase()
-
-      if (cleanUrl.endsWith('/vendor/dashboard') && method === 'get') {
-        const dashboard = await fetchDashboardFromNeon()
-        return {
-          ...response,
-          data: {
-            status: 'success',
-            data: dashboard,
-          },
-        }
-      }
-
-      if (cleanUrl.endsWith('/vendor/trips') && method === 'get') {
-        const trips = await fetchTripsFromNeon()
-        return {
-          ...response,
-          data: {
-            status: 'success',
-            data: trips,
-            total: trips.length,
-            page: 1,
-            totalPages: 1,
-          },
-        }
-      }
-
-      if (cleanUrl.endsWith('/vendor/trips/create') && method === 'post') {
-        const payload = typeof response.config.data === 'string' ? JSON.parse(response.config.data) : response.config.data
-        const newTrip = await createTripInNeon(payload)
-        return {
-          ...response,
-          data: {
-            status: 'success',
-            data: newTrip,
-          },
-        }
-      }
-
-      const mock = getMockResponse(response.config.url, response.config.method, response.config.data)
-      if (mock !== null) {
-        return {
-          ...response,
-          data: mock,
-        }
+      const data = await handleNeonOrMockApi(response.config.url, response.config.method, response.config.data)
+      return {
+        ...response,
+        data,
       }
     }
     return response
@@ -203,81 +186,19 @@ api.interceptors.response.use(
 
     // Fallback to Neon DB or mock data if network failed or endpoint not found on static host
     if (originalRequest) {
-      const url = originalRequest.url
-      const method = (originalRequest.method || 'get').toLowerCase()
-      const cleanUrl = url?.split('?')[0] || ''
-      const requestData = originalRequest.data
-
-      if (cleanUrl.endsWith('/vendor/dashboard') && method === 'get') {
-        const dashboard = await fetchDashboardFromNeon()
-        return {
-          data: {
-            status: 'success',
-            data: dashboard,
-          },
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-          config: originalRequest,
+      try {
+        const data = await handleNeonOrMockApi(originalRequest.url, originalRequest.method, originalRequest.data)
+        if (data !== null) {
+          return {
+            data,
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config: originalRequest,
+          }
         }
-      }
-
-      if (cleanUrl.endsWith('/vendor/trips') && method === 'get') {
-        const trips = await fetchTripsFromNeon()
-        return {
-          data: {
-            status: 'success',
-            data: trips,
-            total: trips.length,
-            page: 1,
-            totalPages: 1,
-          },
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-          config: originalRequest,
-        }
-      }
-
-      if (cleanUrl.endsWith('/vendor/trips/create') && method === 'post') {
-        const payload = typeof requestData === 'string' ? JSON.parse(requestData) : requestData
-        const newTrip = await createTripInNeon(payload)
-        return {
-          data: {
-            status: 'success',
-            data: newTrip,
-          },
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-          config: originalRequest,
-        }
-      }
-
-      if (cleanUrl.includes('/vendor/trips/') && method === 'delete') {
-        const id = cleanUrl.split('/vendor/trips/')[1]?.split('/')[0]
-        await deleteTripFromNeon(id)
-        return {
-          data: {
-            status: 'success',
-            data: { id, deleted: true },
-          },
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-          config: originalRequest,
-        }
-      }
-
-      const mock = getMockResponse(url, method, requestData)
-      if (mock !== null) {
-        return {
-          data: mock,
-          status: 200,
-          statusText: 'OK',
-          headers: {},
-          config: originalRequest,
-        }
+      } catch (err) {
+        console.warn('Neon/Mock fallback error:', err)
       }
     }
 

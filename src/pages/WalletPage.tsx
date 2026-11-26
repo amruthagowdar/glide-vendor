@@ -41,6 +41,8 @@ export const WalletPage: React.FC = () => {
   // Fetch Wallet Balance
   const { data: wallet, isLoading: isWalletLoading } = useQuery<Wallet>({
     queryKey: ['wallet'],
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const res = await vendorApi.getWallet()
       const data = res.data?.data || res.data || {}
@@ -77,6 +79,8 @@ export const WalletPage: React.FC = () => {
     totalPages: number
   }>({
     queryKey: ['wallet-transactions', page, typeFilter],
+    refetchInterval: 10000,
+    refetchOnWindowFocus: true,
     queryFn: async () => {
       const params: Record<string, string> = {
         page: String(page),

@@ -13,7 +13,8 @@ export function useWallet() {
         balance: parseFloat(data.balance ?? 0),
       }
     },
-    refetchInterval: 60_000,
+    refetchInterval: 10_000,
+    refetchOnWindowFocus: true,
   })
 }
 
