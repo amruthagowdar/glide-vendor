@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Modal } from '../ui/Modal'
-import { MapPin, Search, ExternalLink, Check, Clock, X, Loader2 } from 'lucide-react'
+import { MapPin, Search, ExternalLink, Check, Clock, X, Loader2, Navigation, Crosshair } from 'lucide-react'
+import toast from 'react-hot-toast'
 
 interface LocationMapModalProps {
   isOpen: boolean
@@ -18,6 +19,8 @@ export interface LocationSuggestion {
   lat: number
   lng: number
   isRecentOrPopular?: boolean
+  isHomeMatch?: boolean
+  isGpsOrCoords?: boolean
 }
 
 /**
@@ -203,14 +206,6 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     lng: 77.6185,
   },
   {
-    id: 'blr-koramangala-1',
-    name: 'Koramangala 1st Block',
-    subtitle: 'Bengaluru, Karnataka',
-    address: '1st Block, Koramangala, Bengaluru, Karnataka 560034',
-    lat: 12.9279,
-    lng: 77.6322,
-  },
-  {
     id: 'blr-hsr-1',
     name: 'HSR Layout Sector 1',
     subtitle: 'Bengaluru, Karnataka',
@@ -218,22 +213,6 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     lat: 12.9121,
     lng: 77.6446,
     isRecentOrPopular: true,
-  },
-  {
-    id: 'blr-hsr-2',
-    name: 'HSR Layout Sector 2',
-    subtitle: 'Bengaluru, Karnataka',
-    address: 'Sector 2, HSR Layout, Bengaluru, Karnataka 560102',
-    lat: 12.9080,
-    lng: 77.6480,
-  },
-  {
-    id: 'blr-hsr-3',
-    name: 'HSR Layout Sector 3',
-    subtitle: 'Bengaluru, Karnataka',
-    address: 'Sector 3, HSR Layout, Bengaluru, Karnataka 560102',
-    lat: 12.9140,
-    lng: 77.6380,
   },
   {
     id: 'blr-btm-2',
@@ -245,14 +224,6 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     isRecentOrPopular: true,
   },
   {
-    id: 'blr-btm-1',
-    name: 'BTM Layout 1st Stage',
-    subtitle: 'Bengaluru, Karnataka',
-    address: 'BTM 1st Stage, Bengaluru, Karnataka 560029',
-    lat: 12.9240,
-    lng: 77.6140,
-  },
-  {
     id: 'blr-jayanagar-4',
     name: 'Jayanagar 4th Block',
     subtitle: 'Bengaluru, Karnataka',
@@ -260,14 +231,6 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     lat: 12.9298,
     lng: 77.5828,
     isRecentOrPopular: true,
-  },
-  {
-    id: 'blr-jayanagar-9',
-    name: 'Jayanagar 9th Block',
-    subtitle: 'Bengaluru, Karnataka',
-    address: 'Jayanagar 9th Block, Bengaluru, Karnataka 560069',
-    lat: 12.9190,
-    lng: 77.5920,
   },
   {
     id: 'blr-jp-nagar-6',
@@ -279,28 +242,12 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     isRecentOrPopular: true,
   },
   {
-    id: 'blr-jp-nagar-7',
-    name: 'JP Nagar 7th Phase',
-    subtitle: 'Bengaluru, Karnataka',
-    address: 'Brigade Millennium Rd, JP Nagar 7th Phase, Bengaluru, Karnataka 560078',
-    lat: 12.8950,
-    lng: 77.5810,
-  },
-  {
     id: 'blr-banashankari-2',
     name: 'Banashankari 2nd Stage',
     subtitle: 'Bengaluru, Karnataka',
     address: 'Banashankari 2nd Stage, Bengaluru, Karnataka 560070',
     lat: 12.9250,
     lng: 77.5600,
-  },
-  {
-    id: 'blr-banashankari-3',
-    name: 'Banashankari 3rd Stage',
-    subtitle: 'Bengaluru, Karnataka',
-    address: 'Banashankari 3rd Stage, Bengaluru, Karnataka 560085',
-    lat: 12.9220,
-    lng: 77.5480,
   },
   {
     id: 'blr-ecity-1',
@@ -329,28 +276,12 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     isRecentOrPopular: true,
   },
   {
-    id: 'blr-bellandur-central',
-    name: 'Bellandur Central',
-    subtitle: 'Bengaluru, Karnataka',
-    address: 'Bellandur Main Road, Bengaluru, Karnataka 560103',
-    lat: 12.9304,
-    lng: 77.6784,
-  },
-  {
     id: 'blr-sarjapur-road',
     name: 'Sarjapur Road',
     subtitle: 'Bengaluru, Karnataka',
     address: 'Sarjapur Main Road, Carmelaram, Bengaluru, Karnataka 560035',
     lat: 12.9100,
     lng: 77.6850,
-  },
-  {
-    id: 'blr-sarjapur-town',
-    name: 'Sarjapur Town',
-    subtitle: 'Anekal, Bengaluru, Karnataka',
-    address: 'Sarjapur Town, Anekal Taluk, Karnataka 562125',
-    lat: 12.8600,
-    lng: 77.7900,
   },
   {
     id: 'blr-silk-board',
@@ -372,14 +303,6 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     isRecentOrPopular: true,
   },
   {
-    id: 'blr-indiranagar-12th',
-    name: 'Indiranagar 12th Main',
-    subtitle: 'Bengaluru, Karnataka',
-    address: '12th Main Road, HAL 2nd Stage, Indiranagar, Bengaluru, 560038',
-    lat: 12.9719,
-    lng: 77.6412,
-  },
-  {
     id: 'blr-whitefield-itpl',
     name: 'Whitefield ITPL',
     subtitle: 'Bengaluru, Karnataka',
@@ -387,14 +310,6 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     lat: 12.9863,
     lng: 77.7383,
     isRecentOrPopular: true,
-  },
-  {
-    id: 'blr-whitefield-hope-farm',
-    name: 'Hope Farm Whitefield',
-    subtitle: 'Bengaluru, Karnataka',
-    address: 'Hope Farm Junction, Whitefield, Bengaluru, Karnataka 560066',
-    lat: 12.9839,
-    lng: 77.7516,
   },
   {
     id: 'blr-marathahalli-bridge',
@@ -438,14 +353,6 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     lng: 77.7470,
   },
   {
-    id: 'blr-cv-raman-nagar',
-    name: 'CV Raman Nagar',
-    subtitle: 'Bengaluru, Karnataka',
-    address: 'Bagmane Tech Park, CV Raman Nagar, Bengaluru, Karnataka 560093',
-    lat: 12.9840,
-    lng: 77.6620,
-  },
-  {
     id: 'blr-domlur',
     name: 'Domlur',
     subtitle: 'Intermediate Ring Road, Bengaluru',
@@ -482,14 +389,6 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     lng: 77.5963,
   },
   {
-    id: 'blr-yelahanka-old-town',
-    name: 'Yelahanka Old Town',
-    subtitle: 'Bengaluru North, Karnataka',
-    address: 'Yelahanka Old Town, Bengaluru North, Karnataka 560064',
-    lat: 13.1006,
-    lng: 77.5960,
-  },
-  {
     id: 'blr-airport-t1',
     name: 'Kempegowda Airport Terminal 1',
     subtitle: 'Devanahalli, Bengaluru',
@@ -508,14 +407,6 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     isRecentOrPopular: true,
   },
   {
-    id: 'blr-devanahalli',
-    name: 'Devanahalli Town',
-    subtitle: 'Bengaluru Rural, Karnataka',
-    address: 'Devanahalli Town, Bengaluru Rural, Karnataka 562110',
-    lat: 13.2483,
-    lng: 77.7129,
-  },
-  {
     id: 'blr-sahakar-nagar',
     name: 'Sahakar Nagar',
     subtitle: 'Bengaluru North, Karnataka',
@@ -532,28 +423,12 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     lng: 77.5940,
   },
   {
-    id: 'blr-sanjaynagar',
-    name: 'Sanjay Nagar',
-    subtitle: 'Bengaluru, Karnataka',
-    address: 'Sanjay Nagar Main Road, Bengaluru, Karnataka 560094',
-    lat: 13.0360,
-    lng: 77.5760,
-  },
-  {
     id: 'blr-vidyaranyapura',
     name: 'Vidyaranyapura',
     subtitle: 'Bengaluru North, Karnataka',
     address: 'Vidyaranyapura Main Road, Bengaluru, Karnataka 560097',
     lat: 13.0780,
     lng: 77.5560,
-  },
-  {
-    id: 'blr-mathikere',
-    name: 'Mathikere',
-    subtitle: 'M S Ramaiah Area, Bengaluru',
-    address: 'Mathikere, MS Ramaiah Nagar, Bengaluru, Karnataka 560054',
-    lat: 13.0330,
-    lng: 77.5580,
   },
   {
     id: 'blr-yeshwantpur',
@@ -573,14 +448,6 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     lat: 12.9756,
     lng: 77.6066,
     isRecentOrPopular: true,
-  },
-  {
-    id: 'blr-brigade-road',
-    name: 'Brigade Road',
-    subtitle: 'Central Bengaluru, Karnataka',
-    address: 'Brigade Road, Ashok Nagar, Bengaluru, Karnataka 560001',
-    lat: 12.9715,
-    lng: 77.6070,
   },
   {
     id: 'blr-majestic',
@@ -649,22 +516,6 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     lat: 13.0300,
     lng: 77.5180,
   },
-  {
-    id: 'blr-basavanagudi',
-    name: 'Basavanagudi DVG Road',
-    subtitle: 'Bengaluru, Karnataka',
-    address: 'DVG Road, Gandhi Bazaar, Basavanagudi, Bengaluru, Karnataka 560004',
-    lat: 12.9420,
-    lng: 77.5740,
-  },
-  {
-    id: 'blr-shivajinagar',
-    name: 'Shivajinagar Bus Station',
-    subtitle: 'Bengaluru, Karnataka',
-    address: 'Shivajinagar Bus Station, Russell Market, Bengaluru, Karnataka 560051',
-    lat: 12.9850,
-    lng: 77.6030,
-  },
 
   // ==================== KARNATAKA DISTRICTS & MAJOR CITIES ====================
   {
@@ -692,14 +543,6 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     address: 'Hubballi City, Dharwad District, Karnataka 580020',
     lat: 15.3647,
     lng: 75.1240,
-  },
-  {
-    id: 'kar-dharwad',
-    name: 'Dharwad',
-    subtitle: 'Dharwad District, Karnataka',
-    address: 'Dharwad City, Karnataka 580001',
-    lat: 15.4589,
-    lng: 75.0078,
   },
   {
     id: 'kar-belagavi',
@@ -774,28 +617,12 @@ const KNOWN_LOCALITIES: LocationSuggestion[] = [
     lng: 78.1291,
   },
   {
-    id: 'kar-kgf',
-    name: 'Kolar Gold Fields (KGF)',
-    subtitle: 'Kolar, Karnataka',
-    address: 'Robertsonpet, Kolar Gold Fields, Karnataka 563122',
-    lat: 12.9600,
-    lng: 78.2700,
-  },
-  {
     id: 'kar-hoskote',
     name: 'Hoskote',
     subtitle: 'Bengaluru Rural, Karnataka',
     address: 'Hoskote Town, Bengaluru Rural, Karnataka 562114',
     lat: 13.0699,
     lng: 77.7981,
-  },
-  {
-    id: 'kar-anekal',
-    name: 'Anekal',
-    subtitle: 'Bengaluru Urban, Karnataka',
-    address: 'Anekal Town, Bengaluru Urban, Karnataka 562106',
-    lat: 12.7100,
-    lng: 77.6970,
   },
   {
     id: 'kar-madikeri',
@@ -876,6 +703,7 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
   const [selectedCoords, setSelectedCoords] = useState<{ lat: number; lng: number }>({ lat: 12.9716, lng: 77.5946 })
   const [searchQuery, setSearchQuery] = useState('')
   const [isSearching, setIsSearching] = useState(false)
+  const [isGettingGps, setIsGettingGps] = useState(false)
   const [suggestions, setSuggestions] = useState<LocationSuggestion[]>([])
   const [showDropdown, setShowDropdown] = useState(false)
   const [activeIndex, setActiveIndex] = useState(-1)
@@ -912,7 +740,7 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
       if (!L || !mapContainerRef.current) return
 
       if (!mapInstanceRef.current) {
-        const map = L.map(mapContainerRef.current).setView([selectedCoords.lat, selectedCoords.lng], 13)
+        const map = L.map(mapContainerRef.current).setView([selectedCoords.lat, selectedCoords.lng], 14)
 
         L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
           maxZoom: 19,
@@ -920,7 +748,7 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
         }).addTo(map)
 
         const marker = L.marker([selectedCoords.lat, selectedCoords.lng], { draggable: true }).addTo(map)
-        marker.bindPopup('<b>Selected Location</b><br>Drag pin or click map to change').openPopup()
+        marker.bindPopup('<b>Selected Location</b><br>Drag pin or click map to pinpoint exact house').openPopup()
 
         marker.on('dragend', async () => {
           const pos = marker.getLatLng()
@@ -971,32 +799,95 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
   }
 
   /**
-   * Fast local search (0ms) + Photon Real-Time Autocomplete Engine + Nominatim Fallback
+   * Helper to query Photon geocoder with a text string
+   */
+  const queryPhoton = async (qText: string): Promise<LocationSuggestion[]> => {
+    try {
+      const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(
+        qText
+      )}&lat=12.9716&lon=77.5946&limit=6`
+      const res = await fetch(photonUrl)
+      const data = await res.json()
+      if (data && Array.isArray(data.features)) {
+        return data.features.map((f: any, i: number) => {
+          const p = f.properties || {}
+          const name = p.name || p.street || qText
+          const locality = p.city || p.district || p.county || ''
+          const state = p.state || (p.country === 'India' ? 'Karnataka' : p.country || 'Karnataka')
+          const subtitle = locality ? `${locality}, ${state}` : state
+          const lat = parseFloat(f.geometry.coordinates[1])
+          const lng = parseFloat(f.geometry.coordinates[0])
+          const address = [name, locality, state, p.postcode].filter(Boolean).join(', ')
+
+          return {
+            id: `photon-${lat}-${lng}-${i}`,
+            name,
+            subtitle,
+            address,
+            lat,
+            lng,
+            isRecentOrPopular: false,
+          }
+        })
+      }
+    } catch {}
+    return []
+  }
+
+  /**
+   * Smart hierarchical search for residential addresses, private home names,
+   * GPS coordinates, and Google Maps links.
    */
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
     setSearchQuery(val)
     setActiveIndex(-1)
 
-    const clean = val.trim().toLowerCase()
+    const clean = val.trim()
     if (!clean) {
       setSuggestions([])
       setShowDropdown(false)
       return
     }
 
-    // 1. Instant local filter (0ms delay) across our 120+ curated localities
+    // 1. Check for Direct Lat, Lng or Google Maps URL
+    // e.g. "13.0827, 77.5098" or "https://maps.google.com/?q=13.0827,77.5098" or "@13.0827,77.5098"
+    const coordMatch =
+      clean.match(/([-+]?\d{1,2}\.\d+)[,\s]+([-+]?\d{1,3}\.\d+)/) ||
+      clean.match(/@([-+]?\d{1,2}\.\d+),([-+]?\d{1,3}\.\d+)/)
+    if (coordMatch) {
+      const lat = parseFloat(coordMatch[1])
+      const lng = parseFloat(coordMatch[2])
+      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
+        setSuggestions([
+          {
+            id: 'coords-detected',
+            name: `📍 Pinpoint Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
+            subtitle: 'Direct GPS / Google Maps Link Coordinates',
+            address: `Coordinates: ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+            lat,
+            lng,
+            isGpsOrCoords: true,
+          },
+        ])
+        setShowDropdown(true)
+        return
+      }
+    }
+
+    const cleanLower = clean.toLowerCase()
+
+    // 2. Instant Local Filter (0ms delay) across curated localities
     const localMatches = KNOWN_LOCALITIES.filter((loc) => {
-      const nameMatch = loc.name.toLowerCase().includes(clean)
-      const subMatch = loc.subtitle.toLowerCase().includes(clean)
-      const addrMatch = loc.address.toLowerCase().includes(clean)
+      const nameMatch = loc.name.toLowerCase().includes(cleanLower)
+      const subMatch = loc.subtitle.toLowerCase().includes(cleanLower)
+      const addrMatch = loc.address.toLowerCase().includes(cleanLower)
       return nameMatch || subMatch || addrMatch
     })
 
-    // Sort to prioritize items whose name starts with the search query
     localMatches.sort((a, b) => {
-      const aStarts = a.name.toLowerCase().startsWith(clean)
-      const bStarts = b.name.toLowerCase().startsWith(clean)
+      const aStarts = a.name.toLowerCase().startsWith(cleanLower)
+      const bStarts = b.name.toLowerCase().startsWith(cleanLower)
       if (aStarts && !bStarts) return -1
       if (!aStarts && bStarts) return 1
       return 0
@@ -1005,7 +896,7 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
     setSuggestions(localMatches)
     setShowDropdown(true)
 
-    // 2. Query Photon Geocoder (Elasticsearch on OpenStreetMap, built specifically for as-you-type autocomplete)
+    // 3. Debounced Smart Residential & Hierarchical Online Query
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
     if (clean.length >= 2) {
       const reqId = Date.now()
@@ -1014,79 +905,98 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
 
       debounceTimerRef.current = setTimeout(async () => {
         try {
-          // Photon query biased by Bengaluru/Karnataka center coordinates
-          const photonUrl = `https://photon.komoot.io/api/?q=${encodeURIComponent(
-            clean
-          )}&lat=12.9716&lon=77.5946&limit=10`
-          const res = await fetch(photonUrl)
-          const data = await res.json()
+          // A. Try full search query first
+          let onlineResults = await queryPhoton(clean)
 
-          if (activeReqRef.current === reqId && data && Array.isArray(data.features)) {
-            const photonResults: LocationSuggestion[] = data.features.map((f: any, i: number) => {
-              const p = f.properties || {}
-              const name = p.name || p.street || clean
-              const locality = p.city || p.district || p.county || ''
-              const state = p.state || (p.country === 'India' ? 'Karnataka' : p.country || 'Karnataka')
-              const subtitle = locality ? `${locality}, ${state}` : state
-              const lat = parseFloat(f.geometry.coordinates[1])
-              const lng = parseFloat(f.geometry.coordinates[0])
-              const address = [name, locality, state, p.postcode].filter(Boolean).join(', ')
+          // B. If full residential address returned 0 results (e.g. "Gowda Nilaya, 3rd cross, Chikkabanavara")
+          // Perform smart hierarchical address decomposition
+          if (onlineResults.length === 0) {
+            const parts = clean.split(/[,;\n]+/).map((p) => p.trim()).filter(Boolean)
 
-              return {
-                id: `photon-${lat}-${lng}-${i}`,
-                name,
-                subtitle,
-                address,
-                lat,
-                lng,
-                isRecentOrPopular: false,
+            // Try each parent segment (e.g., skip private house name/flat number and search the road & area)
+            for (let i = 1; i < parts.length; i++) {
+              const subQuery = parts.slice(i).join(', ')
+              const subResults = await queryPhoton(subQuery)
+              if (subResults.length > 0) {
+                const parentMatch = subResults[0]
+                // Construct a specialized Home Address Match suggestion at those coordinates!
+                const homeSuggestion: LocationSuggestion = {
+                  id: `home-match-${Date.now()}`,
+                  name: clean, // Keep the exact home name typed by the user!
+                  subtitle: `📍 Near ${parentMatch.name}, ${parentMatch.subtitle}`,
+                  address: `${clean}, ${parentMatch.address}`,
+                  lat: parentMatch.lat,
+                  lng: parentMatch.lng,
+                  isHomeMatch: true,
+                }
+                onlineResults = [homeSuggestion, ...subResults]
+                break
               }
-            })
+            }
 
-            // Merge local and online, avoiding duplicate place names
+            // Also check if stripping house/flat numbers yields a match
+            if (onlineResults.length === 0) {
+              const stripped = clean
+                .replace(/^(house\s*no\.?|house|flat\s*no\.?|flat|door\s*no\.?|door|no\.?|site\s*no\.?|villa\s*no\.?|plot\s*no\.?|#)\s*\w+[\s,]+/i, '')
+                .trim()
+              if (stripped && stripped !== clean) {
+                const strippedResults = await queryPhoton(stripped)
+                if (strippedResults.length > 0) {
+                  const parentMatch = strippedResults[0]
+                  const homeSuggestion: LocationSuggestion = {
+                    id: `home-match-stripped-${Date.now()}`,
+                    name: clean,
+                    subtitle: `📍 Near ${parentMatch.name}, ${parentMatch.subtitle}`,
+                    address: `${clean}, ${parentMatch.address}`,
+                    lat: parentMatch.lat,
+                    lng: parentMatch.lng,
+                    isHomeMatch: true,
+                  }
+                  onlineResults = [homeSuggestion, ...strippedResults]
+                }
+              }
+            }
+          }
+
+          // C. If still 0 results, query Nominatim with Karnataka bounding box
+          if (onlineResults.length === 0) {
+            try {
+              const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
+                clean
+              )}&countrycodes=in&viewbox=74.0,11.5,78.6,18.5&limit=6&addressdetails=1`
+              const nomRes = await fetch(nomUrl)
+              const nomData = await nomRes.json()
+
+              if (Array.isArray(nomData) && nomData.length > 0) {
+                onlineResults = nomData.map((item: any, i: number) => {
+                  const parts = (item.display_name || '').split(',')
+                  const mainName = item.name || parts[0]?.trim() || clean
+                  const regionParts = parts.slice(1, 3).map((p: string) => p.trim()).filter(Boolean)
+                  const subtitle = regionParts.length > 0 ? regionParts.join(', ') : 'Karnataka'
+
+                  return {
+                    id: `nom-${item.place_id || i}`,
+                    name: mainName,
+                    subtitle,
+                    address: item.display_name,
+                    lat: parseFloat(item.lat),
+                    lng: parseFloat(item.lon),
+                    isRecentOrPopular: false,
+                  }
+                })
+              }
+            } catch {}
+          }
+
+          if (activeReqRef.current === reqId) {
             setSuggestions((prev) => {
               const seen = new Set(prev.map((p) => p.name.toLowerCase().trim()))
-              const filteredOnline = photonResults.filter((o) => !seen.has(o.name.toLowerCase().trim()))
-              return [...prev, ...filteredOnline]
+              const filtered = onlineResults.filter((o) => !seen.has(o.name.toLowerCase().trim()))
+              return [...prev, ...filtered]
             })
           }
-        } catch (photonErr) {
-          console.warn('Photon fetch fallback to Nominatim:', photonErr)
-          // Fallback to Nominatim if Photon is unreachable
-          try {
-            const nomUrl = `https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(
-              clean
-            )}&countrycodes=in&viewbox=74.0,11.5,78.6,18.5&limit=6&addressdetails=1`
-            const nomRes = await fetch(nomUrl)
-            const nomData = await nomRes.json()
-
-            if (activeReqRef.current === reqId && Array.isArray(nomData)) {
-              const nomResults: LocationSuggestion[] = nomData.map((item: any, i: number) => {
-                const parts = (item.display_name || '').split(',')
-                const mainName = item.name || parts[0]?.trim() || clean
-                const regionParts = parts.slice(1, 3).map((p: string) => p.trim()).filter(Boolean)
-                const subtitle = regionParts.length > 0 ? regionParts.join(', ') : 'Karnataka'
-
-                return {
-                  id: `nom-${item.place_id || i}`,
-                  name: mainName,
-                  subtitle,
-                  address: item.display_name,
-                  lat: parseFloat(item.lat),
-                  lng: parseFloat(item.lon),
-                  isRecentOrPopular: false,
-                }
-              })
-
-              setSuggestions((prev) => {
-                const seen = new Set(prev.map((p) => p.name.toLowerCase().trim()))
-                const filtered = nomResults.filter((o) => !seen.has(o.name.toLowerCase().trim()))
-                return [...prev, ...filtered]
-              })
-            }
-          } catch (nomErr) {
-            console.warn('Nominatim fallback error:', nomErr)
-          }
+        } catch (err) {
+          console.warn('Smart geocode search error:', err)
         } finally {
           if (activeReqRef.current === reqId) {
             setIsLiveFetching(false)
@@ -1096,6 +1006,47 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
     } else {
       setIsLiveFetching(false)
     }
+  }
+
+  /**
+   * One-Click Current GPS Location
+   */
+  const handleCurrentLocation = () => {
+    if (!navigator.geolocation) {
+      toast.error('Geolocation is not supported by your browser')
+      return
+    }
+
+    setIsGettingGps(true)
+    const toastId = toast.loading('Detecting your GPS location...')
+
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        setIsGettingGps(false)
+        toast.dismiss(toastId)
+        const lat = pos.coords.latitude
+        const lng = pos.coords.longitude
+
+        setSelectedCoords({ lat, lng })
+        toast.success('Exact GPS location detected!')
+
+        if (mapInstanceRef.current && markerRef.current) {
+          mapInstanceRef.current.setView([lat, lng], 17) // High-precision street/roof level zoom
+          markerRef.current.setLatLng([lat, lng])
+          markerRef.current.bindPopup(`<b>📍 Your Exact Current Location</b><br/>GPS Accuracy: ~${Math.round(pos.coords.accuracy)}m`).openPopup()
+        }
+
+        // Reverse geocode to get street address
+        reverseGeocode(lat, lng)
+      },
+      (err) => {
+        setIsGettingGps(false)
+        toast.dismiss(toastId)
+        console.warn('GPS location error:', err)
+        toast.error('Could not get GPS location. Please check location permissions.')
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    )
   }
 
   /**
@@ -1109,9 +1060,10 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
     setSuggestions([])
 
     if (mapInstanceRef.current && markerRef.current) {
-      mapInstanceRef.current.setView([lat, lng], 15)
+      // Zoom straight to street/house level (Zoom 17)
+      mapInstanceRef.current.setView([lat, lng], 17)
       markerRef.current.setLatLng([lat, lng])
-      markerRef.current.bindPopup(`<b>${name}</b><br/><span style="font-size:11px">${address}</span>`).openPopup()
+      markerRef.current.bindPopup(`<b>${name}</b><br/><span style="font-size:11px">${address}</span><br/><span style="color:#0284c7;font-size:10px;font-weight:bold;">📍 Drag pin to fine-tune exact house door</span>`).openPopup()
     }
   }
 
@@ -1130,14 +1082,26 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
     setIsSearching(true)
     setShowDropdown(false)
     try {
-      const q = encodeURIComponent(`${searchQuery}, Karnataka, India`)
-      const res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${q}&limit=1`)
-      const results = await res.json()
-      if (results && results.length > 0) {
+      const results = await queryPhoton(searchQuery)
+      if (results.length > 0) {
         const item = results[0]
-        const lat = parseFloat(item.lat)
-        const lng = parseFloat(item.lon)
-        applyLocation(item.display_name.split(',')[0], item.display_name, lat, lng)
+        applyLocation(item.name, item.address, item.lat, item.lng)
+      } else {
+        // Fallback to parent area if full string not found
+        const parts = searchQuery.split(/[,;\n]+/).map((p) => p.trim()).filter(Boolean)
+        let found = false
+        for (let i = 1; i < parts.length; i++) {
+          const sub = parts.slice(i).join(', ')
+          const subResults = await queryPhoton(sub)
+          if (subResults.length > 0) {
+            applyLocation(searchQuery, `${searchQuery}, ${subResults[0].address}`, subResults[0].lat, subResults[0].lng)
+            found = true
+            break
+          }
+        }
+        if (!found) {
+          toast.error('Location not found. Try searching by locality, street or pin code.')
+        }
       }
     } catch (err) {
       console.error('Search error:', err)
@@ -1221,14 +1185,14 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
       }
     >
       <div className="space-y-3 relative">
-        {/* Search Bar with Google Maps Style Autocomplete */}
+        {/* Search Bar with Google Maps Style Autocomplete & GPS */}
         <div ref={searchContainerRef} className="relative z-[3000]">
           <form onSubmit={handleSearchSubmit} className="flex gap-2">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search any locality, landmark or town (e.g. chik, dan, Indiranagar)..."
+                placeholder="Search home address, apartment, street, pincode or paste Maps link..."
                 value={searchQuery}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
@@ -1252,6 +1216,23 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
                 </button>
               )}
             </div>
+
+            {/* 1-Click GPS Current Location Button */}
+            <button
+              type="button"
+              onClick={handleCurrentLocation}
+              disabled={isGettingGps}
+              title="Use my current GPS location (Home)"
+              className="px-3 py-2 bg-slate-100 hover:bg-blue-50 hover:text-blue-700 text-slate-700 rounded-xl border border-slate-200 transition-colors flex items-center gap-1.5 text-xs font-bold whitespace-nowrap shadow-sm"
+            >
+              {isGettingGps ? (
+                <Loader2 className="w-4 h-4 animate-spin text-blue-600" />
+              ) : (
+                <Crosshair className="w-4 h-4 text-blue-600" />
+              )}
+              <span className="hidden sm:inline">Current GPS</span>
+            </button>
+
             <button
               type="submit"
               disabled={isSearching}
@@ -1283,9 +1264,15 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
                         isCurrentActive ? 'bg-slate-100/90' : 'hover:bg-slate-50'
                       }`}
                     >
-                      {/* Google Maps Style Icon */}
+                      {/* Icon */}
                       <div className="text-slate-500 flex-shrink-0">
-                        {loc.isRecentOrPopular ? (
+                        {loc.isGpsOrCoords ? (
+                          <Crosshair className="w-4 h-4 text-emerald-600" />
+                        ) : loc.isHomeMatch ? (
+                          <div className="p-1 rounded-full bg-blue-100 text-blue-600">
+                            <MapPin className="w-3.5 h-3.5" />
+                          </div>
+                        ) : loc.isRecentOrPopular ? (
                           <Clock className="w-4 h-4 text-slate-500" />
                         ) : (
                           <MapPin className="w-4 h-4 text-slate-500" />
@@ -1294,11 +1281,11 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
 
                       {/* Locality Bold + Subtitle on same line */}
                       <div className="flex-1 min-w-0 text-left">
-                        <span className="text-sm font-semibold text-slate-900">
+                        <span className={`text-sm font-semibold ${loc.isHomeMatch ? 'text-blue-900 font-bold' : 'text-slate-900'}`}>
                           {loc.name}
                         </span>
                         {loc.subtitle && (
-                          <span className="text-sm font-normal text-slate-500 ml-2">
+                          <span className={`text-sm font-normal ml-2 ${loc.isHomeMatch ? 'text-blue-600' : 'text-slate-500'}`}>
                             {loc.subtitle}
                           </span>
                         )}
@@ -1311,10 +1298,10 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
                   {isLiveFetching ? (
                     <span className="flex items-center justify-center gap-1.5 text-blue-600">
                       <Loader2 className="w-3.5 h-3.5 animate-spin" />
-                      Searching Karnataka locations...
+                      Locating street and home address...
                     </span>
                   ) : (
-                    'No matching locations found. Press "Search Map" to query broader region.'
+                    'No exact match. Click "Current GPS" or drag the pin on the map to set your house.'
                   )}
                 </div>
               )}
@@ -1344,8 +1331,8 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
         {/* Map Container */}
         <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-inner h-[280px] z-[1]">
           <div ref={mapContainerRef} className="w-full h-full" />
-          <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-md text-[10px] font-semibold text-slate-700 shadow border border-slate-200 pointer-events-none z-[1000]">
-            📍 Click map or drag pin to pick location
+          <div className="absolute top-2 right-2 bg-white/95 backdrop-blur-md px-3 py-1.5 rounded-lg text-[10px] font-bold text-slate-800 shadow-md border border-slate-200 pointer-events-none z-[1000] flex items-center gap-1.5">
+            <span>📍 Drag pin to your exact house roof/entrance</span>
           </div>
         </div>
 
@@ -1353,9 +1340,9 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
         <div className="p-3 rounded-xl bg-blue-50/80 border border-blue-200/80 flex items-start gap-2.5 text-xs">
           <MapPin className="w-4 h-4 text-blue-600 flex-shrink-0 mt-0.5" />
           <div className="flex-1">
-            <span className="font-bold text-blue-950">Selected Address: </span>
+            <span className="font-bold text-blue-950">Selected Home Location: </span>
             <span className="text-blue-900 font-medium break-words">
-              {selectedAddress || searchQuery || 'Click on the map or choose a location above'}
+              {selectedAddress || searchQuery || 'Click on the map, use Current GPS, or search your address above'}
             </span>
           </div>
         </div>
