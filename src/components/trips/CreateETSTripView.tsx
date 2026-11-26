@@ -251,7 +251,18 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
   // Helper to extract lat & lng from geo code text, coordinate string, DMS format, or Maps links
   const extractCoordinatesFromGeoCode = (input: string): { lat: number; lng: number } | null => {
     if (!input) return null
-    const clean = input.trim()
+    let clean = input.trim()
+
+    // 0. Repeatedly URL-decode in case of encoded redirect URLs (e.g. consent.google.com/ml?continue=...)
+    for (let i = 0; i < 3; i++) {
+      try {
+        if (clean.includes('%')) {
+          clean = decodeURIComponent(clean)
+        } else {
+          break
+        }
+      } catch {}
+    }
 
     // 1. DMS Format: e.g. 12°59'37.7"N 77°30'44.2"E or 12°59'37.7"N, 77°30'44.2"E
     const dmsRegex = /(\d{1,3})[°\s]+(\d{1,2})['\s]+([\d.]+)(?:["'″”\s]*)([NSEWnsew])[\s,]+(\d{1,3})[°\s]+(\d{1,2})['\s]+([\d.]+)(?:["'″”\s]*)([NSEWnsew])/i
@@ -297,19 +308,25 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
       return { lat: parseFloat(placeMatch[1]), lng: parseFloat(placeMatch[2]) }
     }
 
-    // 4. Google Maps URL @lat,lng e.g. /@12.993805,77.512276
+    // 4. Google Maps internal data params: !3d12.9938045!4d77.5122758
+    const internalMatch = clean.match(/!3d(-?\d{1,2}\.\d+)!4d(-?\d{1,3}\.\d+)/)
+    if (internalMatch) {
+      return { lat: parseFloat(internalMatch[1]), lng: parseFloat(internalMatch[2]) }
+    }
+
+    // 5. Google Maps URL @lat,lng e.g. /@12.993805,77.512276
     const atMatch = clean.match(/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/)
     if (atMatch) {
       return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) }
     }
 
-    // 5. Query param ?q=lat,lng or &q=lat,lng or ll=lat,lng
-    const qMatch = clean.match(/[?&](?:q|ll)=(-?\d{1,2}\.\d+)[,%20]+(-?\d{1,3}\.\d+)/)
+    // 6. Query params ?q=lat,lng or &q=lat,lng or query=lat,lng or destination=lat,lng or ll=lat,lng
+    const qMatch = clean.match(/[?&](?:q|ll|query|destination|daddr|saddr|center)=(-?\d{1,2}\.\d+)[,%20\+]+(-?\d{1,3}\.\d+)/)
     if (qMatch) {
       return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) }
     }
 
-    // 6. Direct decimal coordinates e.g. "12.993805, 77.512276"
+    // 7. Direct decimal coordinates e.g. "12.993805, 77.512276" or "12.993805 77.512276"
     const rawMatch = clean.match(/([-+]?\d{1,2}\.\d+)[,\s]+([-+]?\d{1,3}\.\d+)/)
     if (rawMatch) {
       const lat = parseFloat(rawMatch[1])
@@ -324,17 +341,56 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
 
   // Resolve shortened Google Maps URL (e.g. maps.app.goo.gl or goo.gl/maps)
   const resolveShortenedUrl = async (shortUrl: string): Promise<{ lat: number; lng: number } | null> => {
+    const trimmed = shortUrl.trim()
+
+    // 1. Direct coordinate check first
+    const directCoords = extractCoordinatesFromGeoCode(trimmed)
+    if (directCoords) return directCoords
+
+    // 2. Try local dev unshortener endpoint with 3.5s timeout
     try {
-      const res = await fetch(`/api/unshorten?url=${encodeURIComponent(shortUrl.trim())}`)
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 3500)
+      const res = await fetch(`/api/unshorten?url=${encodeURIComponent(trimmed)}`, { signal: controller.signal })
+      clearTimeout(timer)
       if (res.ok) {
         const data = await res.json()
         if (data && data.redirectUrl) {
-          return extractCoordinatesFromGeoCode(data.redirectUrl)
+          const coords = extractCoordinatesFromGeoCode(data.redirectUrl)
+          if (coords) return coords
         }
       }
-    } catch (err) {
-      console.warn('Local unshortener failed:', err)
-    }
+    } catch {}
+
+    // 3. Try public unshorten.me API with 3.5s timeout
+    try {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 3500)
+      const res = await fetch(`https://unshorten.me/json/${encodeURIComponent(trimmed)}`, { signal: controller.signal })
+      clearTimeout(timer)
+      if (res.ok) {
+        const data = await res.json()
+        if (data && data.resolved_url) {
+          const coords = extractCoordinatesFromGeoCode(data.resolved_url)
+          if (coords) return coords
+        }
+      }
+    } catch {}
+
+    // 4. Try allorigins JSON API with 3.5s timeout
+    try {
+      const controller = new AbortController()
+      const timer = setTimeout(() => controller.abort(), 3500)
+      const res = await fetch(`https://api.allorigins.win/get?url=${encodeURIComponent(trimmed)}`, { signal: controller.signal })
+      clearTimeout(timer)
+      if (res.ok) {
+        const data = await res.json()
+        if (data && data.contents) {
+          const coords = extractCoordinatesFromGeoCode(data.contents)
+          if (coords) return coords
+        }
+      }
+    } catch {}
 
     return null
   }
@@ -371,52 +427,69 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
     return null
   }
 
-  // Handle user entering / pasting a Geo Code in that employee's input box
-  const handleGeoCodeChange = async (index: number, val: string) => {
-    updateEmployeeField(index, 'geoCode', val)
-    if (!val || !val.trim()) return
+  // Active resolving slot to prevent concurrent multiple triggers
+  const [resolvingSlot, setResolvingSlot] = useState<number | null>(null)
 
-    // 1. Direct coordinate check (DMS or decimal or full Google Maps URL)
-    let coords = extractCoordinatesFromGeoCode(val)
-
-    // 2. Shortened link check (e.g. maps.app.goo.gl or goo.gl/maps)
-    if (!coords && (val.includes('maps.app.goo.gl') || val.includes('goo.gl/maps') || val.includes('http'))) {
-      const loadingToast = toast.loading('Expanding Google Maps link...')
-      coords = await resolveShortenedUrl(val)
-      toast.dismiss(loadingToast)
+  // Trigger coordinate detection and address auto-fill on paste, Enter, or button click
+  const triggerAutoFill = async (index: number, val: string) => {
+    const cleanVal = (val || '').trim()
+    if (!cleanVal) {
+      toast.error('Please enter or paste coordinates or a Maps link first.')
+      return
     }
 
-    if (coords) {
-      const toastId = toast.loading('Resolving address from Geo Code...')
-      setEmployees((prev) => {
-        const copy = [...prev]
-        copy[index] = {
-          ...copy[index],
-          geoCode: val,
-          lat: String(coords!.lat),
-          lng: String(coords!.lng),
-        }
-        return copy
-      })
+    if (resolvingSlot !== null) return // Already resolving a slot
+    setResolvingSlot(index)
 
-      const resolvedAddress = await reverseGeocodeCoords(coords.lat, coords.lng)
-      if (resolvedAddress) {
+    const toastId = toast.loading('Detecting coordinates & address...')
+
+    try {
+      // 1. Direct coordinate check (DMS, decimal, or expanded Google Maps URL)
+      let coords = extractCoordinatesFromGeoCode(cleanVal)
+
+      // 2. Shortened link check if not found directly
+      if (!coords && (cleanVal.includes('maps.app.goo.gl') || cleanVal.includes('goo.gl') || cleanVal.includes('http'))) {
+        coords = await resolveShortenedUrl(cleanVal)
+      }
+
+      if (coords) {
         setEmployees((prev) => {
           const copy = [...prev]
           copy[index] = {
             ...copy[index],
-            address: resolvedAddress,
+            geoCode: cleanVal,
+            lat: String(coords!.lat),
+            lng: String(coords!.lng),
           }
           return copy
         })
-        toast.success(`Address auto-filled from Geo Code!`, { id: toastId })
+
+        const resolvedAddress = await reverseGeocodeCoords(coords.lat, coords.lng)
+        if (resolvedAddress) {
+          setEmployees((prev) => {
+            const copy = [...prev]
+            copy[index] = {
+              ...copy[index],
+              address: resolvedAddress,
+            }
+            return copy
+          })
+          toast.success('Address auto-filled from coordinates!', { id: toastId })
+        } else {
+          toast.success(`Coordinates saved (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, {
+            id: toastId,
+          })
+        }
       } else {
-        toast.success(`GPS coordinates saved (${coords.lat.toFixed(4)}, ${coords.lng.toFixed(4)})`, {
-          id: toastId,
-        })
+        toast.error(
+          'Could not detect coordinates. You can paste DMS (12°59\'37.7"N 77°30\'44.2"E) or Decimal (12.9938, 77.5122).',
+          { id: toastId }
+        )
       }
-    } else if (val.trim().length > 5) {
-      toast.error('Could not detect coordinates. You can paste DMS (12°59\'37.7"N 77°30\'44.2"E), Decimal (12.9938, 77.5122), or Maps link.')
+    } catch (err: any) {
+      toast.error('Failed to resolve coordinates. Please paste coordinates directly.', { id: toastId })
+    } finally {
+      setResolvingSlot(null)
     }
   }
 
@@ -934,22 +1007,37 @@ return (
                           type="text"
                           placeholder="Paste coordinates (e.g. 12°59'37.7&quot;N 77°30'44.2&quot;E, 12.9938, 77.5122, or Maps link)"
                           value={slot.geoCode || ''}
-                          onChange={(e) => handleGeoCodeChange(idx, e.target.value)}
+                          onChange={(e) => updateEmployeeField(idx, 'geoCode', e.target.value)}
                           onPaste={(e) => {
                             const pasted = e.clipboardData.getData('text')
-                            if (pasted) {
-                              setTimeout(() => handleGeoCodeChange(idx, pasted), 50)
+                            if (pasted && pasted.trim()) {
+                              updateEmployeeField(idx, 'geoCode', pasted.trim())
+                              setTimeout(() => triggerAutoFill(idx, pasted.trim()), 30)
+                            }
+                          }}
+                          onKeyDown={(e) => {
+                            if (e.key === 'Enter') {
+                              e.preventDefault()
+                              triggerAutoFill(idx, slot.geoCode || '')
                             }
                           }}
                           className="input text-xs sm:text-sm font-medium border-blue-200 focus:border-blue-500 bg-blue-50/20 flex-1"
                         />
                         <button
                           type="button"
-                          onClick={() => handleGeoCodeChange(idx, slot.geoCode || '')}
-                          className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold shrink-0 transition-colors cursor-pointer shadow-xs"
+                          disabled={resolvingSlot === idx}
+                          onClick={() => triggerAutoFill(idx, slot.geoCode || '')}
+                          className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 disabled:opacity-50 text-white text-xs font-bold shrink-0 transition-colors cursor-pointer shadow-xs flex items-center gap-1.5"
                           title="Click to resolve and auto-fill address from Geo Code"
                         >
-                          Auto-Fill
+                          {resolvingSlot === idx ? (
+                            <>
+                              <span className="w-3 h-3 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                              <span>Detecting...</span>
+                            </>
+                          ) : (
+                            <span>Auto-Fill</span>
+                          )}
                         </button>
                       </div>
                       <span className="text-[10px] text-slate-500 mt-1 block">
