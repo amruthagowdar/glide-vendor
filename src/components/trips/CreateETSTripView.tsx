@@ -121,12 +121,12 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
 
   // Employee Slots: 3 for Sedan, 6 for SUV (with pickup times)
   const [employees, setEmployees] = useState<EmployeeSlot[]>([
-    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '' },
-    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '' },
-    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '' },
     { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '', pickupTime: '07:30' },
     { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '', pickupTime: '07:45' },
     { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '', pickupTime: '08:00' },
+    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '', pickupTime: '08:15' },
+    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '', pickupTime: '08:30' },
+    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '', pickupTime: '08:45' },
   ])
 
   // Map Picker Modal state for pinpointing coordinates
@@ -472,7 +472,10 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
 
   // WhatsApp location request link - strictly restricted to entered number with exact pickup time
   const handleWhatsAppRequest = (slot: EmployeeSlot, slotIndex: number = 0) => {
-    const valid10Digits = getStrictMobileNumber(slot.phone)
+    // Read directly from employees array to guarantee freshest state
+    const currentSlot = employees[slotIndex] || slot
+    const phoneToUse = currentSlot.phone || slot.phone
+    const valid10Digits = getStrictMobileNumber(phoneToUse)
     if (!valid10Digits) {
       toast.error(
         `Please enter a valid 10-digit mobile number for Employee #${slotIndex + 1} first.`
@@ -480,14 +483,15 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
       return
     }
 
-    const name = slot.name.trim() || `Employee ${slotIndex + 1}`
-    const employeePickupTime = formatTime12h(slot.pickupTime, shiftTiming)
+    const name = (currentSlot.name || slot.name).trim() || `Employee ${slotIndex + 1}`
+    const pickupTimeRaw = currentSlot.pickupTime || slot.pickupTime
+    const employeePickupTime = formatTime12h(pickupTimeRaw, shiftTiming)
     const shareLink = `${window.location.origin}/share-location?name=${encodeURIComponent(name)}&tripDate=${encodeURIComponent(tripDate)}&pickup=${encodeURIComponent(employeePickupTime)}&type=${tripType}`
 
     const msg = encodeURIComponent(
       tripType === 'Login'
-        ? `Hi ${name}, please share your live home pickup location with Atharva Travels for your upcoming ETS corporate shift on ${tripDate} (Scheduled Pickup: ${employeePickupTime}).\n\n📍 Tap here to auto-share your location in 1-click:\n${shareLink}\n\n(Or reply with your Google Maps link or coordinates)`
-        : `Hi ${name}, please share your live home drop location with Atharva Travels for your upcoming ETS corporate shift on ${tripDate}.\n\n📍 Tap here to auto-share your location in 1-click:\n${shareLink}\n\n(Or reply with your Google Maps link or coordinates)`
+        ? `Hi ${name}, please share your live home pickup location with Atharva Travels for your upcoming ETS corporate shift on ${tripDate} at ${employeePickupTime}. Reply with a Google Maps location link or coordinates.\n\n📍 Or tap here to auto-detect and share your location in 1-click:\n${shareLink}`
+        : `Hi ${name}, please share your live home drop location with Atharva Travels for your upcoming ETS corporate shift on ${tripDate}.\n\n📍 Or tap here to auto-detect and share your location in 1-click:\n${shareLink}`
     )
     // STRICT: Only opens to the exact phone entered with 91 country code prefix, never generic
     const targetPhone = `91${valid10Digits}`
@@ -497,7 +501,9 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
 
   // SMS location request link - strictly restricted to entered number with exact pickup time
   const handleSMSRequest = (slot: EmployeeSlot, slotIndex: number = 0) => {
-    const valid10Digits = getStrictMobileNumber(slot.phone)
+    const currentSlot = employees[slotIndex] || slot
+    const phoneToUse = currentSlot.phone || slot.phone
+    const valid10Digits = getStrictMobileNumber(phoneToUse)
     if (!valid10Digits) {
       toast.error(
         `Please enter a valid 10-digit mobile number for Employee #${slotIndex + 1} first.`
@@ -505,13 +511,14 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
       return
     }
 
-    const name = slot.name.trim() || `Employee ${slotIndex + 1}`
-    const employeePickupTime = formatTime12h(slot.pickupTime, shiftTiming)
+    const name = (currentSlot.name || slot.name).trim() || `Employee ${slotIndex + 1}`
+    const pickupTimeRaw = currentSlot.pickupTime || slot.pickupTime
+    const employeePickupTime = formatTime12h(pickupTimeRaw, shiftTiming)
     const shareLink = `${window.location.origin}/share-location?name=${encodeURIComponent(name)}&tripDate=${encodeURIComponent(tripDate)}&pickup=${encodeURIComponent(employeePickupTime)}&type=${tripType}`
 
     const body = encodeURIComponent(
       tripType === 'Login'
-        ? `Hi ${name}, please share your home pickup location for Atharva Travels shift on ${tripDate} (Pickup: ${employeePickupTime}). Tap link to share: ${shareLink}`
+        ? `Hi ${name}, please share your home pickup location for Atharva Travels shift on ${tripDate} at ${employeePickupTime}. Tap link to share: ${shareLink}`
         : `Hi ${name}, please share your home drop location for Atharva Travels shift on ${tripDate}. Tap link to share: ${shareLink}`
     )
     // STRICT: Only sends SMS to the exact entered 10-digit number
@@ -862,11 +869,11 @@ return (
                     <div className="flex items-center gap-2 mt-2">
                       <button
                         type="button"
-                        onClick={() => handleWhatsAppRequest(slot, idx)}
+                        onClick={() => handleWhatsAppRequest(employees[idx] || slot, idx)}
                         className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 flex items-center gap-1 transition-colors cursor-pointer"
                         title={
-                          slot.phone.trim()
-                            ? `Send WhatsApp location request strictly to ${slot.phone}`
+                          (employees[idx]?.phone || slot.phone).trim()
+                            ? `Send WhatsApp location request strictly to ${(employees[idx]?.phone || slot.phone)}`
                             : 'Enter a 10-digit mobile number above to send WhatsApp request'
                         }
                       >
@@ -876,11 +883,11 @@ return (
 
                       <button
                         type="button"
-                        onClick={() => handleSMSRequest(slot, idx)}
+                        onClick={() => handleSMSRequest(employees[idx] || slot, idx)}
                         className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 flex items-center gap-1 transition-colors cursor-pointer"
                         title={
-                          slot.phone.trim()
-                            ? `Send SMS location request strictly to ${slot.phone}`
+                          (employees[idx]?.phone || slot.phone).trim()
+                            ? `Send SMS location request strictly to ${(employees[idx]?.phone || slot.phone)}`
                             : 'Enter a 10-digit mobile number above to send SMS request'
                         }
                       >
