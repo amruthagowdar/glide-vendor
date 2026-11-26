@@ -27,6 +27,7 @@ import {
   Trash2,
 } from 'lucide-react'
 import { CreateETSTripModal, CORPORATE_OFFICES } from '../components/trips/CreateETSTripModal'
+import { CreateETSTripView } from '../components/trips/CreateETSTripView'
 import { SlideDeleteModal } from '../components/ui/SlideDeleteModal'
 import { logAuditEvent } from '../lib/auditLogger'
 import { formatCurrency } from '../lib/utils'
@@ -144,6 +145,7 @@ export const ETSDashboardPage: React.FC = () => {
   }, [])
 
   // Modal Control
+  const [viewMode, setViewMode] = useState<'DASHBOARD' | 'CREATE_TRIP'>('DASHBOARD')
   const [isModalOpen, setIsModalOpen] = useState(false)
   const [modalInitialView, setModalInitialView] = useState<'CREATE_TRIP' | 'EMPLOYEE_LOG' | 'ROUTING_RULES'>('CREATE_TRIP')
 
@@ -540,6 +542,21 @@ export const ETSDashboardPage: React.FC = () => {
     }
   }
 
+  // Render Full-page Create Trip View when requested
+  if (viewMode === 'CREATE_TRIP') {
+    return (
+      <CreateETSTripView
+        onBack={() => setViewMode('DASHBOARD')}
+        onTripCreated={(newShift) => {
+          setLiveShifts((prev) => [newShift, ...prev])
+          setSelectedShift(newShift)
+          setSelectedShiftForDrawer(newShift)
+          setViewMode('DASHBOARD')
+        }}
+      />
+    )
+  }
+
   return (
     <div className="space-y-4">
       {/* ======================================================== */}
@@ -572,7 +589,7 @@ export const ETSDashboardPage: React.FC = () => {
           <div className="flex flex-wrap items-center gap-2 sm:gap-2.5">
             {/* Button 1: Create Trip */}
             <button
-              onClick={() => openModal('CREATE_TRIP')}
+              onClick={() => setViewMode('CREATE_TRIP')}
               className="btn-accent text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm px-3.5 py-2"
             >
               <Car className="w-4 h-4" />
@@ -873,7 +890,7 @@ export const ETSDashboardPage: React.FC = () => {
           {/* Quick Create Shift Trigger */}
           <div className="pt-3 border-t border-slate-200">
             <button
-              onClick={() => openModal('CREATE_TRIP')}
+              onClick={() => setViewMode('CREATE_TRIP')}
               className="btn-accent text-xs font-semibold w-full py-2.5 flex items-center justify-center gap-1.5 shadow-sm"
             >
               <Plus className="w-3.5 h-3.5" />
