@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { Modal } from '../ui/Modal'
-import { MapPin, Search, ExternalLink, Check, Navigation2, X, Loader2 } from 'lucide-react'
+import { MapPin, Search, ExternalLink, Check, Clock, X, Loader2 } from 'lucide-react'
 
 interface LocationMapModalProps {
   isOpen: boolean
@@ -13,344 +13,395 @@ interface LocationMapModalProps {
 export interface LocationSuggestion {
   id: string
   name: string
+  subtitle: string
   address: string
   lat: number
   lng: number
-  type?: string
-  district?: string
+  isRecentOrPopular?: boolean
 }
 
 /**
- * Curated high-accuracy localities and landmarks for Bengaluru and Karnataka
- * Ensures 0ms instant matching for common localities, specially all "chik" variations.
+ * Curated high-accuracy localities and landmarks for Karnataka & Bengaluru.
+ * Provides 0ms instant Google Maps-style suggestions on the first keystroke!
  */
 const KNOWN_LOCALITIES: LocationSuggestion[] = [
-  // All common "Chik*" localities in Bengaluru & Karnataka
+  // --- "Chik*" Localities ---
   {
     id: 'chik-chikkabanavara',
     name: 'Chikkabanavara',
+    subtitle: 'Bengaluru, Karnataka',
     address: 'Chikkabanavara, Bengaluru North, Karnataka 560090',
     lat: 13.0827,
     lng: 77.5098,
-    district: 'Bengaluru Urban',
+    isRecentOrPopular: true,
   },
   {
-    id: 'chik-chikmagalur',
-    name: 'Chikmagalur (Chikkamagaluru)',
-    address: 'Chikkamagaluru City, Chikmagalur District, Karnataka 577101',
-    lat: 13.3161,
-    lng: 75.7720,
-    district: 'Chikkamagaluru',
+    id: 'chik-chikpet',
+    name: 'Chikpete',
+    subtitle: 'Bengaluru, Karnataka',
+    address: 'Chikpet, Chickpet Metro Station area, Bengaluru, Karnataka 560053',
+    lat: 12.9698,
+    lng: 77.5760,
   },
   {
     id: 'chik-chikkaballapur',
     name: 'Chikkaballapur',
+    subtitle: 'Karnataka',
     address: 'Chikkaballapur Town, Chikkaballapur District, Karnataka 562101',
     lat: 13.4355,
     lng: 77.7275,
-    district: 'Chikkaballapur',
-  },
-  {
-    id: 'chik-chikpet',
-    name: 'Chikpet',
-    address: 'Chikpet, Chickpet Metro Station area, Bengaluru, Karnataka 560053',
-    lat: 12.9698,
-    lng: 77.5760,
-    district: 'Central Bengaluru',
-  },
-  {
-    id: 'chik-chikkalasandra',
-    name: 'Chikkalasandra',
-    address: 'Chikkalasandra, Uttarahalli Hobli, Bengaluru South, Karnataka 560061',
-    lat: 12.9128,
-    lng: 77.5458,
-    district: 'Bengaluru South',
-  },
-  {
-    id: 'chik-chikkajala',
-    name: 'Chikkajala',
-    address: 'Chikkajala, Airport Road, Bengaluru North, Karnataka 562157',
-    lat: 13.1678,
-    lng: 77.6293,
-    district: 'Bengaluru North',
   },
   {
     id: 'chik-chikka-tirupathi',
     name: 'Chikka Tirupathi',
+    subtitle: 'Karnataka',
     address: 'Chikka Tirupathi, Malur-Hosur Road, Bengaluru Rural, Karnataka 563160',
     lat: 12.8943,
     lng: 77.8540,
-    district: 'Bengaluru Rural',
-  },
-  {
-    id: 'chik-chikka-bidarakallu',
-    name: 'Chikka Bidarakallu',
-    address: 'Chikka Bidarakallu, Tumkur Road, Dasanapura, Bengaluru, Karnataka 560073',
-    lat: 13.0645,
-    lng: 77.4891,
-    district: 'Bengaluru West',
-  },
-  {
-    id: 'chik-chikkakannalli',
-    name: 'Chikkakannalli',
-    address: 'Chikkakannalli, Sarjapur Main Road, Bengaluru, Karnataka 560035',
-    lat: 12.9056,
-    lng: 77.6974,
-    district: 'Bengaluru East',
   },
   {
     id: 'chik-chikkagubbi',
     name: 'Chikkagubbi',
+    subtitle: 'Karnataka',
     address: 'Chikkagubbi, Hennur Bagalur Main Road, Bengaluru, Karnataka 560077',
     lat: 13.0768,
     lng: 77.6698,
-    district: 'Bengaluru North',
+  },
+  {
+    id: 'chik-chikkalasandra',
+    name: 'Chikkalasandra',
+    subtitle: 'Bengaluru, Karnataka',
+    address: 'Chikkalasandra, Uttarahalli Hobli, Bengaluru South, Karnataka 560061',
+    lat: 12.9128,
+    lng: 77.5458,
+  },
+  {
+    id: 'chik-chikmagalur',
+    name: 'Chikmagalur (Chikkamagaluru)',
+    subtitle: 'Karnataka',
+    address: 'Chikkamagaluru City, Chikmagalur District, Karnataka 577101',
+    lat: 13.3161,
+    lng: 75.7720,
+  },
+  {
+    id: 'chik-chikkajala',
+    name: 'Chikkajala',
+    subtitle: 'Bengaluru, Karnataka',
+    address: 'Chikkajala, Airport Road, Bengaluru North, Karnataka 562157',
+    lat: 13.1678,
+    lng: 77.6293,
+  },
+  {
+    id: 'chik-chikka-bidarakallu',
+    name: 'Chikka Bidarakallu',
+    subtitle: 'Bengaluru, Karnataka',
+    address: 'Chikka Bidarakallu, Tumkur Road, Dasanapura, Bengaluru, Karnataka 560073',
+    lat: 13.0645,
+    lng: 77.4891,
+  },
+  {
+    id: 'chik-chikkakannalli',
+    name: 'Chikkakannalli',
+    subtitle: 'Bengaluru, Karnataka',
+    address: 'Chikkakannalli, Sarjapur Main Road, Bengaluru, Karnataka 560035',
+    lat: 12.9056,
+    lng: 77.6974,
   },
   {
     id: 'chik-chikkabettahalli',
     name: 'Chikkabettahalli',
+    subtitle: 'Bengaluru, Karnataka',
     address: 'Chikkabettahalli, Vidyaranyapura, Bengaluru North, Karnataka 560097',
     lat: 13.0850,
     lng: 77.5610,
-    district: 'Bengaluru North',
   },
   {
     id: 'chik-chikkathogur',
     name: 'Chikkathogur',
+    subtitle: 'Bengaluru, Karnataka',
     address: 'Chikkathogur, Electronic City Phase 1, Bengaluru, Karnataka 560100',
     lat: 12.8468,
     lng: 77.6710,
-    district: 'Electronic City',
   },
   {
     id: 'chik-chikka-begur',
     name: 'Chikka Begur',
+    subtitle: 'Bengaluru, Karnataka',
     address: 'Chikka Begur, Kudlu Gate, Hosur Road, Bengaluru, Karnataka 560068',
     lat: 12.8870,
     lng: 77.6380,
-    district: 'Bengaluru South',
   },
   {
     id: 'chik-chikkabidarakallu-metro',
-    name: 'Chikkabidarakallu (Jindal) Metro',
+    name: 'Chikkabidarakallu Metro',
+    subtitle: 'Bengaluru, Karnataka',
     address: 'Chikkabidarakallu Metro Station, Green Line, Bengaluru, Karnataka 560073',
     lat: 13.0552,
     lng: 77.4952,
-    district: 'Namma Metro Green Line',
   },
 
-  // Popular Corporate Hubs & Bengaluru Localities
+  // --- "Dan*" Localities ---
+  {
+    id: 'dan-dandeli',
+    name: 'Dandeli',
+    subtitle: 'Uttara Kannada, Karnataka',
+    address: 'Dandeli City, Haliyal Taluk, Uttara Kannada, Karnataka 581325',
+    lat: 15.2415,
+    lng: 74.6186,
+    isRecentOrPopular: true,
+  },
+  {
+    id: 'dan-dandupalya',
+    name: 'Dandupalya',
+    subtitle: 'Hoskote, Bengaluru Rural, Karnataka',
+    address: 'Dandupalya, Hoskote Main Road, Bengaluru Rural, Karnataka 562114',
+    lat: 13.0632,
+    lng: 77.7884,
+  },
+  {
+    id: 'dan-dasanapura',
+    name: 'Dasanapura',
+    subtitle: 'Bengaluru North, Karnataka',
+    address: 'Dasanapura Hobli, Tumkur Road, Bengaluru North, Karnataka 562123',
+    lat: 13.0844,
+    lng: 77.4471,
+  },
+  {
+    id: 'dan-dandiganahalli',
+    name: 'Dandiganahalli',
+    subtitle: 'Chikkaballapur, Karnataka',
+    address: 'Dandiganahalli, Chikkaballapur District, Karnataka 561208',
+    lat: 13.5120,
+    lng: 77.8100,
+  },
+  {
+    id: 'dan-davanagere',
+    name: 'Davanagere',
+    subtitle: 'Karnataka',
+    address: 'Davanagere City, Davanagere District, Karnataka 577002',
+    lat: 14.4644,
+    lng: 75.9218,
+  },
+
+  // --- Popular Bengaluru Tech Hubs & Localities ---
   {
     id: 'hub-manyata',
     name: 'Manyata Tech Park',
-    address: 'Manyata Tech Park, Nagavara / Hebbal, Outer Ring Road, Bengaluru, 560045',
+    subtitle: 'Nagavara, Hebbal, Bengaluru',
+    address: 'Manyata Tech Park, Nagavara, Outer Ring Road, Bengaluru, 560045',
     lat: 13.0475,
     lng: 77.6202,
-    district: 'North Bengaluru',
+    isRecentOrPopular: true,
   },
   {
     id: 'hub-indiranagar',
     name: 'Indiranagar 100ft Rd',
+    subtitle: 'Bengaluru, Karnataka',
     address: '100 Feet Rd, HAL 2nd Stage, Indiranagar, Bengaluru, 560038',
     lat: 12.9784,
     lng: 77.6408,
-    district: 'East Bengaluru',
+    isRecentOrPopular: true,
   },
   {
     id: 'hub-koramangala',
     name: 'Koramangala 4th Block',
+    subtitle: 'Bengaluru, Karnataka',
     address: '80 Feet Rd, 4th Block, Koramangala, Bengaluru, 560034',
     lat: 12.9352,
     lng: 77.6245,
-    district: 'South Bengaluru',
+    isRecentOrPopular: true,
   },
   {
     id: 'hub-mg-road',
     name: 'MG Road Metro',
+    subtitle: 'Central Bengaluru, Karnataka',
     address: 'MG Road, Shanthala Nagar, Ashok Nagar, Bengaluru, 560001',
     lat: 12.9756,
     lng: 77.6066,
-    district: 'Central Bengaluru',
+    isRecentOrPopular: true,
   },
   {
     id: 'hub-whitefield',
     name: 'Whitefield ITPL',
+    subtitle: 'Bengaluru, Karnataka',
     address: 'International Tech Park (ITPL), Whitefield Main Rd, Bengaluru, 560066',
     lat: 12.9863,
     lng: 77.7383,
-    district: 'Whitefield',
+    isRecentOrPopular: true,
   },
   {
     id: 'hub-ecity-1',
     name: 'Electronic City Phase 1',
+    subtitle: 'Bengaluru, Karnataka',
     address: 'Hosur Rd, Electronic City Phase 1, Bengaluru, 560100',
     lat: 12.8452,
     lng: 77.6602,
-    district: 'Electronic City',
-  },
-  {
-    id: 'hub-ecity-2',
-    name: 'Electronic City Phase 2',
-    address: 'Electronic City Phase 2, Hosur Road, Bengaluru, 560100',
-    lat: 12.8488,
-    lng: 77.6830,
-    district: 'Electronic City',
+    isRecentOrPopular: true,
   },
   {
     id: 'hub-hsr',
     name: 'HSR Layout Sector 1',
+    subtitle: 'Bengaluru, Karnataka',
     address: '27th Main Rd, Sector 1, HSR Layout, Bengaluru, 560102',
     lat: 12.9121,
     lng: 77.6446,
-    district: 'South-East Bengaluru',
+    isRecentOrPopular: true,
   },
   {
     id: 'hub-hebbal',
     name: 'Hebbal Flyover',
+    subtitle: 'Bengaluru, Karnataka',
     address: 'Hebbal Flyover, Bellary Rd, Outer Ring Road, Bengaluru, 560024',
     lat: 13.0358,
     lng: 77.5970,
-    district: 'North Bengaluru',
   },
   {
     id: 'hub-bellandur',
     name: 'Bellandur EcoSpace',
+    subtitle: 'Outer Ring Road, Bengaluru',
     address: 'Outer Ring Rd, RMZ EcoSpace, Bellandur, Bengaluru, 560103',
     lat: 12.9260,
     lng: 77.6833,
-    district: 'Outer Ring Road',
   },
   {
     id: 'hub-marathahalli',
     name: 'Marathahalli Bridge',
+    subtitle: 'Bengaluru, Karnataka',
     address: 'Marathahalli Bridge, Outer Ring Road, Bengaluru, Karnataka 560037',
     lat: 12.9591,
     lng: 77.6974,
-    district: 'East Bengaluru',
   },
   {
     id: 'hub-btm',
     name: 'BTM Layout 2nd Stage',
+    subtitle: 'Bengaluru, Karnataka',
     address: 'Outer Ring Road, BTM 2nd Stage, Bengaluru, Karnataka 560076',
     lat: 12.9165,
     lng: 77.6101,
-    district: 'South Bengaluru',
   },
   {
     id: 'hub-jayanagar',
     name: 'Jayanagar 4th Block',
+    subtitle: 'Bengaluru, Karnataka',
     address: 'Jayanagar 4th Block Shopping Complex, Bengaluru, Karnataka 560011',
     lat: 12.9298,
     lng: 77.5828,
-    district: 'South Bengaluru',
   },
   {
     id: 'hub-jp-nagar',
     name: 'JP Nagar 6th Phase',
+    subtitle: 'Bengaluru, Karnataka',
     address: 'Ring Road, JP Nagar 6th Phase, Bengaluru, Karnataka 560078',
     lat: 12.9063,
     lng: 77.5855,
-    district: 'South Bengaluru',
   },
   {
     id: 'hub-malleshwaram',
     name: 'Malleshwaram 8th Cross',
+    subtitle: 'Bengaluru, Karnataka',
     address: 'Margosa Road, Malleshwaram, Bengaluru, Karnataka 560003',
     lat: 13.0031,
     lng: 77.5702,
-    district: 'West Bengaluru',
   },
   {
     id: 'hub-rajajinagar',
     name: 'Rajajinagar 1st Block',
+    subtitle: 'Bengaluru, Karnataka',
     address: 'Dr Rajkumar Road, Rajajinagar, Bengaluru, Karnataka 560010',
     lat: 12.9982,
     lng: 77.5530,
-    district: 'West Bengaluru',
   },
   {
     id: 'hub-yelahanka',
     name: 'Yelahanka New Town',
+    subtitle: 'Bengaluru North, Karnataka',
     address: 'Yelahanka New Town, Bengaluru North, Karnataka 560064',
     lat: 13.0998,
     lng: 77.5963,
-    district: 'North Bengaluru',
   },
   {
     id: 'hub-airport-t1',
     name: 'Kempegowda Airport Terminal 1',
+    subtitle: 'Devanahalli, Bengaluru',
     address: 'Terminal 1, Kempegowda International Airport (BLR), Devanahalli, Bengaluru, Karnataka 560300',
     lat: 13.1989,
     lng: 77.7068,
-    district: 'Airport (BLR)',
   },
   {
     id: 'hub-airport-t2',
     name: 'Kempegowda Airport Terminal 2',
+    subtitle: 'Devanahalli, Bengaluru',
     address: 'Terminal 2, Kempegowda International Airport (BLR), Devanahalli, Bengaluru, Karnataka 560300',
     lat: 13.2045,
     lng: 77.7120,
-    district: 'Airport (BLR)',
   },
   {
     id: 'city-mysore',
     name: 'Mysuru (Mysore)',
+    subtitle: 'Karnataka',
     address: 'Mysuru City, Mysore District, Karnataka 570001',
     lat: 12.2958,
     lng: 76.6394,
-    district: 'Mysuru',
   },
   {
     id: 'city-tumkur',
     name: 'Tumakuru (Tumkur)',
+    subtitle: 'Karnataka',
     address: 'Tumakuru City, Tumkur District, Karnataka 572101',
     lat: 13.3392,
     lng: 77.1017,
-    district: 'Tumakuru',
   },
   {
     id: 'city-hassan',
     name: 'Hassan',
+    subtitle: 'Karnataka',
     address: 'Hassan City, Hassan District, Karnataka 573201',
     lat: 13.0033,
     lng: 76.1004,
-    district: 'Hassan',
   },
   {
     id: 'city-mangaluru',
     name: 'Mangaluru (Mangalore)',
+    subtitle: 'Dakshina Kannada, Karnataka',
     address: 'Mangaluru City, Dakshina Kannada, Karnataka 575001',
     lat: 12.9141,
     lng: 74.8560,
-    district: 'Dakshina Kannada',
   },
   {
     id: 'city-udupi',
     name: 'Udupi',
+    subtitle: 'Karnataka',
     address: 'Udupi City, Udupi District, Karnataka 576101',
     lat: 13.3409,
     lng: 74.7421,
-    district: 'Udupi',
   },
   {
     id: 'city-shivamogga',
     name: 'Shivamogga (Shimoga)',
+    subtitle: 'Karnataka',
     address: 'Shivamogga City, Shimoga District, Karnataka 577201',
     lat: 13.9299,
     lng: 75.5681,
-    district: 'Shivamogga',
   },
   {
     id: 'city-hubballi',
     name: 'Hubballi (Hubli)',
+    subtitle: 'Dharwad, Karnataka',
     address: 'Hubballi City, Dharwad District, Karnataka 580020',
     lat: 15.3647,
     lng: 75.1240,
-    district: 'Dharwad',
   },
 ]
 
-const POPULAR_HUBS = KNOWN_LOCALITIES.slice(14, 23)
+const POPULAR_HUBS = [
+  { name: 'Manyata Tech Park', address: 'Manyata Tech Park, Nagavara, Outer Ring Road, Bengaluru, 560045', lat: 13.0475, lng: 77.6202 },
+  { name: 'Indiranagar 100ft Rd', address: '100 Feet Rd, HAL 2nd Stage, Indiranagar, Bengaluru, 560038', lat: 12.9784, lng: 77.6408 },
+  { name: 'Koramangala 4th Block', address: '80 Feet Rd, 4th Block, Koramangala, Bengaluru, 560034', lat: 12.9352, lng: 77.6245 },
+  { name: 'MG Road Metro', address: 'MG Road, Shanthala Nagar, Ashok Nagar, Bengaluru, 560001', lat: 12.9756, lng: 77.6066 },
+  { name: 'Whitefield ITPL', address: 'International Tech Park (ITPL), Whitefield Main Rd, Bengaluru, 560066', lat: 12.9863, lng: 77.7383 },
+  { name: 'Electronic City Ph 1', address: 'Hosur Rd, Electronic City Phase 1, Bengaluru, 560100', lat: 12.8452, lng: 77.6602 },
+  { name: 'HSR Layout Sector 1', address: '27th Main Rd, Sector 1, HSR Layout, Bengaluru, 560102', lat: 12.9121, lng: 77.6446 },
+]
 
 export const LocationMapModal: React.FC<LocationMapModalProps> = ({
   isOpen,
@@ -475,9 +526,9 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
     // 1. Instant local filter (0ms delay)
     const localMatches = KNOWN_LOCALITIES.filter((loc) => {
       const nameMatch = loc.name.toLowerCase().includes(clean)
+      const subMatch = loc.subtitle.toLowerCase().includes(clean)
       const addrMatch = loc.address.toLowerCase().includes(clean)
-      const distMatch = loc.district?.toLowerCase().includes(clean)
-      return nameMatch || addrMatch || distMatch
+      return nameMatch || subMatch || addrMatch
     })
 
     // Sort to prioritize items whose name starts with the search query
@@ -492,7 +543,7 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
     setSuggestions(localMatches)
     setShowDropdown(true)
 
-    // 2. Debounced online Nominatim query for any other place or specific address
+    // 2. Debounced online Nominatim query for any other place across Karnataka & India
     if (debounceTimerRef.current) clearTimeout(debounceTimerRef.current)
     if (clean.length >= 2) {
       const reqId = Date.now()
@@ -508,16 +559,24 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
           const data = await res.json()
 
           if (activeReqRef.current === reqId && Array.isArray(data)) {
-            const onlineResults: LocationSuggestion[] = data.map((item: any, i: number) => ({
-              id: `online-${item.place_id || i}`,
-              name: item.name || item.display_name.split(',')[0],
-              address: item.display_name,
-              lat: parseFloat(item.lat),
-              lng: parseFloat(item.lon),
-              district: item.address?.state_district || item.address?.city || 'Karnataka',
-            }))
+            const onlineResults: LocationSuggestion[] = data.map((item: any, i: number) => {
+              const parts = (item.display_name || '').split(',')
+              const mainName = item.name || parts[0]?.trim() || clean
+              const regionParts = parts.slice(1, 3).map((p: string) => p.trim()).filter(Boolean)
+              const subtitle = regionParts.length > 0 ? regionParts.join(', ') : 'Karnataka'
 
-            // Merge local and online, avoiding duplicate coordinates or identical names
+              return {
+                id: `online-${item.place_id || i}`,
+                name: mainName,
+                subtitle,
+                address: item.display_name,
+                lat: parseFloat(item.lat),
+                lng: parseFloat(item.lon),
+                isRecentOrPopular: false,
+              }
+            })
+
+            // Merge local and online, avoiding duplicate names
             setSuggestions((prev) => {
               const seen = new Set(prev.map((p) => p.name.toLowerCase().trim()))
               const filteredOnline = onlineResults.filter((o) => !seen.has(o.name.toLowerCase().trim()))
@@ -531,7 +590,7 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
             setIsLiveFetching(false)
           }
         }
-      }, 300)
+      }, 250)
     } else {
       setIsLiveFetching(false)
     }
@@ -659,15 +718,15 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
         </div>
       }
     >
-      <div className="space-y-3">
-        {/* Search Bar with Live Autocomplete */}
-        <div ref={searchContainerRef} className="relative z-[2000]">
+      <div className="space-y-3 relative">
+        {/* Search Bar with Google Maps Style Autocomplete */}
+        <div ref={searchContainerRef} className="relative z-[3000]">
           <form onSubmit={handleSearchSubmit} className="flex gap-2">
             <div className="relative flex-1">
               <Search className="w-4 h-4 text-slate-400 absolute left-3.5 top-1/2 -translate-y-1/2 pointer-events-none" />
               <input
                 type="text"
-                placeholder="Search locality (e.g. Chik, Indiranagar, ITPL Whitefield)..."
+                placeholder="Search locality or landmark (e.g. chik, dan, Indiranagar)..."
                 value={searchQuery}
                 onChange={handleInputChange}
                 onKeyDown={handleKeyDown}
@@ -707,21 +766,9 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
             </button>
           </form>
 
-          {/* Autocomplete Dropdown List */}
+          {/* Google Maps Style Autocomplete Dropdown List */}
           {showDropdown && (
-            <div className="absolute left-0 right-0 top-full mt-1.5 bg-white rounded-xl shadow-2xl border border-slate-200/90 overflow-hidden divide-y divide-slate-100 max-h-72 overflow-y-auto animate-in fade-in slide-in-from-top-1 duration-150">
-              <div className="px-3 py-1.5 bg-slate-50 border-b border-slate-100 flex items-center justify-between text-[10px] font-semibold text-slate-500 uppercase tracking-wider">
-                <span>Suggested Localities</span>
-                {isLiveFetching ? (
-                  <span className="flex items-center gap-1 text-blue-600 font-normal">
-                    <Loader2 className="w-3 h-3 animate-spin" />
-                    Searching places...
-                  </span>
-                ) : (
-                  <span>{suggestions.length} places found</span>
-                )}
-              </div>
-
+            <div className="absolute left-0 right-0 top-full mt-1 bg-white rounded-xl shadow-2xl border border-slate-200/90 overflow-hidden divide-y divide-slate-100 max-h-72 overflow-y-auto z-[9999]">
               {suggestions.length > 0 ? (
                 suggestions.map((loc, idx) => {
                   const isCurrentActive = idx === activeIndex
@@ -730,34 +777,43 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
                       key={loc.id || `${loc.lat}-${loc.lng}-${idx}`}
                       onClick={() => applyLocation(loc.name, loc.address, loc.lat, loc.lng)}
                       onMouseEnter={() => setActiveIndex(idx)}
-                      className={`px-3.5 py-2.5 flex items-start gap-2.5 cursor-pointer transition-colors ${
-                        isCurrentActive ? 'bg-blue-50/90 text-blue-900' : 'hover:bg-slate-50 text-slate-800'
+                      className={`px-4 py-3 flex items-center gap-3.5 cursor-pointer transition-colors ${
+                        isCurrentActive ? 'bg-slate-100/90' : 'hover:bg-slate-50'
                       }`}
                     >
-                      <div className="p-1 rounded-lg bg-blue-100/80 text-blue-700 flex-shrink-0 mt-0.5">
-                        <MapPin className="w-3.5 h-3.5" />
+                      {/* Google Maps Style Icon */}
+                      <div className="text-slate-500 flex-shrink-0">
+                        {loc.isRecentOrPopular ? (
+                          <Clock className="w-4 h-4 text-slate-500" />
+                        ) : (
+                          <MapPin className="w-4 h-4 text-slate-500" />
+                        )}
                       </div>
-                      <div className="flex-1 min-w-0">
-                        <div className="flex items-center justify-between gap-2">
-                          <p className="text-xs font-bold truncate text-slate-900">
-                            {loc.name}
-                          </p>
-                          {loc.district && (
-                            <span className="text-[10px] px-1.5 py-0.5 rounded bg-slate-100 text-slate-600 font-medium whitespace-nowrap">
-                              {loc.district}
-                            </span>
-                          )}
-                        </div>
-                        <p className="text-[11px] text-slate-500 truncate mt-0.5 font-normal">
-                          {loc.address}
-                        </p>
+
+                      {/* Locality Bold + Subtitle on same line */}
+                      <div className="flex-1 min-w-0 text-left">
+                        <span className="text-sm font-semibold text-slate-900">
+                          {loc.name}
+                        </span>
+                        {loc.subtitle && (
+                          <span className="text-sm font-normal text-slate-500 ml-2">
+                            {loc.subtitle}
+                          </span>
+                        )}
                       </div>
                     </div>
                   )
                 })
               ) : (
                 <div className="px-4 py-3 text-center text-xs text-slate-500">
-                  No matching locations found. Press "Search Map" to query broader Karnataka.
+                  {isLiveFetching ? (
+                    <span className="flex items-center justify-center gap-1.5 text-blue-600">
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                      Searching Karnataka locations...
+                    </span>
+                  ) : (
+                    'No matching locations found. Press "Search Map" to query broader region.'
+                  )}
                 </div>
               )}
             </div>
@@ -770,7 +826,7 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
             Popular Bengaluru Hubs:
           </p>
           <div className="flex flex-wrap gap-1.5">
-            {POPULAR_HUBS.slice(0, 7).map((hub) => (
+            {POPULAR_HUBS.map((hub) => (
               <button
                 key={hub.name}
                 type="button"
@@ -784,7 +840,7 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
         </div>
 
         {/* Map Container */}
-        <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-inner h-[280px]">
+        <div className="relative rounded-2xl overflow-hidden border border-slate-200 shadow-inner h-[280px] z-[1]">
           <div ref={mapContainerRef} className="w-full h-full" />
           <div className="absolute top-2 right-2 bg-white/90 backdrop-blur-md px-2.5 py-1 rounded-md text-[10px] font-semibold text-slate-700 shadow border border-slate-200 pointer-events-none z-[1000]">
             📍 Click map or drag pin to pick location
