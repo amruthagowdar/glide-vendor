@@ -725,25 +725,55 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
   const debounceTimerRef = useRef<any>(null)
   const activeReqRef = useRef<number>(0)
 
+  // Parse coordinate formats: DMS (12°59'37.7"N 77°30'44.2"E), Decimal (12.9938, 77.5122), Maps URLs
+  const parseCoordinatesHelper = (input: string): { lat: number; lng: number } | null => {
+    if (!input) return null
+    const clean = input.trim()
+
+    // DMS Format
+    const dmsRegex = /(\d{1,3})[°\s]+(\d{1,2})['\s]+([\d.]+)(?:["'″”\s]*)([NSEWnsew])[\s,]+(\d{1,3})[°\s]+(\d{1,2})['\s]+([\d.]+)(?:["'″”\s]*)([NSEWnsew])/i
+    const dmsMatch = clean.match(dmsRegex)
+    if (dmsMatch) {
+      let lat = parseFloat(dmsMatch[1]) + parseFloat(dmsMatch[2]) / 60 + parseFloat(dmsMatch[3]) / 3600
+      if (dmsMatch[4].toUpperCase() === 'S') lat = -lat
+      let lng = parseFloat(dmsMatch[5]) + parseFloat(dmsMatch[6]) / 60 + parseFloat(dmsMatch[7]) / 3600
+      if (dmsMatch[8].toUpperCase() === 'W') lng = -lng
+      return { lat: Number(lat.toFixed(6)), lng: Number(lng.toFixed(6)) }
+    }
+
+    // Google Maps /place/lat,lng
+    const placeMatch = clean.match(/\/place\/(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/)
+    if (placeMatch) return { lat: parseFloat(placeMatch[1]), lng: parseFloat(placeMatch[2]) }
+
+    // Google Maps @lat,lng
+    const atMatch = clean.match(/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/)
+    if (atMatch) return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) }
+
+    // Direct decimal
+    const rawMatch = clean.match(/([-+]?\d{1,2}\.\d+)[,\s]+([-+]?\d{1,3}\.\d+)/)
+    if (rawMatch) {
+      const lat = parseFloat(rawMatch[1])
+      const lng = parseFloat(rawMatch[2])
+      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) return { lat, lng }
+    }
+
+    return null
+  }
+
   // Auto search address on map helper
   const executeAutoSearch = async (addr: string, map: any, marker: any) => {
     if (!addr || addr.trim().length < 2) return
-    const clean = addr.trim().toLowerCase()
+    const clean = addr.trim()
 
-    // 1. Direct coordinate check in address text
-    const coordMatch =
-      clean.match(/([-+]?\d{1,2}\.\d+)[,\s]+([-+]?\d{1,3}\.\d+)/) ||
-      clean.match(/@([-+]?\d{1,2}\.\d+),([-+]?\d{1,3}\.\d+)/)
-    if (coordMatch) {
-      const lat = parseFloat(coordMatch[1])
-      const lng = parseFloat(coordMatch[2])
-      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-        map.setView([lat, lng], 17)
-        marker.setLatLng([lat, lng])
-        marker.bindPopup(`<b>${title}</b><br/>📍 Coordinates: ${lat.toFixed(5)}, ${lng.toFixed(5)}`).openPopup()
-        setSelectedCoords({ lat, lng })
-        return
-      }
+    // 1. Direct coordinate check in address text (DMS or Decimal)
+    const coordParsed = parseCoordinatesHelper(clean)
+    if (coordParsed) {
+      const { lat, lng } = coordParsed
+      map.setView([lat, lng], 17)
+      marker.setLatLng([lat, lng])
+      marker.bindPopup(`<b>${title}</b><br/>📍 Coordinates: ${lat.toFixed(5)}, ${lng.toFixed(5)}`).openPopup()
+      setSelectedCoords({ lat, lng })
+      return
     }
 
     // 2. Instant Local Filter from KNOWN_LOCALITIES
@@ -940,29 +970,23 @@ export const LocationMapModal: React.FC<LocationMapModalProps> = ({
       return
     }
 
-    // 1. Check for Direct Lat, Lng or Google Maps URL
-    // e.g. "13.0827, 77.5098" or "https://maps.google.com/?q=13.0827,77.5098" or "@13.0827,77.5098"
-    const coordMatch =
-      clean.match(/([-+]?\d{1,2}\.\d+)[,\s]+([-+]?\d{1,3}\.\d+)/) ||
-      clean.match(/@([-+]?\d{1,2}\.\d+),([-+]?\d{1,3}\.\d+)/)
-    if (coordMatch) {
-      const lat = parseFloat(coordMatch[1])
-      const lng = parseFloat(coordMatch[2])
-      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-        setSuggestions([
-          {
-            id: 'coords-detected',
-            name: `📍 Pinpoint Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
-            subtitle: 'Direct GPS / Google Maps Link Coordinates',
-            address: `Coordinates: ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
-            lat,
-            lng,
-            isGpsOrCoords: true,
-          },
-        ])
-        setShowDropdown(true)
-        return
-      }
+    // 1. Check for Direct Lat, Lng or Google Maps URL (DMS, Decimal, or Place link)
+    const coordParsed = parseCoordinatesHelper(clean)
+    if (coordParsed) {
+      const { lat, lng } = coordParsed
+      setSuggestions([
+        {
+          id: 'coords-detected',
+          name: `📍 Pinpoint Coordinates (${lat.toFixed(5)}, ${lng.toFixed(5)})`,
+          subtitle: 'Direct GPS / Google Maps Link Coordinates',
+          address: `Coordinates: ${lat.toFixed(5)}, ${lng.toFixed(5)}`,
+          lat,
+          lng,
+          isGpsOrCoords: true,
+        },
+      ])
+      setShowDropdown(true)
+      return
     }
 
     const cleanLower = clean.toLowerCase()

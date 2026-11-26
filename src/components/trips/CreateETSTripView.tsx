@@ -233,12 +233,68 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
     })
   }
 
-  // Helper to extract lat & lng from geo code text, coordinate string, or Maps links
+  // Helper to extract lat & lng from geo code text, coordinate string, DMS format, or Maps links
   const extractCoordinatesFromGeoCode = (input: string): { lat: number; lng: number } | null => {
     if (!input) return null
     const clean = input.trim()
 
-    // 1. Direct coordinate match e.g. "12.9716, 77.5946" or "12.9716 77.5946"
+    // 1. DMS Format: e.g. 12°59'37.7"N 77°30'44.2"E or 12°59'37.7"N, 77°30'44.2"E
+    const dmsRegex = /(\d{1,3})[°\s]+(\d{1,2})['\s]+([\d.]+)(?:["'″”\s]*)([NSEWnsew])[\s,]+(\d{1,3})[°\s]+(\d{1,2})['\s]+([\d.]+)(?:["'″”\s]*)([NSEWnsew])/i
+    const dmsMatch = clean.match(dmsRegex)
+    if (dmsMatch) {
+      const latDeg = parseFloat(dmsMatch[1])
+      const latMin = parseFloat(dmsMatch[2])
+      const latSec = parseFloat(dmsMatch[3])
+      const latDir = dmsMatch[4].toUpperCase()
+
+      const lngDeg = parseFloat(dmsMatch[5])
+      const lngMin = parseFloat(dmsMatch[6])
+      const lngSec = parseFloat(dmsMatch[7])
+      const lngDir = dmsMatch[8].toUpperCase()
+
+      let lat = latDeg + latMin / 60 + latSec / 3600
+      if (latDir === 'S') lat = -lat
+
+      let lng = lngDeg + lngMin / 60 + lngSec / 3600
+      if (lngDir === 'W') lng = -lng
+
+      return { lat: Number(lat.toFixed(6)), lng: Number(lng.toFixed(6)) }
+    }
+
+    // 2. Flexible DMS parts check (match separate degree/minute/second segments)
+    const singleDms = /([+-]?\d{1,3})[°\s]+(\d{1,2})['\s]+([\d.]+)(?:["'″”\s]*)([NSEWnsew])?/gi
+    const matches = [...clean.matchAll(singleDms)]
+    if (matches.length >= 2) {
+      const m1 = matches[0]
+      const m2 = matches[1]
+      let lat = parseFloat(m1[1]) + parseFloat(m1[2]) / 60 + parseFloat(m1[3]) / 3600
+      if (m1[4] && m1[4].toUpperCase() === 'S') lat = -lat
+
+      let lng = parseFloat(m2[1]) + parseFloat(m2[2]) / 60 + parseFloat(m2[3]) / 3600
+      if (m2[4] && m2[4].toUpperCase() === 'W') lng = -lng
+
+      return { lat: Number(lat.toFixed(6)), lng: Number(lng.toFixed(6)) }
+    }
+
+    // 3. Google Maps place/lat,lng e.g. /place/12.993805,77.512276
+    const placeMatch = clean.match(/\/place\/(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/)
+    if (placeMatch) {
+      return { lat: parseFloat(placeMatch[1]), lng: parseFloat(placeMatch[2]) }
+    }
+
+    // 4. Google Maps URL @lat,lng e.g. /@12.993805,77.512276
+    const atMatch = clean.match(/@(-?\d{1,2}\.\d+),(-?\d{1,3}\.\d+)/)
+    if (atMatch) {
+      return { lat: parseFloat(atMatch[1]), lng: parseFloat(atMatch[2]) }
+    }
+
+    // 5. Query param ?q=lat,lng or &q=lat,lng or ll=lat,lng
+    const qMatch = clean.match(/[?&](?:q|ll)=(-?\d{1,2}\.\d+)[,%20]+(-?\d{1,3}\.\d+)/)
+    if (qMatch) {
+      return { lat: parseFloat(qMatch[1]), lng: parseFloat(qMatch[2]) }
+    }
+
+    // 6. Direct decimal coordinates e.g. "12.993805, 77.512276"
     const rawMatch = clean.match(/([-+]?\d{1,2}\.\d+)[,\s]+([-+]?\d{1,3}\.\d+)/)
     if (rawMatch) {
       const lat = parseFloat(rawMatch[1])
@@ -248,24 +304,21 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
       }
     }
 
-    // 2. Standard Google Maps /@lat,lng match
-    const atMatch = clean.match(/@([-+]?\d{1,2}\.\d+),([-+]?\d{1,3}\.\d+)/)
-    if (atMatch) {
-      const lat = parseFloat(atMatch[1])
-      const lng = parseFloat(atMatch[2])
-      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-        return { lat, lng }
-      }
-    }
+    return null
+  }
 
-    // 3. Google Maps ?q=lat,lng or &q=lat,lng
-    const qMatch = clean.match(/[?&](?:q|ll)=([-+]?\d{1,2}\.\d+)[,%20]+([-+]?\d{1,3}\.\d+)/)
-    if (qMatch) {
-      const lat = parseFloat(qMatch[1])
-      const lng = parseFloat(qMatch[2])
-      if (lat >= -90 && lat <= 90 && lng >= -180 && lng <= 180) {
-        return { lat, lng }
+  // Resolve shortened Google Maps URL (e.g. maps.app.goo.gl or goo.gl/maps)
+  const resolveShortenedUrl = async (shortUrl: string): Promise<{ lat: number; lng: number } | null> => {
+    try {
+      const res = await fetch(`/api/unshorten?url=${encodeURIComponent(shortUrl.trim())}`)
+      if (res.ok) {
+        const data = await res.json()
+        if (data && data.redirectUrl) {
+          return extractCoordinatesFromGeoCode(data.redirectUrl)
+        }
       }
+    } catch (err) {
+      console.warn('Local unshortener failed:', err)
     }
 
     return null
@@ -306,8 +359,18 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
   // Handle user entering / pasting a Geo Code in that employee's input box
   const handleGeoCodeChange = async (index: number, val: string) => {
     updateEmployeeField(index, 'geoCode', val)
+    if (!val || !val.trim()) return
 
-    const coords = extractCoordinatesFromGeoCode(val)
+    // 1. Direct coordinate check (DMS or decimal or full Google Maps URL)
+    let coords = extractCoordinatesFromGeoCode(val)
+
+    // 2. Shortened link check (e.g. maps.app.goo.gl or goo.gl/maps)
+    if (!coords && (val.includes('maps.app.goo.gl') || val.includes('goo.gl/maps') || val.includes('http'))) {
+      const loadingToast = toast.loading('Expanding Google Maps link...')
+      coords = await resolveShortenedUrl(val)
+      toast.dismiss(loadingToast)
+    }
+
     if (coords) {
       const toastId = toast.loading('Resolving address from Geo Code...')
       setEmployees((prev) => {
@@ -315,8 +378,8 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
         copy[index] = {
           ...copy[index],
           geoCode: val,
-          lat: String(coords.lat),
-          lng: String(coords.lng),
+          lat: String(coords!.lat),
+          lng: String(coords!.lng),
         }
         return copy
       })
@@ -337,6 +400,8 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
           id: toastId,
         })
       }
+    } else if (val.trim().length > 5) {
+      toast.error('Could not detect coordinates. You can paste DMS (12°59\'37.7"N 77°30\'44.2"E), Decimal (12.9938, 77.5122), or Maps link.')
     }
   }
 
@@ -826,15 +891,31 @@ return (
                           Auto-fills Address
                         </span>
                       </div>
-                      <input
-                        type="text"
-                        placeholder="Paste coordinates e.g. 12.9716, 77.5946 or Maps link"
-                        value={slot.geoCode || ''}
-                        onChange={(e) => handleGeoCodeChange(idx, e.target.value)}
-                        className="input text-xs sm:text-sm font-medium border-blue-200 focus:border-blue-500 bg-blue-50/20"
-                      />
+                      <div className="flex items-center gap-2">
+                        <input
+                          type="text"
+                          placeholder="Paste coordinates (e.g. 12°59'37.7&quot;N 77°30'44.2&quot;E, 12.9938, 77.5122, or Maps link)"
+                          value={slot.geoCode || ''}
+                          onChange={(e) => handleGeoCodeChange(idx, e.target.value)}
+                          onPaste={(e) => {
+                            const pasted = e.clipboardData.getData('text')
+                            if (pasted) {
+                              setTimeout(() => handleGeoCodeChange(idx, pasted), 50)
+                            }
+                          }}
+                          className="input text-xs sm:text-sm font-medium border-blue-200 focus:border-blue-500 bg-blue-50/20 flex-1"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => handleGeoCodeChange(idx, slot.geoCode || '')}
+                          className="px-3 py-2 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white text-xs font-bold shrink-0 transition-colors cursor-pointer shadow-xs"
+                          title="Click to resolve and auto-fill address from Geo Code"
+                        >
+                          Auto-Fill
+                        </button>
+                      </div>
                       <span className="text-[10px] text-slate-500 mt-1 block">
-                        If employee shared a Maps link or coordinates, enter here to auto-fill address
+                        Paste coordinates (DMS 12°59'37.7"N 77°30'44.2"E / Decimal) or Google Maps link
                       </span>
                     </div>
 
