@@ -469,24 +469,24 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
                   <button
                     type="button"
                     onClick={() => setNewEmpGender('MALE')}
-                    className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1 ${
+                    className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center ${
                       newEmpGender === 'MALE'
                         ? 'bg-blue-600 text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <span>👨 Male</span>
+                    <span>Male</span>
                   </button>
                   <button
                     type="button"
                     onClick={() => setNewEmpGender('FEMALE')}
-                    className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center gap-1 ${
+                    className={`flex-1 py-1 px-2 rounded-lg text-xs font-bold transition cursor-pointer flex items-center justify-center ${
                       newEmpGender === 'FEMALE'
                         ? 'bg-rose-600 text-white shadow-xs'
                         : 'text-slate-600 hover:text-slate-900'
                     }`}
                   >
-                    <span>👩 Female</span>
+                    <span>Female</span>
                   </button>
                 </div>
               </div>
@@ -703,12 +703,12 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
                         </p>
                         {/* Gender Badge */}
                         {emp.gender === 'FEMALE' ? (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center gap-1">
-                            <span>👩 Female</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-rose-50 text-rose-700 border border-rose-200 flex items-center justify-center">
+                            <span>Female</span>
                           </span>
                         ) : (
-                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center gap-1">
-                            <span>👨 Male</span>
+                          <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200 flex items-center justify-center">
+                            <span>Male</span>
                           </span>
                         )}
                         <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-slate-100 text-slate-600">

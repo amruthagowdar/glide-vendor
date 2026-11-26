@@ -1087,24 +1087,24 @@ return (
                     <button
                       type="button"
                       onClick={() => updateEmployeeField(idx, 'gender', 'MALE')}
-                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                      className={`px-3 py-1 rounded-md text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
                         slot.gender !== 'FEMALE'
                           ? 'bg-blue-600 text-white shadow-xs'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <span>👨 Male</span>
+                      <span>Male</span>
                     </button>
                     <button
                       type="button"
                       onClick={() => updateEmployeeField(idx, 'gender', 'FEMALE')}
-                      className={`px-2.5 py-1 rounded-md text-xs font-bold transition-all flex items-center gap-1 cursor-pointer ${
+                      className={`px-3 py-1 rounded-md text-xs font-bold transition-all flex items-center justify-center cursor-pointer ${
                         slot.gender === 'FEMALE'
                           ? 'bg-rose-600 text-white shadow-xs'
                           : 'text-slate-600 hover:text-slate-900'
                       }`}
                     >
-                      <span>👩 Female</span>
+                      <span>Female</span>
                     </button>
                   </div>
 
