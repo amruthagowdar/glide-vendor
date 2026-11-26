@@ -772,12 +772,6 @@ const handleSaveAndCreateTrip = async () => {
     return
   }
 
-  // Security escort compliance validation: ONLY mandatory for 8:00 PM to 6:00 AM window
-  if (isEscortMandatory && !escortName.trim()) {
-    toast.error('Security Escort Guard Name is mandatory for night shift (8:00 PM – 6:00 AM) female safety compliance.')
-    return
-  }
-
   setIsSubmitting(true)
   const toastId = toast.loading('Calculating optimal route and creating trip...')
 
@@ -831,7 +825,7 @@ const handleSaveAndCreateTrip = async () => {
       hubCoords,
       currentStepIndex: 0,
       stops: sortedStops,
-      hasEscort: isEscortMandatory || Boolean(escortName.trim()),
+      hasEscort: Boolean(escortName.trim()),
       escortName: escortName.trim() || undefined,
       escortPhone: escortPhone.trim() || undefined,
     }
@@ -1105,9 +1099,9 @@ return (
                   </span>
                   <span className="font-bold text-sm text-slate-900">Employee {slotNumber}</span>
                   {isThisSlotTrigger && isEscortMandatory && (
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3 text-amber-600" />
-                      <span>Escort Required (8PM–6AM)</span>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-red-100 text-red-900 border border-red-200 flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-red-600" />
+                      <span>Escort (Optional • 8PM–6AM)</span>
                     </span>
                   )}
                   {isThisSlotTrigger && isEscortOptional && (
@@ -1389,14 +1383,14 @@ return (
         <div
           className={`card p-5 border-2 rounded-2xl shadow-sm space-y-4 animate-in fade-in duration-200 ${
             isEscortMandatory
-              ? 'bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-amber-300'
+              ? 'bg-gradient-to-r from-red-50 via-rose-50 to-red-50 border-red-300'
               : 'bg-gradient-to-r from-sky-50 via-indigo-50/40 to-sky-50 border-sky-300'
           }`}
         >
           <div className="flex items-start gap-3">
             <div
               className={`w-10 h-10 rounded-xl text-white flex items-center justify-center shrink-0 shadow-sm ${
-                isEscortMandatory ? 'bg-amber-500' : 'bg-sky-600'
+                isEscortMandatory ? 'bg-red-500' : 'bg-sky-600'
               }`}
             >
               <ShieldCheck className="w-5 h-5" />
@@ -1404,11 +1398,11 @@ return (
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
                 <h3 className="text-sm font-bold text-slate-900">
-                  {isEscortMandatory ? 'Security Escort Guard Required' : 'Security Escort Recommended'}
+                  {isEscortMandatory ? 'Security Escort Guard' : 'Security Escort Recommended'}
                 </h3>
                 {isEscortMandatory ? (
-                  <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-200 text-amber-900 uppercase tracking-wider border border-amber-300">
-                    Mandatory Compliance
+                  <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-red-100 text-red-900 uppercase tracking-wider border border-red-200">
+                    Compliance Recommendation
                   </span>
                 ) : (
                   <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-sky-100 text-sky-800 uppercase tracking-wider border border-sky-200">
@@ -1426,9 +1420,7 @@ return (
                     <span className="font-bold underline text-slate-900">
                       {employees[lastDropIndex]?.name.trim() || `Employee #${lastDropIndex + 1}`}
                     </span>
-                    ). {isEscortMandatory
-                      ? 'Under Karnataka corporate transport safety standards, a verified Security Escort Guard must accompany the vehicle until the final drop.'
-                      : 'Under corporate safety guidelines, an escort guard is recommended during evening hours (6:00 PM – 8:00 PM). Providing an escort is optional.'}
+                    ). Under Karnataka corporate transport safety standards, a verified Security Escort Guard is recommended to accompany the vehicle until the final drop. Providing an escort is optional.
                   </>
                 )}
                 {isFirstFemalePickup && (
@@ -1437,9 +1429,7 @@ return (
                     <span className="font-bold underline text-slate-900">
                       {employees[firstPickupIndex]?.name.trim() || `Employee #${firstPickupIndex + 1}`}
                     </span>
-                    ). {isEscortMandatory
-                      ? 'Under Karnataka corporate transport safety standards, a verified Security Escort Guard must be present in the cab from the initial pickup.'
-                      : 'Under corporate safety guidelines, an escort guard is recommended during evening hours (6:00 PM – 8:00 PM). Providing an escort is optional.'}
+                    ). Under Karnataka corporate transport safety standards, a verified Security Escort Guard is recommended from the initial pickup. Providing an escort is optional.
                   </>
                 )}
               </p>
@@ -1449,16 +1439,15 @@ return (
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-200">
             <div>
               <label className="text-xs font-bold text-slate-900 block mb-1">
-                {isEscortMandatory ? 'Escort Guard Name *' : 'Escort Guard Name (Optional)'}
+                Escort Guard Name (Optional)
               </label>
               <input
                 type="text"
-                required={isEscortMandatory}
-                placeholder={isEscortMandatory ? 'Full name of escort guard (required)' : 'Full name of escort guard (optional)'}
+                placeholder="Full name of escort guard (optional)"
                 value={escortName}
                 onChange={(e) => setEscortName(e.target.value)}
                 className={`input text-xs sm:text-sm font-medium bg-white ${
-                  isEscortMandatory ? 'border-amber-300 focus:border-amber-500' : 'border-sky-300 focus:border-sky-500'
+                  isEscortMandatory ? 'border-red-200 focus:border-red-500' : 'border-sky-300 focus:border-sky-500'
                 }`}
               />
             </div>
@@ -1472,7 +1461,7 @@ return (
                 value={escortPhone}
                 onChange={(e) => setEscortPhone(e.target.value)}
                 className={`input text-xs sm:text-sm font-medium bg-white ${
-                  isEscortMandatory ? 'border-amber-300 focus:border-amber-500' : 'border-sky-300 focus:border-sky-500'
+                  isEscortMandatory ? 'border-red-200 focus:border-red-500' : 'border-sky-300 focus:border-sky-500'
                 }`}
               />
             </div>
@@ -1494,58 +1483,6 @@ return (
           </div>
         )
       )}
-
-      {/* Card 3: Location Options */}
-      <div className="card p-5 bg-sky-50/70 border border-sky-200/90 rounded-2xl shadow-xs space-y-3">
-        <h3 className="font-bold text-sm text-slate-900 flex items-center gap-1.5">
-          <MapPin className="w-4 h-4 text-rose-500" />
-          <span>Location Options</span>
-        </h3>
-
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-          {/* Mark on Map */}
-          <div
-            onClick={() => setMapPickerSlotIndex(0)}
-            className="p-3.5 rounded-xl bg-white border border-sky-200 hover:border-sky-400 cursor-pointer transition shadow-2xs"
-          >
-            <p className="font-bold text-xs sm:text-sm text-slate-900 flex items-center gap-1.5">
-              <span>Mark on Map</span>
-            </p>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Open Google Maps to choose or verify employee location
-            </p>
-          </div>
-
-          {/* Send Location Link */}
-          <div
-            onClick={() => {
-              const validSlots = employees
-                .map((slot, i) => ({ slot, i, validPhone: getStrictMobileNumber(slot.phone) }))
-                .filter((item) => Boolean(item.validPhone))
-
-              if (validSlots.length === 0) {
-                toast.error('Please enter a valid 10-digit mobile number for at least one employee.')
-                return
-              }
-
-              validSlots.forEach(({ slot, i }) => handleWhatsAppRequest(slot, i))
-              toast.success(`Triggered WhatsApp request strictly to ${validSlots.length} employee number(s)!`)
-            }}
-            className="p-3.5 rounded-xl bg-white border border-sky-200 hover:border-sky-400 cursor-pointer transition shadow-2xs"
-          >
-            <p className="font-bold text-xs sm:text-sm text-slate-900 flex items-center gap-1.5">
-              <span>Send Location Link</span>
-            </p>
-            <p className="text-[11px] text-slate-500 mt-1">
-              Ask employees to share their home location through WhatsApp
-            </p>
-          </div>
-        </div>
-
-        <p className="text-[11px] text-slate-600 leading-relaxed pt-1">
-          WhatsApp / SMS opens a prefilled request asking the employee to reply with a Google Maps share link. The supervisor verifies the reply and confirms the saved home address.
-        </p>
-      </div>
 
       {/* Card 4: Trip Summary */}
       <div className="card p-4 sm:p-5 bg-slate-50 border border-slate-200/90 rounded-2xl shadow-xs">
