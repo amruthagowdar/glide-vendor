@@ -1,7 +1,7 @@
 import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios'
 import toast from 'react-hot-toast'
 import { getMockResponse } from './mockData'
-import { fetchTripsFromNeon, createTripInNeon, deleteTripFromNeon } from './neonClient'
+import { fetchTripsFromNeon, createTripInNeon, deleteTripFromNeon, fetchDashboardFromNeon } from './neonClient'
 
 const BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
@@ -37,6 +37,24 @@ api.interceptors.request.use(
     if (isStaticOrUnreachableHost()) {
       const cleanUrl = config.url?.split('?')[0] || ''
       const method = (config.method || 'get').toLowerCase()
+
+      // 0. Fetch live dashboard directly from Neon DB
+      if (cleanUrl.endsWith('/vendor/dashboard') && method === 'get') {
+        config.adapter = async () => {
+          const dashboard = await fetchDashboardFromNeon()
+          return {
+            data: {
+              status: 'success',
+              data: dashboard,
+            },
+            status: 200,
+            statusText: 'OK',
+            headers: {},
+            config,
+          }
+        }
+        return config
+      }
 
       // 1. Fetch live trips from Neon DB
       if (cleanUrl.endsWith('/vendor/trips') && method === 'get') {
@@ -133,6 +151,17 @@ api.interceptors.response.use(
       const cleanUrl = response.config.url?.split('?')[0] || ''
       const method = (response.config.method || 'get').toLowerCase()
 
+      if (cleanUrl.endsWith('/vendor/dashboard') && method === 'get') {
+        const dashboard = await fetchDashboardFromNeon()
+        return {
+          ...response,
+          data: {
+            status: 'success',
+            data: dashboard,
+          },
+        }
+      }
+
       if (cleanUrl.endsWith('/vendor/trips') && method === 'get') {
         const trips = await fetchTripsFromNeon()
         return {
@@ -178,6 +207,20 @@ api.interceptors.response.use(
       const method = (originalRequest.method || 'get').toLowerCase()
       const cleanUrl = url?.split('?')[0] || ''
       const requestData = originalRequest.data
+
+      if (cleanUrl.endsWith('/vendor/dashboard') && method === 'get') {
+        const dashboard = await fetchDashboardFromNeon()
+        return {
+          data: {
+            status: 'success',
+            data: dashboard,
+          },
+          status: 200,
+          statusText: 'OK',
+          headers: {},
+          config: originalRequest,
+        }
+      }
 
       if (cleanUrl.endsWith('/vendor/trips') && method === 'get') {
         const trips = await fetchTripsFromNeon()

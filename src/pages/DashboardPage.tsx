@@ -70,6 +70,8 @@ export const DashboardPage: React.FC = () => {
 
   const { data, isLoading } = useQuery<DashboardData>({
     queryKey: ['dashboard'],
+    refetchOnWindowFocus: true,
+    refetchInterval: 10000,
     queryFn: async () => {
       try {
         const res = await vendorApi.getDashboard()
@@ -111,7 +113,6 @@ export const DashboardPage: React.FC = () => {
         }
       }
     },
-    refetchInterval: 30_000,
   })
 
   if (isLoading) {

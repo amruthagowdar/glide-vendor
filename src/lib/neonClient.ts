@@ -1,5 +1,5 @@
 import { neon } from '@neondatabase/serverless'
-import type { Trip, Driver, Vehicle } from '../types'
+import type { Trip, Driver, Vehicle, DashboardData, WalletTransaction } from '../types'
 
 const NEON_CONNECTION_STRING =
   import.meta.env.VITE_DATABASE_URL ||
@@ -210,5 +210,30 @@ export async function deleteTripFromNeon(idOrTripNo: string): Promise<boolean> {
   } catch (err) {
     console.error('Delete from Neon DB failed:', err)
     return false
+  }
+}
+
+export async function fetchDashboardFromNeon(): Promise<DashboardData> {
+  const trips = await fetchTripsFromNeon()
+  const walletBalance = Number(localStorage.getItem('glide_mock_wallet_balance') || 0)
+  const drivers: Driver[] = JSON.parse(localStorage.getItem('glide_mock_drivers') || '[]')
+  const txs: WalletTransaction[] = JSON.parse(localStorage.getItem('glide_mock_txs') || '[]')
+
+  return {
+    todayTrips: {
+      total: trips.length,
+      pending: trips.filter((t) => t.tripStatus === 'PENDING').length,
+      confirmed: trips.filter((t) => t.tripStatus === 'CONFIRMED').length,
+      inProgress: trips.filter((t) => t.tripStatus === 'IN_PROGRESS').length,
+      completed: trips.filter((t) => t.tripStatus === 'COMPLETED').length,
+      cancelled: trips.filter((t) => t.tripStatus === 'CANCELLED').length,
+    },
+    walletBalance,
+    lowBalanceThreshold: 1000,
+    activeDrivers: drivers.filter((d) => d.isActive).length,
+    totalDrivers: drivers.length,
+    upcomingTrips: trips.filter((t) => ['PENDING', 'CONFIRMED'].includes(t.tripStatus)),
+    recentTrips: trips.slice(0, 10),
+    recentTransactions: txs.slice(0, 5),
   }
 }

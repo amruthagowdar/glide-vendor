@@ -24,28 +24,7 @@ const INITIAL_DRIVERS: Driver[] = []
 
 const INITIAL_VEHICLES: Vehicle[] = []
 
-const INITIAL_TRIPS: Trip[] = [
-  {
-    id: '77d49931-c2da-4240-a58c-e331c8485ee9',
-    tripNo: 'TRP-397433',
-    serviceType: 'RAC',
-    passengerName: 'har',
-    passengerPhone: '7022116616',
-    pickup: 'Anepalaya Main Road, Anepalya, Bengaluru',
-    drop: 'Kempegowda Intl Airport - Terminal 1 (T1)',
-    scheduledDate: '2026-11-24',
-    scheduledTime: '10:00',
-    tripAmount: 1200,
-    commissionRate: 0.15,
-    commissionAmount: 180,
-    driverPayable: 1020,
-    tripStatus: 'CONFIRMED',
-    paymentStatus: 'PAID',
-    notes: 'Created via Atharva Travels Vendor Portal',
-    createdAt: '2026-11-26T05:22:36.051Z',
-    updatedAt: '2026-11-26T05:22:36.051Z',
-  },
-]
+const INITIAL_TRIPS: Trip[] = []
 
 const INITIAL_TRANSACTIONS: WalletTransaction[] = []
 
