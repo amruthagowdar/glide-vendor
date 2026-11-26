@@ -214,12 +214,12 @@ export const DashboardPage: React.FC = () => {
           onClick={() => setRechargeOpen(true)}
         />
         <StatCard
-          title="Active Drivers"
-          value={data?.activeDrivers ?? 0}
-          subtitle={`Out of ${data?.totalDrivers ?? 0} registered fleet drivers`}
-          icon={<Users className="w-5 h-5" />}
+          title="Active Trips"
+          value={todayTrips.inProgress}
+          subtitle="Trips currently active & on road"
+          icon={<Car className="w-5 h-5" />}
           colorClass="bg-indigo-100 text-indigo-800"
-          onClick={() => navigate('/drivers')}
+          onClick={() => navigate('/trips')}
         />
         <StatCard
           title="Upcoming Trips"
