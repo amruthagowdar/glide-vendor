@@ -122,6 +122,7 @@ interface CreateETSTripModalProps {
   onClose: () => void
   onOpenRechargeModal: () => void
   initialView?: ETSViewMode
+  onOpenCreateTripView?: (selectedEmployees?: CorporateEmployee[]) => void
 }
 
 export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
@@ -129,6 +130,7 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
   onClose,
   onOpenRechargeModal,
   initialView = 'HUB',
+  onOpenCreateTripView,
 }) => {
   const queryClient = useQueryClient()
 
@@ -677,6 +679,12 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
     setVehicleChoice(chosenVehicle)
 
     const routedSlice = sorted.slice(0, capacity)
+
+    if (onOpenCreateTripView) {
+      onOpenCreateTripView(routedSlice)
+      return
+    }
+
     const slots: EmployeeSlot[] = routedSlice.map((e) => ({
       name: e.name,
       phone: e.phone,
@@ -709,7 +717,14 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
     const chosenVehicle: 'SEDAN' | 'SUV' = empsToRoute.length <= 3 ? 'SEDAN' : 'SUV'
     setVehicleChoice(chosenVehicle)
 
-    const slots: EmployeeSlot[] = empsToRoute.slice(0, capacity).map((e) => ({
+    const routedSlice = empsToRoute.slice(0, capacity)
+
+    if (onOpenCreateTripView) {
+      onOpenCreateTripView(routedSlice)
+      return
+    }
+
+    const slots: EmployeeSlot[] = routedSlice.map((e) => ({
       name: e.name,
       phone: e.phone,
       address: e.address,
@@ -1080,8 +1095,13 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    setActiveView('CREATE_TRIP')
-                    setStep(1)
+                    const emps = directory.filter((e) => selectedEmpIds.includes(e.id))
+                    if (onOpenCreateTripView) {
+                      onOpenCreateTripView(emps)
+                    } else {
+                      setActiveView('CREATE_TRIP')
+                      setStep(1)
+                    }
                   }}
                   className="btn-accent text-sm flex items-center gap-1.5 font-semibold shadow-sm"
                 >
@@ -1183,8 +1203,12 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                 <button
                   type="button"
                   onClick={() => {
-                    setActiveView('CREATE_TRIP')
-                    setStep(1)
+                    if (onOpenCreateTripView) {
+                      onOpenCreateTripView([])
+                    } else {
+                      setActiveView('CREATE_TRIP')
+                      setStep(1)
+                    }
                   }}
                   className="group p-5 rounded-2xl border-2 border-slate-200 bg-white hover:border-sky-600 hover:shadow-lg transition-all duration-200 text-left flex flex-col justify-between"
                 >

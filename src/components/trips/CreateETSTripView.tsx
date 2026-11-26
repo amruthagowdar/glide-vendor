@@ -87,6 +87,7 @@ export interface CorporateEmployee {
 interface CreateETSTripViewProps {
   onBack: () => void
   onTripCreated?: (newShift: LiveShiftCab) => void
+  initialEmployees?: CorporateEmployee[]
 }
 
 // Full 24-hour range in 15-minute intervals from 12:00 AM to 11:45 PM
@@ -107,9 +108,12 @@ export const SHIFT_TIME_OPTIONS: string[] = (() => {
 export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
   onBack,
   onTripCreated,
+  initialEmployees,
 }) => {
   // Vehicle Selection: SEDAN (3 employees) or SUV (6 employees)
-  const [vehicleChoice, setVehicleChoice] = useState<'SEDAN' | 'SUV'>('SEDAN')
+  const initialCount = initialEmployees?.length || 0
+  const initialChoice: 'SEDAN' | 'SUV' = initialCount > 3 ? 'SUV' : 'SEDAN'
+  const [vehicleChoice, setVehicleChoice] = useState<'SEDAN' | 'SUV'>(initialChoice)
 
   // Trip Date & Timing
   const [tripDate, setTripDate] = useState(() => {
@@ -118,17 +122,80 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
   })
   const [shiftTiming, setShiftTiming] = useState('08:30 AM')
   const [tripType, setTripType] = useState<'Login' | 'Logout'>('Login')
-  const [companyName, setCompanyName] = useState('Atharva Tech Hub')
+  const [companyName, setCompanyName] = useState(() => {
+    return initialEmployees?.[0]?.company || 'Atharva Tech Hub'
+  })
 
   // Employee Slots: 3 for Sedan, 6 for SUV (with pickup times)
-  const [employees, setEmployees] = useState<EmployeeSlot[]>([
-    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '', pickupTime: '07:30' },
-    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '', pickupTime: '07:45' },
-    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '', pickupTime: '08:00' },
-    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '', pickupTime: '08:15' },
-    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '', pickupTime: '08:30' },
-    { name: '', phone: '', address: '', lat: '', lng: '', geoCode: '', pickupTime: '08:45' },
-  ])
+  const [employees, setEmployees] = useState<EmployeeSlot[]>(() => {
+    const defaultTimes = ['07:30', '07:45', '08:00', '08:15', '08:30', '08:45']
+    const capacity = initialChoice === 'SUV' ? 6 : 3
+    const slots: EmployeeSlot[] = []
+
+    if (initialEmployees && initialEmployees.length > 0) {
+      initialEmployees.slice(0, 6).forEach((emp, idx) => {
+        slots.push({
+          name: emp.name || '',
+          phone: emp.phone || '',
+          address: emp.address || '',
+          lat: emp.lat ? String(emp.lat) : '',
+          lng: emp.lng ? String(emp.lng) : '',
+          geoCode: emp.lat && emp.lng ? `${emp.lat}, ${emp.lng}` : '',
+          pickupTime: defaultTimes[idx] || '08:00',
+        })
+      })
+    }
+
+    while (slots.length < capacity) {
+      const idx = slots.length
+      slots.push({
+        name: '',
+        phone: '',
+        address: '',
+        lat: '',
+        lng: '',
+        geoCode: '',
+        pickupTime: defaultTimes[idx] || '08:00',
+      })
+    }
+
+    return slots
+  })
+
+  // Synchronize when initialEmployees changes
+  useEffect(() => {
+    if (initialEmployees && initialEmployees.length > 0) {
+      const choice: 'SEDAN' | 'SUV' = initialEmployees.length > 3 ? 'SUV' : 'SEDAN'
+      setVehicleChoice(choice)
+      const capacity = choice === 'SUV' ? 6 : 3
+      const defaultTimes = ['07:30', '07:45', '08:00', '08:15', '08:30', '08:45']
+      const slots: EmployeeSlot[] = initialEmployees.slice(0, 6).map((emp, idx) => ({
+        name: emp.name || '',
+        phone: emp.phone || '',
+        address: emp.address || '',
+        lat: emp.lat ? String(emp.lat) : '',
+        lng: emp.lng ? String(emp.lng) : '',
+        geoCode: emp.lat && emp.lng ? `${emp.lat}, ${emp.lng}` : '',
+        pickupTime: defaultTimes[idx] || '08:00',
+      }))
+      while (slots.length < capacity) {
+        const idx = slots.length
+        slots.push({
+          name: '',
+          phone: '',
+          address: '',
+          lat: '',
+          lng: '',
+          geoCode: '',
+          pickupTime: defaultTimes[idx] || '08:00',
+        })
+      }
+      setEmployees(slots)
+      if (initialEmployees[0]?.company) {
+        setCompanyName(initialEmployees[0].company)
+      }
+    }
+  }, [initialEmployees])
 
   // Map Picker Modal state for pinpointing coordinates
   const [mapPickerSlotIndex, setMapPickerSlotIndex] = useState<number | null>(null)
