@@ -93,25 +93,43 @@ interface CreateETSTripViewProps {
   initialEmployees?: CorporateEmployee[]
 }
 
-// Helper to determine if a shift time is in the night compliance window (7:00 PM to 6:00 AM)
-export const isNightShift = (timeStr: string): boolean => {
-  if (!timeStr) return false
+// Helper to parse time string into minutes from midnight (0 to 1439)
+export const getMinutesFromTimeString = (timeStr: string): number => {
+  if (!timeStr) return -1
   const clean = timeStr.trim().toUpperCase()
   const isPM = clean.includes('PM')
   const isAM = clean.includes('AM')
   const parts = clean.replace(/AM|PM/g, '').trim().split(':')
-  if (parts.length < 2) return false
+  if (parts.length < 2) return -1
   let hour = parseInt(parts[0], 10)
   const minute = parseInt(parts[1], 10)
-  if (isNaN(hour) || isNaN(minute)) return false
+  if (isNaN(hour) || isNaN(minute)) return -1
 
   if (isPM && hour < 12) hour += 12
   if (isAM && hour === 12) hour = 0
 
-  const timeMinutes = hour * 60 + minute
-  // 7:00 PM is 19 * 60 = 1140 minutes
-  // 6:00 AM is 6 * 60 = 360 minutes
-  return timeMinutes >= 1140 || timeMinutes <= 360
+  return hour * 60 + minute
+}
+
+// Evening window (6:00 PM to 8:00 PM): Escort compliance is OPTIONAL
+export const isEveningOptionalEscort = (timeStr: string): boolean => {
+  const m = getMinutesFromTimeString(timeStr)
+  if (m === -1) return false
+  return m >= 1080 && m < 1200
+}
+
+// Night window (8:00 PM to 6:00 AM): Escort compliance is MANDATORY
+export const isNightMandatoryEscort = (timeStr: string): boolean => {
+  const m = getMinutesFromTimeString(timeStr)
+  if (m === -1) return false
+  return m >= 1200 || m <= 360
+}
+
+// Combined compliance window (6:00 PM to 6:00 AM)
+export const isNightShift = (timeStr: string): boolean => {
+  const m = getMinutesFromTimeString(timeStr)
+  if (m === -1) return false
+  return m >= 1080 || m <= 360
 }
 
 // Full 24-hour range in 15-minute intervals from 12:00 AM to 11:45 PM
@@ -704,10 +722,14 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
 const filledEmployees = employees.filter((e) => e.name.trim() && e.address.trim())
 const maxSlots = vehicleChoice === 'SEDAN' ? 3 : 6
 
-// Night shift compliance calculations (7:00 PM to 6:00 AM)
-const isNight = isNightShift(shiftTiming)
+// Compliance timing checks:
+// 6:00 PM to 8:00 PM: Optional recommendation
+// 8:00 PM to 6:00 AM: Mandatory compliance
+const isEveningOptional = isEveningOptionalEscort(shiftTiming)
+const isNightMandatory = isNightMandatoryEscort(shiftTiming)
+const isNightWindow = isNightShift(shiftTiming) // 6:00 PM to 6:00 AM combined
 
-// Optional escort toggle state
+// Optional escort manual toggle state
 const [showOptionalEscort, setShowOptionalEscort] = useState(false)
 
 // Active target slots:
@@ -722,19 +744,24 @@ const lastDropIndex = (() => {
 // In Login (Pickup), the first pickup employee is slot 0
 const firstPickupIndex = 0
 
-// Drop (Logout): Escort required if the LAST employee dropped off is Female
+// Trigger conditions:
 const isLastFemaleDrop =
   tripType === 'Logout' &&
-  isNight &&
+  isNightWindow &&
   employees[lastDropIndex]?.gender === 'FEMALE'
 
-// Pickup (Login): Escort required if the FIRST employee picked up is Female
 const isFirstFemalePickup =
   tripType === 'Login' &&
-  isNight &&
+  isNightWindow &&
   employees[firstPickupIndex]?.gender === 'FEMALE'
 
-const isEscortRequired = isLastFemaleDrop || isFirstFemalePickup
+// Escort triggered if either condition is met
+const isEscortTriggered = isLastFemaleDrop || isFirstFemalePickup
+
+// Mandatory (8 PM - 6 AM) vs Optional (6 PM - 8 PM):
+const isEscortMandatory = isEscortTriggered && isNightMandatory
+const isEscortOptional = isEscortTriggered && isEveningOptional
+const isEscortVisible = isEscortTriggered || showOptionalEscort
 
 // Form submission: Validate, Calculate Optimal Route, and Dispatch Shift
 const [isSubmitting, setIsSubmitting] = useState(false)
@@ -745,9 +772,9 @@ const handleSaveAndCreateTrip = async () => {
     return
   }
 
-  // Security escort compliance validation
-  if (isEscortRequired && !escortName.trim()) {
-    toast.error('Security Escort Guard Name is mandatory for night shift female safety compliance.')
+  // Security escort compliance validation: ONLY mandatory for 8:00 PM to 6:00 AM window
+  if (isEscortMandatory && !escortName.trim()) {
+    toast.error('Security Escort Guard Name is mandatory for night shift (8:00 PM – 6:00 AM) female safety compliance.')
     return
   }
 
@@ -804,7 +831,7 @@ const handleSaveAndCreateTrip = async () => {
       hubCoords,
       currentStepIndex: 0,
       stops: sortedStops,
-      hasEscort: isEscortRequired || Boolean(escortName.trim()),
+      hasEscort: isEscortMandatory || Boolean(escortName.trim()),
       escortName: escortName.trim() || undefined,
       escortPhone: escortPhone.trim() || undefined,
     }
@@ -833,7 +860,7 @@ const handleSaveAndCreateTrip = async () => {
       scheduledTime: shiftTiming,
       tripAmount: filledEmployees.length * 600,
       notes: `ETS ${tripType.toUpperCase()} Shift [Vehicle: ${vehicleChoice === 'SEDAN' ? 'Sedan 4+1' : 'SUV 6+1'}] Hub: ${companyName}${
-        isEscortRequired
+        escortName.trim()
           ? ` [Escort: ${escortName.trim()}${escortPhone.trim() ? ' Ph: ' + escortPhone.trim() : ''}]`
           : ''
       }`,
@@ -979,9 +1006,14 @@ return (
         <div>
           <div className="flex items-center justify-between mb-1">
             <label className="label !mb-0">Shift Timing</label>
-            {isNight && (
+            {isNightMandatory && (
               <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-purple-100 text-purple-800 border border-purple-200">
-                🌙 Night Window
+                🌙 Night (8PM–6AM)
+              </span>
+            )}
+            {isEveningOptional && (
+              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded bg-sky-100 text-sky-800 border border-sky-200">
+                🌆 Evening (6PM–8PM)
               </span>
             )}
           </div>
@@ -989,7 +1021,11 @@ return (
             value={shiftTiming}
             onChange={(e) => setShiftTiming(e.target.value)}
             className={`input text-xs sm:text-sm font-medium ${
-              isNight ? 'border-purple-300 bg-purple-50/20' : ''
+              isNightMandatory
+                ? 'border-purple-300 bg-purple-50/20'
+                : isEveningOptional
+                ? 'border-sky-300 bg-sky-50/20'
+                : ''
             }`}
           >
             {SHIFT_TIME_OPTIONS.map((time) => (
@@ -1043,12 +1079,9 @@ return (
           const slotNumber = idx + 1
 
           // Escort trigger for this specific employee slot
-          const isLastDropSlot = tripType === 'Logout' && idx === lastDropIndex
-          const isFirstPickupSlot = tripType === 'Login' && idx === firstPickupIndex
-          const isEscortSlot =
-            (isLastDropSlot && isLastFemaleDrop) ||
-            (isFirstPickupSlot && isFirstFemalePickup) ||
-            (showOptionalEscort && (isLastDropSlot || isFirstPickupSlot))
+          const isThisSlotTrigger =
+            (tripType === 'Logout' && idx === lastDropIndex && slot.gender === 'FEMALE') ||
+            (tripType === 'Login' && idx === firstPickupIndex && slot.gender === 'FEMALE')
 
           // Directory search filtered list
           const currentSearch = searchQueries[idx] || ''
@@ -1062,9 +1095,7 @@ return (
           return (
             <div
               key={idx}
-              className={`border rounded-2xl p-4 sm:p-5 bg-white space-y-4 shadow-xs transition-all ${
-                isEscortSlot ? 'border-amber-300 ring-2 ring-amber-300/30' : 'border-slate-200'
-              }`}
+              className="border border-slate-200 rounded-2xl p-4 sm:p-5 bg-white space-y-4 shadow-xs"
             >
               {/* Employee Header with Gender Toggle */}
               <div className="flex flex-wrap items-center justify-between gap-2.5">
@@ -1073,10 +1104,16 @@ return (
                     {slotNumber}
                   </span>
                   <span className="font-bold text-sm text-slate-900">Employee {slotNumber}</span>
-                  {isEscortSlot && (
+                  {isThisSlotTrigger && isEscortMandatory && (
                     <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 border border-amber-200 flex items-center gap-1">
                       <ShieldCheck className="w-3 h-3 text-amber-600" />
-                      <span>Escort Required</span>
+                      <span>Escort Required (8PM–6AM)</span>
+                    </span>
+                  )}
+                  {isThisSlotTrigger && isEscortOptional && (
+                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-900 border border-sky-200 flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-sky-600" />
+                      <span>Escort Recommended (Optional • 6PM–8PM)</span>
                     </span>
                   )}
                 </div>
@@ -1341,128 +1378,92 @@ return (
                     </span>
                   </div>
                 </div>
-
-                {/* Security Escort Guard Fields directly inside this Employee Card */}
-                {isEscortSlot && (
-                  <div className="mt-3 p-4 rounded-xl bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-2 border-amber-300 space-y-3 animate-in fade-in duration-150">
-                    <div className="flex items-center justify-between flex-wrap gap-2">
-                      <div className="flex items-center gap-2">
-                        <div className="w-7 h-7 rounded-lg bg-amber-500 text-white flex items-center justify-center shadow-xs">
-                          <ShieldCheck className="w-4 h-4" />
-                        </div>
-                        <div>
-                          <span className="text-xs font-bold text-amber-950 block">
-                            Security Escort Guard Required
-                          </span>
-                          <span className="text-[10px] text-amber-800">
-                            {tripType === 'Logout' ? 'Last Female Drop' : 'First Female Pickup'} • Night Window (7:00 PM – 6:00 AM)
-                          </span>
-                        </div>
-                      </div>
-                      <span className="text-[10px] font-extrabold uppercase px-2 py-0.5 rounded bg-amber-200 text-amber-900 border border-amber-300">
-                        Mandatory Compliance
-                      </span>
-                    </div>
-
-                    <p className="text-[11px] text-amber-800 leading-relaxed">
-                      {tripType === 'Logout'
-                        ? `Under Karnataka corporate transport safety standards, because Employee #${slotNumber} (${slot.name.trim() || `Employee ${slotNumber}`}) is female and the last passenger to be dropped during night hours, a verified security escort guard must accompany the cab.`
-                        : `Under Karnataka corporate transport safety standards, because Employee #${slotNumber} (${slot.name.trim() || `Employee ${slotNumber}`}) is female and the first passenger to be picked up during night hours, a verified security escort guard must accompany the cab.`}
-                    </p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-1">
-                      <div>
-                        <label className="text-[11px] font-bold text-amber-950 block mb-1">
-                          Escort Guard Name *
-                        </label>
-                        <input
-                          type="text"
-                          required
-                          placeholder="e.g. Ramesh Kumar (Security Guard)"
-                          value={escortName}
-                          onChange={(e) => setEscortName(e.target.value)}
-                          className="input text-xs sm:text-sm font-medium border-amber-300 focus:border-amber-500 bg-white w-full"
-                        />
-                      </div>
-                      <div>
-                        <label className="text-[11px] font-bold text-amber-950 block mb-1">
-                          Escort Contact Number (Optional)
-                        </label>
-                        <input
-                          type="tel"
-                          placeholder="e.g. +91 98450 99881"
-                          value={escortPhone}
-                          onChange={(e) => setEscortPhone(e.target.value)}
-                          className="input text-xs sm:text-sm font-medium border-amber-300 focus:border-amber-500 bg-white w-full"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                )}
               </div>
-              )
+            )
           })}
-            </div>
+        </div>
       </div>
 
-      {/* Security Escort Guard Section (Triggered by Night Shift Female Safety Rules) */}
-      {isEscortRequired ? (
-        <div className="card p-5 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-2 border-amber-300 rounded-2xl shadow-sm space-y-4 animate-in fade-in duration-200">
+      {/* Security Escort Guard Section (Triggered by Female Safety Rules: 6PM-8PM Optional, 8PM-6AM Mandatory) */}
+      {isEscortVisible ? (
+        <div
+          className={`card p-5 border-2 rounded-2xl shadow-sm space-y-4 animate-in fade-in duration-200 ${
+            isEscortMandatory
+              ? 'bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 border-amber-300'
+              : 'bg-gradient-to-r from-sky-50 via-indigo-50/40 to-sky-50 border-sky-300'
+          }`}
+        >
           <div className="flex items-start gap-3">
-            <div className="w-10 h-10 rounded-xl bg-amber-500 text-white flex items-center justify-center shrink-0 shadow-sm">
+            <div
+              className={`w-10 h-10 rounded-xl text-white flex items-center justify-center shrink-0 shadow-sm ${
+                isEscortMandatory ? 'bg-amber-500' : 'bg-sky-600'
+              }`}
+            >
               <ShieldCheck className="w-5 h-5" />
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2 flex-wrap">
-                <h3 className="text-sm font-bold text-amber-950">
-                  Security Escort Guard Required
+                <h3 className="text-sm font-bold text-slate-900">
+                  {isEscortMandatory ? 'Security Escort Guard Required' : 'Security Escort Recommended'}
                 </h3>
-                <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-200 text-amber-900 uppercase tracking-wider border border-amber-300">
-                  Mandatory Compliance
-                </span>
-                <span className="text-[11px] font-bold text-amber-800">
-                  (Night Window: 7:00 PM – 6:00 AM)
+                {isEscortMandatory ? (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-amber-200 text-amber-900 uppercase tracking-wider border border-amber-300">
+                    Mandatory Compliance
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded text-[10px] font-extrabold bg-sky-100 text-sky-800 uppercase tracking-wider border border-sky-200">
+                    Optional Recommendation
+                  </span>
+                )}
+                <span className="text-[11px] font-bold text-slate-600">
+                  {isEscortMandatory ? '(Night Window: 8:00 PM – 6:00 AM)' : '(Evening Window: 6:00 PM – 8:00 PM)'}
                 </span>
               </div>
-              <p className="text-xs text-amber-800 mt-1 leading-relaxed">
+              <p className="text-xs text-slate-700 mt-1 leading-relaxed">
                 {isLastFemaleDrop && (
                   <>
                     <strong>Drop Trip Rule (Office → Home):</strong> The last employee to be dropped off in this shift is female (
-                    <span className="font-bold underline text-amber-950">
+                    <span className="font-bold underline text-slate-900">
                       {employees[lastDropIndex]?.name.trim() || `Employee #${lastDropIndex + 1}`}
                     </span>
-                    ). Under Karnataka corporate transport safety standards, a verified Security Escort Guard must accompany the vehicle until the final drop.
+                    ). {isEscortMandatory
+                      ? 'Under Karnataka corporate transport safety standards, a verified Security Escort Guard must accompany the vehicle until the final drop.'
+                      : 'Under corporate safety guidelines, an escort guard is recommended during evening hours (6:00 PM – 8:00 PM). Providing an escort is optional.'}
                   </>
                 )}
                 {isFirstFemalePickup && (
                   <>
                     <strong>Pickup Trip Rule (Home → Office):</strong> The first employee to be picked up in this shift is female (
-                    <span className="font-bold underline text-amber-950">
+                    <span className="font-bold underline text-slate-900">
                       {employees[firstPickupIndex]?.name.trim() || `Employee #${firstPickupIndex + 1}`}
                     </span>
-                    ). Under Karnataka corporate transport safety standards, a verified Security Escort Guard must be present in the cab from the initial pickup.
+                    ). {isEscortMandatory
+                      ? 'Under Karnataka corporate transport safety standards, a verified Security Escort Guard must be present in the cab from the initial pickup.'
+                      : 'Under corporate safety guidelines, an escort guard is recommended during evening hours (6:00 PM – 8:00 PM). Providing an escort is optional.'}
                   </>
                 )}
               </p>
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-amber-200/90">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-200">
             <div>
-              <label className="text-xs font-bold text-amber-950 block mb-1">
-                Escort Guard Name *
+              <label className="text-xs font-bold text-slate-900 block mb-1">
+                {isEscortMandatory ? 'Escort Guard Name *' : 'Escort Guard Name (Optional)'}
               </label>
               <input
                 type="text"
-                required
-                placeholder="e.g. Ramesh Kumar (Security Guard)"
+                required={isEscortMandatory}
+                placeholder={isEscortMandatory ? 'Full name of escort guard (required)' : 'Full name of escort guard (optional)'}
                 value={escortName}
                 onChange={(e) => setEscortName(e.target.value)}
-                className="input text-xs sm:text-sm font-medium border-amber-300 focus:border-amber-500 bg-white"
+                className={`input text-xs sm:text-sm font-medium bg-white ${
+                  isEscortMandatory ? 'border-amber-300 focus:border-amber-500' : 'border-sky-300 focus:border-sky-500'
+                }`}
               />
             </div>
             <div>
-              <label className="text-xs font-bold text-amber-950 block mb-1">
+              <label className="text-xs font-bold text-slate-900 block mb-1">
                 Escort Contact Number (Optional)
               </label>
               <input
@@ -1470,18 +1471,20 @@ return (
                 placeholder="e.g. +91 98450 99881"
                 value={escortPhone}
                 onChange={(e) => setEscortPhone(e.target.value)}
-                className="input text-xs sm:text-sm font-medium border-amber-300 focus:border-amber-500 bg-white"
+                className={`input text-xs sm:text-sm font-medium bg-white ${
+                  isEscortMandatory ? 'border-amber-300 focus:border-amber-500' : 'border-sky-300 focus:border-sky-500'
+                }`}
               />
             </div>
           </div>
         </div>
       ) : (
-        isNight && (
+        isNightWindow && (
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-600 text-xs flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>
-                <strong>Night Shift Active (7 PM - 6 AM):</strong> No escort trigger active (
+                <strong>{isNightMandatory ? 'Night Window (8 PM – 6 AM)' : 'Evening Window (6 PM – 8 PM)'}:</strong> No escort trigger active (
                 {tripType === 'Logout' ? 'last drop is male' : 'first pickup is male'}).
               </span>
             </div>

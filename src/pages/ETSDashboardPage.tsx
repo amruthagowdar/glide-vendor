@@ -1197,7 +1197,7 @@ export const ETSDashboardPage: React.FC = () => {
                     )}
                   </div>
                   <p className="text-[10px] text-amber-700 italic border-t border-amber-200/80 pt-1">
-                    Night shift safety guard assigned in compliance with women employee transit regulations (7:00 PM – 6:00 AM).
+                    Night shift safety guard assigned in compliance with women employee transit regulations (6:00 PM – 6:00 AM).
                   </p>
                 </div>
               )}
