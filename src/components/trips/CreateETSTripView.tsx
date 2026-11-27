@@ -19,10 +19,14 @@ import {
   ChevronDown,
   ShieldCheck,
   X,
+  ArrowRight,
+  Wallet as WalletIcon,
 } from 'lucide-react'
 import { LocationMapModal } from './LocationMapModal'
+import { Modal } from '../ui/Modal'
 import { sortStopsFarthestFirst, type LiveShiftCab } from '../../lib/routing'
 import { formatCurrency } from '../../lib/utils'
+import { useWallet } from '../../hooks/useVendor'
 import {
   createTripInNeon,
   fetchCorporateEmployeesFromNeon,
@@ -176,6 +180,19 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
   // Escort Required Toggle: after 8pm default to true; 6pm-8pm must be selected (Yes/No)
   const [escortRequiredToggle, setEscortRequiredToggle] = useState<boolean | null>(null)
 
+  // Trip Fare & Review Modal State
+  const [tripAmount, setTripAmount] = useState<string>(() => (initialChoice === 'SUV' ? '3600' : '1800'))
+  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
+
+  // Wallet and Financial Calculations
+  const { data: walletData } = useWallet()
+  const walletBalance = walletData?.balance ?? 0
+  const fareNum = parseFloat(tripAmount) || 0
+  const platformFee = 10 // Fixed ₹10 platform fee
+  const convenienceFee = Math.round(fareNum * 0.06) // Exactly 6% convenience fee
+  const driverPayable = Math.max(0, fareNum - platformFee - convenienceFee) // Driver net payout
+  const isBalanceSufficient = fareNum <= 0 || walletBalance >= fareNum
+
   // Employee Slots: 3 for Sedan, 6 for SUV (with pickup times and gender)
   const [employees, setEmployees] = useState<EmployeeSlot[]>(() => {
     const defaultTimes = ['07:30', '07:45', '08:00', '08:15', '08:30', '08:45']
@@ -280,6 +297,11 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
   // Synchronize slot count when vehicle category changes (3 for Sedan, 6 for SUV)
   const handleSelectVehicle = (v: 'SEDAN' | 'SUV') => {
     setVehicleChoice(v)
+    if (v === 'SUV' && tripAmount === '1800') {
+      setTripAmount('3600')
+    } else if (v === 'SEDAN' && tripAmount === '3600') {
+      setTripAmount('1800')
+    }
     const targetCount = v === 'SEDAN' ? 3 : 6
     const defaultTimes = ['07:00', '07:15', '07:30', '07:45', '08:00', '08:15']
     setEmployees((prev) => {
@@ -755,9 +777,26 @@ useEffect(() => {
 // Form submission: Validate, Calculate Optimal Route, and Dispatch Shift
 const [isSubmitting, setIsSubmitting] = useState(false)
 
+const handleContinueToReview = () => {
+  if (filledEmployees.length === 0) {
+    toast.error('Please add at least 1 employee with a Name and Address to continue.')
+    return
+  }
+  if (fareNum <= 0) {
+    toast.error('Please enter a valid Agreed Trip Fare.')
+    return
+  }
+  setIsReviewModalOpen(true)
+}
+
 const handleSaveAndCreateTrip = async () => {
   if (filledEmployees.length === 0) {
     toast.error('Please add at least 1 employee with a Name and Address to create a trip.')
+    return
+  }
+
+  if (!isBalanceSufficient) {
+    toast.error(`Insufficient wallet balance. You need at least ${formatCurrency(fareNum)} to dispatch this shift.`)
     return
   }
 
@@ -841,10 +880,10 @@ const handleSaveAndCreateTrip = async () => {
       drop: tripType === 'Login' ? companyName : (filledEmployees[0]?.address || 'Employee Home Drop'),
       scheduledDate: tripDate,
       scheduledTime: shiftTiming,
-      tripAmount: filledEmployees.length * 600,
+      tripAmount: fareNum,
       notes: `ETS ${tripType.toUpperCase()} Shift [Vehicle: ${vehicleChoice === 'SEDAN' ? 'Sedan 4+1' : 'SUV 6+1'}] Hub: ${companyName}${
         isEscortActive ? ' [Security Escort Guard: YES]' : ' [Escort Guard: NO]'
-      }`,
+      } [Agreed Fare: ₹${fareNum} | Platform Fee: ₹${platformFee} | Convenience Fee (6%): ₹${convenienceFee} | Driver Net Payout: ₹${driverPayable}]`,
     }).catch((err) => console.warn('ETS trip Neon sync notice:', err))
 
     // Save filled employees to Permanent Directory
@@ -880,6 +919,7 @@ const handleSaveAndCreateTrip = async () => {
 
     toast.dismiss(toastId)
     toast.success(`Trip ${shiftCode} created successfully with ${filledEmployees.length} employee slots!`)
+    setIsReviewModalOpen(false)
 
     if (onTripCreated) {
       onTripCreated(newShift)
@@ -1501,7 +1541,123 @@ return (
         )
       )}
 
-      {/* Card 4: Trip Summary */}
+      {/* Card 4: Agreed Trip Fare & Payment Breakdown */}
+      <div className="card p-4 sm:p-5 bg-white border border-slate-200/90 rounded-2xl shadow-xs space-y-4">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
+          <div className="flex items-center gap-2">
+            <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+              ₹
+            </span>
+            <div>
+              <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wider">
+                Agreed Trip Fare & Payment Breakdown
+              </h4>
+              <p className="text-[11px] text-slate-500">
+                Agreed trip price for corporate billing. Vendor can update anytime.
+              </p>
+            </div>
+          </div>
+          <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+            {vehicleChoice === 'SEDAN' ? 'Sedan (3 Slots)' : 'SUV (6 Slots)'}
+          </span>
+        </div>
+
+        {/* Agreed Fare Input */}
+        <div className="space-y-1.5">
+          <label className="text-xs font-bold text-slate-700 flex items-center justify-between">
+            <span>Agreed Trip Fare (₹)</span>
+            <span className="text-[11px] font-normal text-slate-500">Editable by vendor</span>
+          </label>
+          <div className="relative">
+            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-base">
+              ₹
+            </span>
+            <input
+              type="number"
+              min="1"
+              step="10"
+              value={tripAmount}
+              onChange={(e) => setTripAmount(e.target.value)}
+              placeholder="e.g. 1800"
+              className="w-full pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              required
+            />
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Agreed trip fare for this corporate ETS shift route. Can be modified by vendor as per corporate contract.
+          </p>
+        </div>
+
+        {/* Payment Breakdown Option Box */}
+        <div className="p-3.5 bg-slate-50/80 rounded-xl border border-dashed border-slate-300 space-y-2 text-xs">
+          <p className="font-bold text-slate-800 flex items-center justify-between">
+            <span>Payment Breakdown:</span>
+            <span className="text-[10px] font-normal text-slate-500 uppercase tracking-wider">Prepaid Calculation</span>
+          </p>
+
+          <div className="space-y-1.5 text-slate-600">
+            <div className="flex justify-between items-center">
+              <span>Agreed Trip Fare:</span>
+              <span className="font-semibold text-slate-900">{formatCurrency(fareNum)}</span>
+            </div>
+            <div className="flex justify-between items-center text-slate-500">
+              <span className="flex items-center gap-1">
+                Platform Fee:
+                <span className="text-[10px] text-slate-400 font-normal">(fixed)</span>
+              </span>
+              <span>- {formatCurrency(platformFee)}</span>
+            </div>
+            <div className="flex justify-between items-center text-slate-500">
+              <span className="flex items-center gap-1">
+                Convenience Fee (6%):
+                <span className="text-[10px] text-slate-400 font-normal">(6% of agreed fare)</span>
+              </span>
+              <span>- {formatCurrency(convenienceFee)}</span>
+            </div>
+            <div className="flex justify-between items-center font-bold text-emerald-700 pt-2 border-t border-slate-200 text-sm">
+              <span>Driver Net Payout:</span>
+              <span>{formatCurrency(driverPayable)}</span>
+            </div>
+          </div>
+        </div>
+
+        {/* Wallet Balance Status Banner */}
+        <div
+          className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
+            isBalanceSufficient
+              ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
+              : 'bg-red-50/80 border-red-200 text-red-900'
+          }`}
+        >
+          <div>
+            <p className="font-semibold text-xs sm:text-sm flex items-center gap-1.5">
+              <span
+                className={`w-2 h-2 rounded-full ${
+                  isBalanceSufficient ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'
+                }`}
+              />
+              <WalletIcon className="w-4 h-4" />
+              <span>
+                {isBalanceSufficient
+                  ? `Prepaid Wallet Balance: ${formatCurrency(walletBalance)}`
+                  : 'Insufficient Wallet Balance'}
+              </span>
+            </p>
+            <p className={`text-[11px] mt-0.5 ${isBalanceSufficient ? 'text-emerald-700' : 'text-red-700'}`}>
+              {isBalanceSufficient
+                ? `${formatCurrency(fareNum)} will be debited and held in escrow upon shift dispatch.`
+                : `Your wallet balance is ${formatCurrency(walletBalance)}. You need at least ${formatCurrency(fareNum)} to dispatch this shift.`}
+            </p>
+            {!isBalanceSufficient && (
+              <p className="text-[11px] text-red-800 font-semibold mt-1">
+                ⚠️ Please recharge with at least {formatCurrency(fareNum - walletBalance)} to continue.
+              </p>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Card 5: Trip Summary */}
       <div className="card p-4 sm:p-5 bg-slate-50 border border-slate-200/90 rounded-2xl shadow-xs">
         <div className="flex items-center gap-2 mb-3">
           <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold">
@@ -1544,14 +1700,216 @@ return (
 
         <button
           type="button"
-          onClick={handleSaveAndCreateTrip}
+          onClick={handleContinueToReview}
           disabled={isSubmitting || filledEmployees.length === 0}
-          className="w-full sm:w-auto px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full sm:w-auto px-7 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <Check className="w-4 h-4" />
-          <span>Save & Create Trip</span>
+          <span>Continue</span>
+          <ArrowRight className="w-4 h-4" />
         </button>
       </div>
+
+      {/* Review & Confirmation Modal */}
+      <Modal
+        isOpen={isReviewModalOpen}
+        onClose={() => setIsReviewModalOpen(false)}
+        title="Review & Confirm Shift Dispatch"
+        size="lg"
+        footer={
+          <div className="flex items-center justify-between gap-3 w-full">
+            <button
+              type="button"
+              onClick={() => setIsReviewModalOpen(false)}
+              className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-all cursor-pointer"
+            >
+              Back to Edit
+            </button>
+            <button
+              type="button"
+              onClick={handleSaveAndCreateTrip}
+              disabled={isSubmitting || !isBalanceSufficient}
+              className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs shadow-md shadow-blue-500/25 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {isSubmitting ? (
+                <span>Dispatching Shift...</span>
+              ) : (
+                <>
+                  <Check className="w-4 h-4" />
+                  <span>Confirm & Dispatch Shift</span>
+                </>
+              )}
+            </button>
+          </div>
+        }
+      >
+        <div className="space-y-5 text-slate-800">
+          {/* Header Summary Cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+                Shift Type
+              </span>
+              <span className="text-xs font-bold text-slate-900 mt-0.5 block">
+                {tripType === 'Login' ? 'Login (Pickup)' : 'Logout (Drop)'}
+              </span>
+            </div>
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+                Date & Time
+              </span>
+              <span className="text-xs font-bold text-slate-900 mt-0.5 block">
+                {tripDate} · {shiftTiming}
+              </span>
+            </div>
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+                Vehicle Category
+              </span>
+              <span className="text-xs font-bold text-slate-900 mt-0.5 block">
+                {vehicleChoice === 'SEDAN' ? 'Sedan 4+1 (3 Seats)' : 'SUV 6+1 (6 Seats)'}
+              </span>
+            </div>
+            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
+              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
+                Hub / Corporate
+              </span>
+              <span className="text-xs font-bold text-slate-900 mt-0.5 block truncate" title={companyName}>
+                {companyName}
+              </span>
+            </div>
+          </div>
+
+          {/* Security Escort Status Banner */}
+          <div
+            className={`p-3 rounded-xl border flex items-center justify-between ${
+              isEscortActive
+                ? 'bg-amber-50 border-amber-200 text-amber-900'
+                : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+            }`}
+          >
+            <div className="flex items-center gap-2">
+              <ShieldCheck className={`w-4 h-4 ${isEscortActive ? 'text-amber-600' : 'text-emerald-600'}`} />
+              <div>
+                <p className="text-xs font-bold">
+                  {isEscortActive
+                    ? 'Security Escort Guard: MANDATORY / ASSIGNED'
+                    : 'Security Escort Guard: NOT REQUIRED'}
+                </p>
+                <p className="text-[11px] opacity-80">
+                  {isEscortActive
+                    ? 'A trained security escort guard will accompany this vehicle for female employee safety.'
+                    : 'All shift safety compliance checks satisfied.'}
+                </p>
+              </div>
+            </div>
+            <span
+              className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border uppercase tracking-wider ${
+                isEscortActive
+                  ? 'bg-amber-100 border-amber-300 text-amber-800'
+                  : 'bg-emerald-100 border-emerald-300 text-emerald-800'
+              }`}
+            >
+              {isEscortActive ? 'Escort Guard' : 'Standard Cab'}
+            </span>
+          </div>
+
+          {/* Employee Route Manifest */}
+          <div className="space-y-2">
+            <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
+              <span>Employee Manifest ({filledEmployees.length} Passengers)</span>
+              <span className="text-[10px] font-normal text-slate-500">Stops ordered farthest first</span>
+            </h5>
+            <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden">
+              {filledEmployees.map((emp, idx) => (
+                <div key={idx} className="p-3 flex items-center justify-between gap-3 text-xs bg-white">
+                  <div className="flex items-center gap-2.5 min-w-0">
+                    <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold shrink-0">
+                      {idx + 1}
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-bold text-slate-900 truncate flex items-center gap-1.5">
+                        <span>{emp.name}</span>
+                        <span
+                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
+                            emp.gender === 'FEMALE'
+                              ? 'bg-pink-50 border-pink-200 text-pink-700'
+                              : 'bg-blue-50 border-blue-200 text-blue-700'
+                          }`}
+                        >
+                          {emp.gender || 'MALE'}
+                        </span>
+                      </p>
+                      <p className="text-[11px] text-slate-500 truncate">{emp.address}</p>
+                    </div>
+                  </div>
+                  <div className="text-right shrink-0">
+                    <span className="text-[11px] font-semibold text-slate-700 block">
+                      {emp.pickupTime || '08:00'}
+                    </span>
+                    <span className="text-[10px] text-slate-400">{emp.phone}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Financial Breakdown Preview */}
+          <div className="p-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 space-y-2 text-xs">
+            <p className="font-bold text-slate-800 flex items-center justify-between">
+              <span>Payment Breakdown:</span>
+              <span className="text-[10px] font-semibold text-blue-600">6% Convenience Fee applied</span>
+            </p>
+            <div className="space-y-1.5 text-slate-600">
+              <div className="flex justify-between items-center">
+                <span>Agreed Trip Fare:</span>
+                <span className="font-bold text-slate-900">{formatCurrency(fareNum)}</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-500">
+                <span>Platform Fee (fixed):</span>
+                <span>- {formatCurrency(platformFee)}</span>
+              </div>
+              <div className="flex justify-between items-center text-slate-500">
+                <span>Convenience Fee (6%):</span>
+                <span>- {formatCurrency(convenienceFee)}</span>
+              </div>
+              <div className="flex justify-between items-center font-bold text-emerald-700 pt-2 border-t border-slate-200 text-sm">
+                <span>Driver Net Payout (Rest):</span>
+                <span>{formatCurrency(driverPayable)}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Prepaid Wallet Deduction Alert */}
+          <div
+            className={`p-3.5 rounded-xl border flex items-center justify-between ${
+              isBalanceSufficient
+                ? 'bg-emerald-50/90 border-emerald-200 text-emerald-950'
+                : 'bg-red-50/90 border-red-200 text-red-950'
+            }`}
+          >
+            <div>
+              <p className="font-semibold text-xs flex items-center gap-1.5">
+                <WalletIcon className="w-4 h-4 text-emerald-600" />
+                <span>Available Prepaid Wallet Balance: {formatCurrency(walletBalance)}</span>
+              </p>
+              <p className={`text-[11px] mt-0.5 ${isBalanceSufficient ? 'text-emerald-700' : 'text-red-700'}`}>
+                {isBalanceSufficient
+                  ? `✓ Sufficient funds. ${formatCurrency(fareNum)} will be debited upon shift dispatch confirmation.`
+                  : `⚠️ Insufficient wallet balance. You need at least ${formatCurrency(fareNum)} to dispatch this shift.`}
+              </p>
+            </div>
+            <span
+              className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
+                isBalanceSufficient
+                  ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
+                  : 'bg-red-100 border-red-300 text-red-800'
+              }`}
+            >
+              {isBalanceSufficient ? 'Ready' : 'Low Funds'}
+            </span>
+          </div>
+        </div>
+      </Modal>
 
       {/* Location Map Modal */}
       {mapPickerSlotIndex !== null && (
