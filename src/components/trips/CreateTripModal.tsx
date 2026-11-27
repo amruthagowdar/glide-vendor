@@ -149,7 +149,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     new Date().toISOString().split('T')[0]
   )
   const [toTime, setToTime] = useState('18:00')
-  const [tripAmount, setTripAmount] = useState<string>('0')
+  const [tripAmount, setTripAmount] = useState<string>('1200')
   const [estimatedKm, setEstimatedKm] = useState<number | null>(null)
   const [notes, setNotes] = useState('')
 
@@ -161,8 +161,13 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     }
     if (serviceType === 'RAC') {
       const km = estimateDistanceFromName(val)
-      setEstimatedKm(km)
-      setTripAmount('0')
+      if (km !== null) {
+        setEstimatedKm(km)
+        setTripAmount(String(calculateAirportFare(km)))
+      } else if (!val.trim()) {
+        setEstimatedKm(null)
+        setTripAmount('1200')
+      }
     }
   }
 
@@ -205,7 +210,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     },
   })
 
-  const fareNum = serviceType === 'RAC' ? 0 : (parseFloat(tripAmount) || 0)
+  const fareNum = parseFloat(tripAmount) || 0
   const walletBalance = wallet?.balance ?? 0
   // Wallet option is frozen across portal - direct billing active without wallet requirement
   const isBalanceSufficient = true
@@ -279,7 +284,7 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     setFromTime('10:00')
     setToDate(new Date().toISOString().split('T')[0])
     setToTime('18:00')
-    setTripAmount(initialServiceType === 'RAC' ? '0' : '1200')
+    setTripAmount('1200')
     setEstimatedKm(null)
     setNotes('')
   }
@@ -303,6 +308,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     }
     if (serviceType !== 'PACKAGE' && serviceType !== 'OUTSTATION' && !drop.trim()) {
       toast.error('Please enter drop location')
+      return false
+    }
+    if (fareNum <= 0) {
+      toast.error('Trip amount must be greater than ₹0')
       return false
     }
     return true
@@ -350,6 +359,12 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         : serviceType === 'PACKAGE'
           ? `*Date & Time:* ${fromDate} at ${fromTime}\n*Package Type:* ${packageType}\n`
           : `*Trip Type:* ${tripType}\n*From:* ${fromDate} at ${fromTime}\n*To:* ${toDate} at ${toTime}\n`) +
+      (fareNum > 0
+        ? `*Trip Fare:* ₹${fareNum.toLocaleString('en-IN')}\n` +
+          `*Platform Fee:* ₹10\n` +
+          `*Convenience Fee (15%):* ₹${convenienceFee.toLocaleString('en-IN')}\n` +
+          `*Driver Payout:* ₹${driverPayable.toLocaleString('en-IN')}\n`
+        : '') +
       (notes ? `*Notes:* ${notes}\n` : '') +
       `--------------------------------\n` +
       `Booked via Atharva Travels / Glide`
@@ -1046,6 +1061,57 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 </div>
               )}
 
+              {/* Agreed Fare Section: Rendered across all trip types (RAC, OUTSTATION, PACKAGE) */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="label mb-0">Agreed Trip Amount (₹) *</label>
+                  {serviceType === 'RAC' && estimatedKm !== null && (
+                    <span
+                      className={`text-[10px] font-bold px-2 py-0.5 rounded-full ${
+                        estimatedKm <= 30
+                          ? 'bg-emerald-100 text-emerald-800'
+                          : 'bg-amber-100 text-amber-900'
+                      }`}
+                    >
+                      ~{estimatedKm} km from BLR Airport
+                    </span>
+                  )}
+                </div>
+                <input
+                  type="number"
+                  min={serviceType === 'RAC' ? 1200 : 1}
+                  step="10"
+                  value={tripAmount}
+                  onChange={(e) => setTripAmount(e.target.value)}
+                  onBlur={() => {
+                    if (serviceType === 'RAC' && (parseFloat(tripAmount) || 0) < 1200) {
+                      setTripAmount('1200')
+                      toast.error('Airport Transfer fare cannot be less than ₹1,200 (fixed minimum)')
+                    }
+                  }}
+                  className="input text-lg font-bold"
+                  required
+                />
+                {serviceType === 'RAC' ? (
+                  <div className="text-[11px] mt-1 space-y-0.5">
+                    <p className="text-slate-500">
+                      ₹1,200 fixed up to 30 km radius from BLR Airport; beyond 30 km charged at ₹28/km. Minimum fare is ₹1,200.
+                    </p>
+                    {estimatedKm !== null && (
+                      <p className={`font-semibold ${estimatedKm <= 30 ? 'text-emerald-700' : 'text-amber-800'}`}>
+                        {estimatedKm <= 30
+                          ? '✓ Within 30 km airport radius: Standard ₹1,200 fixed fare applied.'
+                          : `✓ Exceeds 30 km (~${estimatedKm} km): ₹1,200 base (30 km) + ${estimatedKm - 30} km extra @ ₹28/km = ₹${fareNum}.`}
+                      </p>
+                    )}
+                  </div>
+                ) : (
+                  <p className="text-[11px] text-slate-500 mt-1">
+                    Agreed trip fare for direct corporate billing.
+                  </p>
+                )}
+              </div>
+
               {/* Wallet Balance Status */}
               <div className="p-3 rounded-xl bg-sky-50 border border-sky-100 text-sky-950 flex items-center justify-between text-xs">
                 <div>
@@ -1182,6 +1248,12 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                     </div>
                   </>
                 )}
+                <div className="flex justify-between border-b border-sky-100 pb-2">
+                  <span className="text-slate-500">Agreed Fare:</span>
+                  <span className="font-bold text-emerald-700 text-sm">
+                    {formatCurrency(fareNum)}
+                  </span>
+                </div>
                 {notes && (
                   <div className="flex justify-between pt-1">
                     <span className="text-slate-500">Notes:</span>
@@ -1190,6 +1262,27 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                     </span>
                   </div>
                 )}
+              </div>
+
+              {/* Financial Breakdown Preview */}
+              <div className="card p-3 border-dashed text-xs space-y-1.5 bg-white">
+                <p className="font-semibold text-slate-700">Financial Breakdown Preview:</p>
+                <div className="flex justify-between text-slate-600">
+                  <span>Trip Fare:</span>
+                  <span className="font-medium">{formatCurrency(fareNum)}</span>
+                </div>
+                <div className="flex justify-between text-slate-500">
+                  <span>Platform Fee:</span>
+                  <span>- {formatCurrency(platformFee)}</span>
+                </div>
+                <div className="flex justify-between text-slate-500">
+                  <span>Convenience Fee (15%):</span>
+                  <span>- {formatCurrency(convenienceFee)}</span>
+                </div>
+                <div className="flex justify-between font-bold text-emerald-700 pt-1 border-t">
+                  <span>Driver Payout (Rest):</span>
+                  <span>{formatCurrency(driverPayable)}</span>
+                </div>
               </div>
 
               {/* Wallet Balance Status */}
