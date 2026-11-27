@@ -721,11 +721,11 @@ const isEscortOptional = isEscortTriggered && isEveningOptional
 const isEscortVisible = isEscortTriggered || showOptionalEscort
 
 // Active state of escort guard:
-// After 8:00 PM till 6:00 AM: Defaults to YES (true unless user toggles NO)
+// After 8:00 PM till 6:00 AM: Strictly locked to YES (true). No option for NO.
 // 6:00 PM to 8:00 PM: Optional toggle (defaults to false/OFF, vendor can toggle YES/NO)
 const isEscortActive = isEscortVisible
   ? isNightMandatory
-    ? escortRequiredToggle !== false
+    ? true
     : escortRequiredToggle === true
   : false
 
@@ -1083,13 +1083,9 @@ return (
                   </span>
                   <span className="font-bold text-sm text-slate-900">Employee {slotNumber}</span>
                   {isThisSlotTrigger && isEscortMandatory && (
-                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
-                      isEscortActive
-                        ? 'bg-emerald-100 text-emerald-900 border-emerald-200'
-                        : 'bg-rose-100 text-rose-900 border-rose-200'
-                    }`}>
-                      <ShieldCheck className={`w-3 h-3 ${isEscortActive ? 'text-emerald-600' : 'text-rose-600'}`} />
-                      <span>{isEscortActive ? 'Escort Guard (YES • 8PM–6AM)' : 'Escort Guard (NO)'}</span>
+                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full border bg-emerald-100 text-emerald-900 border-emerald-200 flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 text-emerald-600" />
+                      <span>Escort Guard (Strict YES • 8PM–6AM)</span>
                     </span>
                   )}
                   {isThisSlotTrigger && isEscortOptional && (
@@ -1445,35 +1441,46 @@ return (
               </label>
               <p className="text-[11px] text-slate-600 mt-0.5">
                 {isNightMandatory
-                  ? 'Night Window (8:00 PM – 6:00 AM): Set to DEFAULT as YES for employee safety.'
+                  ? 'Night Window (8:00 PM – 6:00 AM): Strictly Mandatory under corporate safety standards (No opt-out).'
                   : 'Evening Window (6:00 PM – 8:00 PM): Optional escort toggle (ON / OFF).'}
               </p>
             </div>
             <div className="flex items-center gap-1.5 p-1 bg-white/80 rounded-xl border border-slate-300 shrink-0 shadow-xs">
-              <button
-                type="button"
-                onClick={() => setEscortRequiredToggle(true)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  isEscortActive
-                    ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-600'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <Check className="w-3.5 h-3.5" />
-                <span>YES</span>
-              </button>
-              <button
-                type="button"
-                onClick={() => setEscortRequiredToggle(false)}
-                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  !isEscortActive
-                    ? 'bg-red-600 text-white shadow-sm ring-1 ring-red-600'
-                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
-                }`}
-              >
-                <X className="w-3.5 h-3.5" />
-                <span>NO</span>
-              </button>
+              {isNightMandatory ? (
+                /* Night Window (8 PM – 6 AM): Strictly YES only, NO option removed */
+                <div className="px-4 py-1.5 rounded-lg text-xs font-bold bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-600 flex items-center gap-1.5 cursor-default select-none">
+                  <Check className="w-3.5 h-3.5" />
+                  <span>YES (Mandatory)</span>
+                </div>
+              ) : (
+                /* Evening Window (6 PM – 8 PM): Optional Toggle between YES and NO */
+                <>
+                  <button
+                    type="button"
+                    onClick={() => setEscortRequiredToggle(true)}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      isEscortActive
+                        ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-600'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    <Check className="w-3.5 h-3.5" />
+                    <span>YES</span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setEscortRequiredToggle(false)}
+                    className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                      !isEscortActive
+                        ? 'bg-red-600 text-white shadow-sm ring-1 ring-red-600'
+                        : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                    }`}
+                  >
+                    <X className="w-3.5 h-3.5" />
+                    <span>NO</span>
+                  </button>
+                </>
+              )}
             </div>
           </div>
         </div>
