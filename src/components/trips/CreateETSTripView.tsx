@@ -25,7 +25,7 @@ import {
 import { LocationMapModal } from './LocationMapModal'
 import { Modal } from '../ui/Modal'
 import { sortStopsFarthestFirst, type LiveShiftCab } from '../../lib/routing'
-import { formatCurrency } from '../../lib/utils'
+import { formatCurrency, cn } from '../../lib/utils'
 import { useWallet } from '../../hooks/useVendor'
 import {
   createTripInNeon,
@@ -180,9 +180,11 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
   // Escort Required Toggle: after 8pm default to true; 6pm-8pm must be selected (Yes/No)
   const [escortRequiredToggle, setEscortRequiredToggle] = useState<boolean | null>(null)
 
-  // Trip Fare & Review Modal State
+  // Multi-step form: Step 1 (Vehicle & Passengers) vs Step 2 (Fare & Payment Breakdown)
+  const [currentStep, setCurrentStep] = useState<1 | 2>(1)
+
+  // Trip Fare State (defaults: 1800 for Sedan, 3600 for SUV)
   const [tripAmount, setTripAmount] = useState<string>(() => (initialChoice === 'SUV' ? '3600' : '1800'))
-  const [isReviewModalOpen, setIsReviewModalOpen] = useState(false)
 
   // Wallet and Financial Calculations
   const { data: walletData } = useWallet()
@@ -774,24 +776,26 @@ useEffect(() => {
   }
 }, [shiftTiming, isNightMandatory, isEveningOptional])
 
-// Form submission: Validate, Calculate Optimal Route, and Dispatch Shift
+// Form submission: Validate, Transition Steps, and Dispatch Shift
 const [isSubmitting, setIsSubmitting] = useState(false)
 
-const handleContinueToReview = () => {
+const handleContinueToStep2 = () => {
   if (filledEmployees.length === 0) {
     toast.error('Please add at least 1 employee with a Name and Address to continue.')
     return
   }
-  if (fareNum <= 0) {
-    toast.error('Please enter a valid Agreed Trip Fare.')
-    return
-  }
-  setIsReviewModalOpen(true)
+  setCurrentStep(2)
+  window.scrollTo({ top: 0, behavior: 'smooth' })
 }
 
 const handleSaveAndCreateTrip = async () => {
   if (filledEmployees.length === 0) {
     toast.error('Please add at least 1 employee with a Name and Address to create a trip.')
+    return
+  }
+
+  if (fareNum <= 0) {
+    toast.error('Please enter a valid Agreed Trip Fare.')
     return
   }
 
@@ -919,7 +923,7 @@ const handleSaveAndCreateTrip = async () => {
 
     toast.dismiss(toastId)
     toast.success(`Trip ${shiftCode} created successfully with ${filledEmployees.length} employee slots!`)
-    setIsReviewModalOpen(false)
+    setCurrentStep(1)
 
     if (onTripCreated) {
       onTripCreated(newShift)
@@ -940,20 +944,69 @@ return (
       <div>
         <button
           type="button"
-          onClick={onBack}
+          onClick={
+            currentStep === 2
+              ? () => {
+                  setCurrentStep(1)
+                  window.scrollTo({ top: 0, behavior: 'smooth' })
+                }
+              : onBack
+          }
           className="text-xs font-semibold text-blue-600 hover:text-blue-800 flex items-center gap-1.5 mb-2 transition-colors cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
-          <span>Back to ETS Dashboard</span>
+          <span>{currentStep === 2 ? 'Back to Vehicle & Passengers' : 'Back to ETS Dashboard'}</span>
         </button>
-        <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Create Trip</h1>
+        <div className="flex items-center gap-3">
+          <h1 className="text-2xl font-bold text-slate-900 tracking-tight">Create Trip</h1>
+          <span className="text-xs font-bold px-2.5 py-0.5 rounded-full bg-blue-100 text-blue-800 border border-blue-200">
+            {currentStep === 1 ? 'Step 1: Vehicle & Stops' : 'Step 2: Fare & Breakdown'}
+          </span>
+        </div>
         <p className="text-xs text-slate-500 mt-0.5">
-          Select vehicle category to load employee slots
+          {currentStep === 1
+            ? 'Select vehicle category, shift timing, and enter corporate employee drop/pickup stops.'
+            : 'Configure agreed trip fare, view 6% convenience fee breakdown, and finalize trip creation.'}
         </p>
+      </div>
+
+      {/* Step Indicator Pills */}
+      <div className="flex items-center gap-2 self-start sm:self-center">
+        <button
+          type="button"
+          onClick={() => {
+            setCurrentStep(1)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all cursor-pointer ${
+            currentStep === 1
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'bg-emerald-50 text-emerald-800 border border-emerald-200 hover:bg-emerald-100'
+          }`}
+        >
+          <span className="w-4 h-4 rounded-full bg-white/20 flex items-center justify-center text-[10px]">1</span>
+          <span>Vehicle & Stops</span>
+          {currentStep === 2 && <Check className="w-3.5 h-3.5 text-emerald-700" />}
+        </button>
+
+        <span className="text-slate-300">→</span>
+
+        <div
+          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-xl text-xs font-bold transition-all ${
+            currentStep === 2
+              ? 'bg-blue-600 text-white shadow-xs'
+              : 'bg-slate-100 text-slate-400'
+          }`}
+        >
+          <span className="w-4 h-4 rounded-full bg-slate-200 text-slate-600 flex items-center justify-center text-[10px]">2</span>
+          <span>Fare & Breakdown</span>
+        </div>
       </div>
     </div>
 
-    {/* Card 1: Select Vehicle Category & Trip Information */}
+    {currentStep === 1 ? (
+      <>
+        {/* Card 1: Select Vehicle Category & Trip Information */}
     <div className="card p-5 sm:p-6 bg-white border border-slate-200/90 shadow-sm space-y-6">
       <div>
         <h2 className="text-sm font-bold text-slate-900 tracking-tight mb-3">
@@ -1541,23 +1594,43 @@ return (
         )
       )}
 
-      {/* Card 4: Agreed Trip Fare & Payment Breakdown */}
-      <div className="card p-4 sm:p-5 bg-white border border-slate-200/90 rounded-2xl shadow-xs space-y-4">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-3">
-          <div className="flex items-center gap-2">
-            <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold">
+      {/* Step 1 Footer & Continue Button */}
+      <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
+        <p className="text-xs text-slate-500 max-w-lg leading-relaxed text-center sm:text-left">
+          Employee details are saved in Permanent Employee Log. Confirmed locations can be reused for future trips.
+        </p>
+
+        <button
+          type="button"
+          onClick={handleContinueToStep2}
+          disabled={filledEmployees.length === 0}
+          className="w-full sm:w-auto px-7 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+        >
+          <span>Continue</span>
+          <ArrowRight className="w-4 h-4" />
+        </button>
+      </div>
+    </>
+  ) : (
+    /* STEP 2: The Attached Page (Agreed Trip Fare & Payment Breakdown) */
+    <div className="space-y-6 animate-in fade-in duration-150">
+      {/* Card: Agreed Trip Fare & Payment Breakdown (Exact card from user screenshot) */}
+      <div className="card p-5 sm:p-6 bg-white border border-slate-200/90 rounded-2xl shadow-xs space-y-5">
+        <div className="flex items-center justify-between border-b border-slate-100 pb-3.5">
+          <div className="flex items-center gap-2.5">
+            <span className="w-7 h-7 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-sm font-bold border border-blue-100">
               ₹
             </span>
             <div>
-              <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wider">
-                Agreed Trip Fare & Payment Breakdown
-              </h4>
-              <p className="text-[11px] text-slate-500">
+              <h3 className="font-bold text-xs sm:text-sm text-slate-900 uppercase tracking-wider">
+                AGREED TRIP FARE & PAYMENT BREAKDOWN
+              </h3>
+              <p className="text-xs text-slate-500">
                 Agreed trip price for corporate billing. Vendor can update anytime.
               </p>
             </div>
           </div>
-          <span className="text-xs font-bold text-blue-700 bg-blue-50 px-2.5 py-1 rounded-lg border border-blue-200">
+          <span className="text-xs font-bold text-blue-700 bg-blue-50 px-3 py-1 rounded-xl border border-blue-200">
             {vehicleChoice === 'SEDAN' ? 'Sedan (3 Slots)' : 'SUV (6 Slots)'}
           </span>
         </div>
@@ -1569,7 +1642,7 @@ return (
             <span className="text-[11px] font-normal text-slate-500">Editable by vendor</span>
           </label>
           <div className="relative">
-            <span className="absolute left-3.5 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-base">
+            <span className="absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 font-bold text-lg">
               ₹
             </span>
             <input
@@ -1579,42 +1652,42 @@ return (
               value={tripAmount}
               onChange={(e) => setTripAmount(e.target.value)}
               placeholder="e.g. 1800"
-              className="w-full pl-8 pr-4 py-2.5 bg-slate-50 border border-slate-200 rounded-xl text-base font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
+              className="w-full pl-9 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-lg font-bold text-slate-900 focus:bg-white focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all"
               required
             />
           </div>
-          <p className="text-[11px] text-slate-500">
+          <p className="text-xs text-slate-500">
             Agreed trip fare for this corporate ETS shift route. Can be modified by vendor as per corporate contract.
           </p>
         </div>
 
-        {/* Payment Breakdown Option Box */}
-        <div className="p-3.5 bg-slate-50/80 rounded-xl border border-dashed border-slate-300 space-y-2 text-xs">
-          <p className="font-bold text-slate-800 flex items-center justify-between">
-            <span>Payment Breakdown:</span>
-            <span className="text-[10px] font-normal text-slate-500 uppercase tracking-wider">Prepaid Calculation</span>
+        {/* Payment Breakdown Box */}
+        <div className="p-4 sm:p-5 bg-slate-50/70 rounded-xl border border-dashed border-slate-300 space-y-2.5 text-xs sm:text-sm">
+          <p className="font-bold text-slate-800 flex items-center justify-between text-xs">
+            <span className="text-slate-900 font-bold">Payment Breakdown:</span>
+            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">PREPAID CALCULATION</span>
           </p>
 
-          <div className="space-y-1.5 text-slate-600">
+          <div className="space-y-2 text-slate-600 pt-1">
             <div className="flex justify-between items-center">
               <span>Agreed Trip Fare:</span>
-              <span className="font-semibold text-slate-900">{formatCurrency(fareNum)}</span>
+              <span className="font-bold text-slate-900">{formatCurrency(fareNum)}</span>
             </div>
             <div className="flex justify-between items-center text-slate-500">
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1.5">
                 Platform Fee:
-                <span className="text-[10px] text-slate-400 font-normal">(fixed)</span>
+                <span className="text-[11px] text-slate-400 font-normal">(fixed)</span>
               </span>
               <span>- {formatCurrency(platformFee)}</span>
             </div>
             <div className="flex justify-between items-center text-slate-500">
-              <span className="flex items-center gap-1">
+              <span className="flex items-center gap-1.5">
                 Convenience Fee (6%):
-                <span className="text-[10px] text-slate-400 font-normal">(6% of agreed fare)</span>
+                <span className="text-[11px] text-slate-400 font-normal">(6% of agreed fare)</span>
               </span>
               <span>- {formatCurrency(convenienceFee)}</span>
             </div>
-            <div className="flex justify-between items-center font-bold text-emerald-700 pt-2 border-t border-slate-200 text-sm">
+            <div className="flex justify-between items-center font-bold text-emerald-700 pt-2.5 border-t border-slate-200 text-base">
               <span>Driver Net Payout:</span>
               <span>{formatCurrency(driverPayable)}</span>
             </div>
@@ -1623,293 +1696,180 @@ return (
 
         {/* Wallet Balance Status Banner */}
         <div
-          className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
+          className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
             isBalanceSufficient
-              ? 'bg-emerald-50/80 border-emerald-200 text-emerald-900'
-              : 'bg-red-50/80 border-red-200 text-red-900'
+              ? 'bg-emerald-50/90 border-emerald-200 text-emerald-950'
+              : 'bg-red-50/90 border-red-200 text-red-950'
           }`}
         >
           <div>
             <p className="font-semibold text-xs sm:text-sm flex items-center gap-1.5">
               <span
-                className={`w-2 h-2 rounded-full ${
+                className={`w-2.5 h-2.5 rounded-full ${
                   isBalanceSufficient ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'
                 }`}
               />
               <WalletIcon className="w-4 h-4" />
               <span>
                 {isBalanceSufficient
-                  ? `Prepaid Wallet Balance: ${formatCurrency(walletBalance)}`
+                  ? `Available Wallet Balance: ${formatCurrency(walletBalance)}`
                   : 'Insufficient Wallet Balance'}
               </span>
             </p>
-            <p className={`text-[11px] mt-0.5 ${isBalanceSufficient ? 'text-emerald-700' : 'text-red-700'}`}>
+            <p className={`text-xs mt-1 ${isBalanceSufficient ? 'text-emerald-800' : 'text-red-800'}`}>
               {isBalanceSufficient
                 ? `${formatCurrency(fareNum)} will be debited and held in escrow upon shift dispatch.`
                 : `Your wallet balance is ${formatCurrency(walletBalance)}. You need at least ${formatCurrency(fareNum)} to dispatch this shift.`}
             </p>
             {!isBalanceSufficient && (
-              <p className="text-[11px] text-red-800 font-semibold mt-1">
-                ⚠️ Please recharge with at least {formatCurrency(fareNum - walletBalance)} to continue.
+              <p className="text-xs text-red-900 font-semibold mt-1 flex items-center gap-1">
+                <span>⚠️</span>
+                <span>Please recharge with at least {formatCurrency(fareNum - walletBalance)} to continue.</span>
               </p>
             )}
           </div>
         </div>
       </div>
 
-      {/* Card 5: Trip Summary */}
-      <div className="card p-4 sm:p-5 bg-slate-50 border border-slate-200/90 rounded-2xl shadow-xs">
-        <div className="flex items-center gap-2 mb-3">
-          <span className="w-5 h-5 rounded-full bg-slate-200 text-slate-700 flex items-center justify-center text-xs font-bold">
-            i
+      {/* Shift Details & Manifest Review */}
+      <div className="card p-5 sm:p-6 bg-white border border-slate-200/90 rounded-2xl shadow-xs space-y-4">
+        <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wider flex items-center justify-between">
+          <span>Shift & Manifest Details</span>
+          <span className="text-[11px] font-normal text-slate-500">
+            {vehicleChoice === 'SEDAN' ? 'Sedan 4+1' : 'SUV 6+1'} · {filledEmployees.length} Passengers
           </span>
-          <h4 className="font-bold text-xs text-slate-900 uppercase tracking-wider">
-            Trip Summary
-          </h4>
-        </div>
+        </h4>
 
-        <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-center">
-          <div className="bg-white p-3 rounded-xl border border-slate-200/80">
+        {/* Quick Metrics */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-center">
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
             <Users className="w-4 h-4 text-blue-600 mx-auto mb-1" />
             <p className="text-xs font-bold text-slate-900">{filledEmployees.length} Employees</p>
+            <p className="text-[10px] text-slate-500 uppercase">{tripType === 'Login' ? 'Login Pickup' : 'Logout Drop'}</p>
           </div>
-          <div className="bg-white p-3 rounded-xl border border-slate-200/80">
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
             <Car className="w-4 h-4 text-indigo-600 mx-auto mb-1" />
-            <p className="text-xs font-bold text-slate-900">
-              {vehicleChoice === 'SEDAN' ? 'Sedan' : 'SUV'}
-            </p>
+            <p className="text-xs font-bold text-slate-900">{vehicleChoice === 'SEDAN' ? 'Sedan' : 'SUV'}</p>
+            <p className="text-[10px] text-slate-500 uppercase">{vehicleChoice === 'SEDAN' ? '3 Slots' : '6 Slots'}</p>
           </div>
-          <div className="bg-white p-3 rounded-xl border border-slate-200/80">
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
             <Clock className="w-4 h-4 text-amber-600 mx-auto mb-1" />
-            <p className="text-xs font-bold text-slate-900">{shiftTiming || 'Select time'}</p>
+            <p className="text-xs font-bold text-slate-900">{shiftTiming}</p>
+            <p className="text-[10px] text-slate-500 uppercase">{tripDate}</p>
           </div>
-          <div className="bg-white p-3 rounded-xl border border-slate-200/80">
-            <MapPin className="w-4 h-4 text-rose-600 mx-auto mb-1" />
-            <p className="text-xs font-bold text-slate-900 truncate" title={companyName}>
-              {companyName || 'Drop location'}
-            </p>
+          <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
+            <Building2 className="w-4 h-4 text-rose-600 mx-auto mb-1" />
+            <p className="text-xs font-bold text-slate-900 truncate" title={companyName}>{companyName}</p>
+            <p className="text-[10px] text-slate-500 uppercase">Corporate Hub</p>
+          </div>
+        </div>
+
+        {/* Escort Guard Status Banner */}
+        <div
+          className={`p-3.5 rounded-xl border flex items-center justify-between ${
+            isEscortActive
+              ? 'bg-amber-50 border-amber-200 text-amber-900'
+              : 'bg-emerald-50 border-emerald-200 text-emerald-900'
+          }`}
+        >
+          <div className="flex items-center gap-2.5">
+            <ShieldCheck className={`w-4 h-4 ${isEscortActive ? 'text-amber-600' : 'text-emerald-600'}`} />
+            <div>
+              <p className="text-xs font-bold">
+                {isEscortActive
+                  ? 'Security Escort Guard: MANDATORY / ASSIGNED'
+                  : 'Security Escort Guard: NOT REQUIRED'}
+              </p>
+              <p className="text-[11px] opacity-80">
+                {isEscortActive
+                  ? 'A trained security escort guard will accompany this vehicle for female passenger safety.'
+                  : 'All shift safety compliance checks satisfied.'}
+              </p>
+            </div>
+          </div>
+          <span
+            className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border uppercase tracking-wider ${
+              isEscortActive
+                ? 'bg-amber-100 border-amber-300 text-amber-800'
+                : 'bg-emerald-100 border-emerald-300 text-emerald-800'
+            }`}
+          >
+            {isEscortActive ? 'Escort Guard' : 'Standard Cab'}
+          </span>
+        </div>
+
+        {/* Passenger Stops List */}
+        <div className="space-y-2 pt-1">
+          <p className="text-xs font-bold text-slate-700 uppercase tracking-wider">
+            Employee Stops Manifest:
+          </p>
+          <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden">
+            {filledEmployees.map((emp, idx) => (
+              <div key={idx} className="p-3 flex items-center justify-between gap-3 text-xs bg-white">
+                <div className="flex items-center gap-2.5 min-w-0">
+                  <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold shrink-0">
+                    {idx + 1}
+                  </span>
+                  <div className="min-w-0">
+                    <p className="font-bold text-slate-900 truncate flex items-center gap-1.5">
+                      <span>{emp.name}</span>
+                      <span
+                        className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
+                          emp.gender === 'FEMALE'
+                            ? 'bg-pink-50 border-pink-200 text-pink-700'
+                            : 'bg-blue-50 border-blue-200 text-blue-700'
+                        }`}
+                      >
+                        {emp.gender || 'MALE'}
+                      </span>
+                    </p>
+                    <p className="text-[11px] text-slate-500 truncate">{emp.address}</p>
+                  </div>
+                </div>
+                <div className="text-right shrink-0">
+                  <span className="text-[11px] font-semibold text-slate-700 block">
+                    {emp.pickupTime || '08:00'}
+                  </span>
+                  <span className="text-[10px] text-slate-400">{emp.phone}</span>
+                </div>
+              </div>
+            ))}
           </div>
         </div>
       </div>
 
-      {/* Footer & Submit Button */}
+      {/* Step 2 Footer & Dispatch Button */}
       <div className="flex flex-col sm:flex-row items-center justify-between gap-4 pt-2">
-        <p className="text-xs text-slate-500 max-w-lg leading-relaxed text-center sm:text-left">
-          Employee details are saved in Permanent Employee Log. Confirmed locations can be reused for future trips.
-        </p>
+        <button
+          type="button"
+          onClick={() => {
+            setCurrentStep(1)
+            window.scrollTo({ top: 0, behavior: 'smooth' })
+          }}
+          className="w-full sm:w-auto px-6 py-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+        >
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to Vehicle & Passengers</span>
+        </button>
 
         <button
           type="button"
-          onClick={handleContinueToReview}
-          disabled={isSubmitting || filledEmployees.length === 0}
-          className="w-full sm:w-auto px-7 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          onClick={handleSaveAndCreateTrip}
+          disabled={isSubmitting || !isBalanceSufficient}
+          className="w-full sm:w-auto px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          <span>Continue</span>
-          <ArrowRight className="w-4 h-4" />
+          {isSubmitting ? (
+            <span>Dispatching Shift...</span>
+          ) : (
+            <>
+              <Check className="w-4 h-4" />
+              <span>Save & Create Trip</span>
+            </>
+          )}
         </button>
       </div>
-
-      {/* Review & Confirmation Modal */}
-      <Modal
-        isOpen={isReviewModalOpen}
-        onClose={() => setIsReviewModalOpen(false)}
-        title="Review & Confirm Shift Dispatch"
-        size="lg"
-        footer={
-          <div className="flex items-center justify-between gap-3 w-full">
-            <button
-              type="button"
-              onClick={() => setIsReviewModalOpen(false)}
-              className="px-4 py-2.5 rounded-xl border border-slate-300 text-slate-700 font-semibold text-xs hover:bg-slate-50 transition-all cursor-pointer"
-            >
-              Back to Edit
-            </button>
-            <button
-              type="button"
-              onClick={handleSaveAndCreateTrip}
-              disabled={isSubmitting || !isBalanceSufficient}
-              className="px-6 py-2.5 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-xs shadow-md shadow-blue-500/25 flex items-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {isSubmitting ? (
-                <span>Dispatching Shift...</span>
-              ) : (
-                <>
-                  <Check className="w-4 h-4" />
-                  <span>Confirm & Dispatch Shift</span>
-                </>
-              )}
-            </button>
-          </div>
-        }
-      >
-        <div className="space-y-5 text-slate-800">
-          {/* Header Summary Cards */}
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
-                Shift Type
-              </span>
-              <span className="text-xs font-bold text-slate-900 mt-0.5 block">
-                {tripType === 'Login' ? 'Login (Pickup)' : 'Logout (Drop)'}
-              </span>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
-                Date & Time
-              </span>
-              <span className="text-xs font-bold text-slate-900 mt-0.5 block">
-                {tripDate} · {shiftTiming}
-              </span>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
-                Vehicle Category
-              </span>
-              <span className="text-xs font-bold text-slate-900 mt-0.5 block">
-                {vehicleChoice === 'SEDAN' ? 'Sedan 4+1 (3 Seats)' : 'SUV 6+1 (6 Seats)'}
-              </span>
-            </div>
-            <div className="p-3 bg-slate-50 rounded-xl border border-slate-200">
-              <span className="text-[10px] font-semibold text-slate-500 uppercase tracking-wider block">
-                Hub / Corporate
-              </span>
-              <span className="text-xs font-bold text-slate-900 mt-0.5 block truncate" title={companyName}>
-                {companyName}
-              </span>
-            </div>
-          </div>
-
-          {/* Security Escort Status Banner */}
-          <div
-            className={`p-3 rounded-xl border flex items-center justify-between ${
-              isEscortActive
-                ? 'bg-amber-50 border-amber-200 text-amber-900'
-                : 'bg-emerald-50 border-emerald-200 text-emerald-900'
-            }`}
-          >
-            <div className="flex items-center gap-2">
-              <ShieldCheck className={`w-4 h-4 ${isEscortActive ? 'text-amber-600' : 'text-emerald-600'}`} />
-              <div>
-                <p className="text-xs font-bold">
-                  {isEscortActive
-                    ? 'Security Escort Guard: MANDATORY / ASSIGNED'
-                    : 'Security Escort Guard: NOT REQUIRED'}
-                </p>
-                <p className="text-[11px] opacity-80">
-                  {isEscortActive
-                    ? 'A trained security escort guard will accompany this vehicle for female employee safety.'
-                    : 'All shift safety compliance checks satisfied.'}
-                </p>
-              </div>
-            </div>
-            <span
-              className={`text-[10px] font-bold px-2.5 py-1 rounded-lg border uppercase tracking-wider ${
-                isEscortActive
-                  ? 'bg-amber-100 border-amber-300 text-amber-800'
-                  : 'bg-emerald-100 border-emerald-300 text-emerald-800'
-              }`}
-            >
-              {isEscortActive ? 'Escort Guard' : 'Standard Cab'}
-            </span>
-          </div>
-
-          {/* Employee Route Manifest */}
-          <div className="space-y-2">
-            <h5 className="text-xs font-bold text-slate-700 uppercase tracking-wider flex items-center justify-between">
-              <span>Employee Manifest ({filledEmployees.length} Passengers)</span>
-              <span className="text-[10px] font-normal text-slate-500">Stops ordered farthest first</span>
-            </h5>
-            <div className="divide-y divide-slate-100 rounded-xl border border-slate-200 bg-slate-50/50 overflow-hidden">
-              {filledEmployees.map((emp, idx) => (
-                <div key={idx} className="p-3 flex items-center justify-between gap-3 text-xs bg-white">
-                  <div className="flex items-center gap-2.5 min-w-0">
-                    <span className="w-5 h-5 rounded-full bg-blue-100 text-blue-700 flex items-center justify-center text-[10px] font-bold shrink-0">
-                      {idx + 1}
-                    </span>
-                    <div className="min-w-0">
-                      <p className="font-bold text-slate-900 truncate flex items-center gap-1.5">
-                        <span>{emp.name}</span>
-                        <span
-                          className={`text-[9px] font-bold px-1.5 py-0.2 rounded border ${
-                            emp.gender === 'FEMALE'
-                              ? 'bg-pink-50 border-pink-200 text-pink-700'
-                              : 'bg-blue-50 border-blue-200 text-blue-700'
-                          }`}
-                        >
-                          {emp.gender || 'MALE'}
-                        </span>
-                      </p>
-                      <p className="text-[11px] text-slate-500 truncate">{emp.address}</p>
-                    </div>
-                  </div>
-                  <div className="text-right shrink-0">
-                    <span className="text-[11px] font-semibold text-slate-700 block">
-                      {emp.pickupTime || '08:00'}
-                    </span>
-                    <span className="text-[10px] text-slate-400">{emp.phone}</span>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Financial Breakdown Preview */}
-          <div className="p-4 rounded-xl border border-dashed border-slate-300 bg-slate-50 space-y-2 text-xs">
-            <p className="font-bold text-slate-800 flex items-center justify-between">
-              <span>Payment Breakdown:</span>
-              <span className="text-[10px] font-semibold text-blue-600">6% Convenience Fee applied</span>
-            </p>
-            <div className="space-y-1.5 text-slate-600">
-              <div className="flex justify-between items-center">
-                <span>Agreed Trip Fare:</span>
-                <span className="font-bold text-slate-900">{formatCurrency(fareNum)}</span>
-              </div>
-              <div className="flex justify-between items-center text-slate-500">
-                <span>Platform Fee (fixed):</span>
-                <span>- {formatCurrency(platformFee)}</span>
-              </div>
-              <div className="flex justify-between items-center text-slate-500">
-                <span>Convenience Fee (6%):</span>
-                <span>- {formatCurrency(convenienceFee)}</span>
-              </div>
-              <div className="flex justify-between items-center font-bold text-emerald-700 pt-2 border-t border-slate-200 text-sm">
-                <span>Driver Net Payout (Rest):</span>
-                <span>{formatCurrency(driverPayable)}</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Prepaid Wallet Deduction Alert */}
-          <div
-            className={`p-3.5 rounded-xl border flex items-center justify-between ${
-              isBalanceSufficient
-                ? 'bg-emerald-50/90 border-emerald-200 text-emerald-950'
-                : 'bg-red-50/90 border-red-200 text-red-950'
-            }`}
-          >
-            <div>
-              <p className="font-semibold text-xs flex items-center gap-1.5">
-                <WalletIcon className="w-4 h-4 text-emerald-600" />
-                <span>Available Prepaid Wallet Balance: {formatCurrency(walletBalance)}</span>
-              </p>
-              <p className={`text-[11px] mt-0.5 ${isBalanceSufficient ? 'text-emerald-700' : 'text-red-700'}`}>
-                {isBalanceSufficient
-                  ? `✓ Sufficient funds. ${formatCurrency(fareNum)} will be debited upon shift dispatch confirmation.`
-                  : `⚠️ Insufficient wallet balance. You need at least ${formatCurrency(fareNum)} to dispatch this shift.`}
-              </p>
-            </div>
-            <span
-              className={`text-[10px] font-bold px-2 py-0.5 rounded border uppercase ${
-                isBalanceSufficient
-                  ? 'bg-emerald-100 border-emerald-300 text-emerald-800'
-                  : 'bg-red-100 border-red-300 text-red-800'
-              }`}
-            >
-              {isBalanceSufficient ? 'Ready' : 'Low Funds'}
-            </span>
-          </div>
-        </div>
-      </Modal>
+    </div>
+  )}
 
       {/* Location Map Modal */}
       {mapPickerSlotIndex !== null && (
