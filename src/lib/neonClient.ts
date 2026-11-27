@@ -428,13 +428,130 @@ export async function updateTripInNeon(id: string, payload: any): Promise<Trip |
 
 export async function deleteTripFromNeon(idOrTripNo: string): Promise<boolean> {
   try {
+    // 1. Look up trip before deletion to determine if a refund is due
+    let tripToRefund: { id: string; trip_no: string; trip_amount: number; trip_status: string } | null = null
+    try {
+      const tripRows = await sql`
+        SELECT id, trip_no, trip_amount, trip_status 
+        FROM trips 
+        WHERE (id::text = ${idOrTripNo} OR trip_no = ${idOrTripNo}) 
+        LIMIT 1
+      `
+      if (tripRows.length > 0) {
+        tripToRefund = {
+          id: String(tripRows[0].id),
+          trip_no: String(tripRows[0].trip_no),
+          trip_amount: Number(tripRows[0].trip_amount) || 0,
+          trip_status: String(tripRows[0].trip_status || ''),
+        }
+      }
+    } catch (lookupErr) {
+      console.warn('Trip lookup before delete notice:', lookupErr)
+    }
+
+    // Fallback: check local trips if not found in DB
+    if (!tripToRefund) {
+      const localTrips: Trip[] = JSON.parse(localStorage.getItem('glide_mock_trips') || '[]')
+      const matched = localTrips.find((t) => t.id === idOrTripNo || t.tripNo === idOrTripNo)
+      if (matched) {
+        tripToRefund = {
+          id: matched.id,
+          trip_no: matched.tripNo,
+          trip_amount: Number(matched.tripAmount) || 0,
+          trip_status: matched.tripStatus,
+        }
+      }
+    }
+
+    // 2. If trip is deleted before completion, automatically refund 100% of the fare back to wallet
+    if (
+      tripToRefund &&
+      tripToRefund.trip_amount > 0 &&
+      tripToRefund.trip_status !== 'COMPLETED' &&
+      tripToRefund.trip_status !== 'TRIP_COMPLETED'
+    ) {
+      try {
+        const currentWallet = await fetchWalletFromNeon()
+        const prevBalance = currentWallet.balance
+        const refundAmount = tripToRefund.trip_amount
+        const newBalance = prevBalance + refundAmount
+
+        await sql`
+          UPDATE wallets
+          SET balance = ${newBalance}, updated_at = NOW()
+          WHERE id = ${ATHARVA_WALLET_ID} OR entity_id = ${ATHARVA_VENDOR_ID}
+        `
+
+        const [txRow] = await sql`
+          INSERT INTO wallet_transactions (
+            wallet_id,
+            type,
+            amount,
+            previous_balance,
+            new_balance,
+            reference,
+            description,
+            related_trip_id,
+            created_at
+          ) VALUES (
+            ${ATHARVA_WALLET_ID},
+            'CREDIT',
+            ${refundAmount},
+            ${prevBalance},
+            ${newBalance},
+            ${'REFUND-' + tripToRefund.trip_no},
+            ${'Refund for cancelled trip: ' + tripToRefund.trip_no},
+            ${tripToRefund.id},
+            NOW()
+          )
+          RETURNING *
+        `
+
+        localStorage.setItem('glide_mock_wallet_balance', String(newBalance))
+        const existingTxs: WalletTransaction[] = JSON.parse(localStorage.getItem('glide_mock_txs') || '[]')
+        const refundTx: WalletTransaction = {
+          id: String(txRow?.id || `tx_${Date.now()}`),
+          type: 'CREDIT',
+          amount: refundAmount,
+          previousBalance: prevBalance,
+          newBalance,
+          reference: 'REFUND-' + tripToRefund.trip_no,
+          description: 'Refund for cancelled trip: ' + tripToRefund.trip_no,
+          relatedTripId: String(tripToRefund.id),
+          createdAt: new Date().toISOString(),
+        }
+        localStorage.setItem('glide_mock_txs', JSON.stringify([refundTx, ...existingTxs]))
+      } catch (refundErr) {
+        console.warn('Trip cancellation refund warning:', refundErr)
+      }
+    }
+
+    // 3. Delete from Neon DB
     await sql`
       DELETE FROM trips 
       WHERE (id::text = ${idOrTripNo} OR trip_no = ${idOrTripNo})
     `
+
+    // 4. Clean from local trips cache
     const existing: Trip[] = JSON.parse(localStorage.getItem('glide_mock_trips') || '[]')
     const updated = existing.filter((t) => t.id !== idOrTripNo && t.tripNo !== idOrTripNo)
     localStorage.setItem('glide_mock_trips', JSON.stringify(updated))
+
+    // 5. Clean from ETS shift manifests to eliminate split-brain ghost shifts on ETS map
+    try {
+      const savedShifts = localStorage.getItem('ETS_DISPATCHED_SHIFTS')
+      if (savedShifts) {
+        const shifts = JSON.parse(savedShifts)
+        if (Array.isArray(shifts)) {
+          const cleaned = shifts.filter((s: any) => s.id !== idOrTripNo && s.shiftCode !== idOrTripNo)
+          localStorage.setItem('ETS_DISPATCHED_SHIFTS', JSON.stringify(cleaned))
+          window.dispatchEvent(new Event('ets_shift_created'))
+        }
+      }
+    } catch {
+      // ignore
+    }
+
     return true
   } catch (err) {
     console.error('Delete from Neon DB failed:', err)
@@ -808,9 +925,11 @@ export async function fetchDashboardFromNeon(): Promise<DashboardData> {
   return {
     todayTrips: {
       total: trips.length,
-      pending: trips.filter((t) => t.tripStatus === 'PENDING').length,
+      pending: trips.filter((t) => t.tripStatus === 'PENDING' || t.tripStatus === 'TRIP_CREATED').length,
       confirmed: trips.filter((t) => t.tripStatus === 'CONFIRMED').length,
-      inProgress: trips.filter((t) => t.tripStatus === 'IN_PROGRESS').length,
+      inProgress: trips.filter((t) =>
+        ['IN_PROGRESS', 'SEARCHING_DRIVER', 'DRIVER_ASSIGNED', 'EN_ROUTE', 'ARRIVED', 'TRIP_STARTED'].includes(t.tripStatus)
+      ).length,
       completed: trips.filter((t) => t.tripStatus === 'COMPLETED').length,
       cancelled: trips.filter((t) => t.tripStatus === 'CANCELLED').length,
     },
@@ -818,7 +937,7 @@ export async function fetchDashboardFromNeon(): Promise<DashboardData> {
     lowBalanceThreshold: 1000,
     activeDrivers: drivers.filter((d) => d.isActive).length,
     totalDrivers: drivers.length,
-    upcomingTrips: trips.filter((t) => ['PENDING', 'CONFIRMED'].includes(t.tripStatus)),
+    upcomingTrips: trips.filter((t) => ['PENDING', 'CONFIRMED', 'TRIP_CREATED'].includes(t.tripStatus)),
     recentTrips: trips.slice(0, 10),
     recentTransactions: txs.slice(0, 5),
   }

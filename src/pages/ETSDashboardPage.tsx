@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useQuery } from '@tanstack/react-query'
+import { useQuery, useQueryClient } from '@tanstack/react-query'
 import {
   Building2,
   Car,
@@ -33,6 +33,7 @@ import { SlideDeleteModal } from '../components/ui/SlideDeleteModal'
 import { logAuditEvent } from '../lib/auditLogger'
 import { formatCurrency } from '../lib/utils'
 import { deleteTripFromNeon } from '../lib/neonClient'
+import { vendorApi } from '../lib/api'
 import {
   fetchOSRMRoute,
   sortStopsFarthestFirst,
@@ -92,6 +93,7 @@ const DEFAULT_INITIAL_SHIFT: LiveShiftCab = {
 
 export const ETSDashboardPage: React.FC = () => {
   const navigate = useNavigate()
+  const queryClient = useQueryClient()
 
   // Real live shifts state from localStorage
   const [liveShifts, setLiveShifts] = useState<LiveShiftCab[]>(() => {
@@ -147,6 +149,30 @@ export const ETSDashboardPage: React.FC = () => {
     }
   }, [])
 
+  // Sync live shifts strictly with real database trips so no deleted shift lingers on map
+  const { data: dbTripsData } = useQuery({
+    queryKey: ['trips'],
+    queryFn: async () => {
+      const res = await vendorApi.getTrips()
+      return res.data?.data || res.data || []
+    },
+  })
+
+  useEffect(() => {
+    if (dbTripsData && Array.isArray(dbTripsData)) {
+      const validTripNos = new Set(dbTripsData.map((t: any) => t.tripNo || t.id))
+      setLiveShifts((prev) => {
+        const cleaned = prev.filter((s) => validTripNos.has(s.shiftCode) || validTripNos.has(s.id))
+        if (cleaned.length !== prev.length) {
+          try {
+            localStorage.setItem('ETS_DISPATCHED_SHIFTS', JSON.stringify(cleaned))
+          } catch {}
+        }
+        return cleaned
+      })
+    }
+  }, [dbTripsData])
+
   // Modal Control
   const [viewMode, setViewMode] = useState<'DASHBOARD' | 'CREATE_TRIP' | 'EMPLOYEE_LOG'>('DASHBOARD')
   const [prefilledEmployees, setPrefilledEmployees] = useState<CorporateEmployee[]>([])
@@ -192,6 +218,11 @@ export const ETSDashboardPage: React.FC = () => {
       summary: `Deleted ETS shift trip ${deletingShift.shiftCode} for ${deletingShift.hubName}`,
       details: { deleted: deletingShift },
     })
+
+    queryClient.invalidateQueries({ queryKey: ['trips'] })
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    queryClient.invalidateQueries({ queryKey: ['wallet'] })
+    queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] })
 
     toast.success(`Shift ${deletingShift.shiftCode} deleted successfully!`)
     setSelectedShiftForDrawer(null)
