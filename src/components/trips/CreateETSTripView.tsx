@@ -1699,7 +1699,7 @@ return (
           </div>
         </div>
 
-        {/* Car Model Selection ('Any', '2015 - 2019', '2020 - 2023', '2024 and above') - Placed below Payment Breakdown & above Wallet */}
+        {/* Car Model Selection ('Any', '2024 and above', '2023 - 2020', 'Other models') - Placed below Payment Breakdown & above Wallet */}
         <div className="p-4 sm:p-5 bg-slate-50/80 rounded-3xl border border-slate-200/90 space-y-2.5 shadow-xs">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -1715,17 +1715,14 @@ return (
             <select
               value={carModelYear}
               onChange={(e) => setCarModelYear(e.target.value)}
-              className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer shadow-xs"
+              className="w-full sm:w-72 max-w-sm px-4 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer shadow-xs"
             >
               <option value="Any">Any</option>
-              <option value="2015 - 2019">2015 - 2019</option>
-              <option value="2020 - 2023">2020 - 2023</option>
               <option value="2024 and above">2024 and above</option>
+              <option value="2023 - 2020">2023 - 2020</option>
+              <option value="Other models">Other models</option>
             </select>
           </div>
-          <p className="text-[11px] text-slate-500">
-            Select preferred vehicle manufacturing year: Any, 2015 - 2019, 2020 - 2023, or 2024 and above.
-          </p>
         </div>
 
         {/* Wallet Balance Status Banner - Curvy 3xl border */}
