@@ -47,19 +47,16 @@ export const SlideDeleteAction: React.FC<SlideDeleteActionProps> = ({
           type="button"
           onClick={(e) => {
             e.stopPropagation()
-            if (!isSearchingDriver) {
-              onPushToDriver()
-            }
+            onPushToDriver()
           }}
-          disabled={isSearchingDriver}
           title={
             isSearchingDriver
-              ? 'Broadcasting to driver pool... Searching for nearby drivers'
+              ? 'Broadcasting to driver pool... Searching for nearby drivers. Click to view search timer & boost fare.'
               : 'Push trip broadcast to drivers'
           }
           className={`px-2.5 py-1 rounded-lg text-xs font-semibold flex items-center gap-1.5 transition-all whitespace-nowrap cursor-pointer ${
             isSearchingDriver
-              ? 'bg-amber-50 text-amber-800 border border-amber-300 animate-pulse cursor-not-allowed shadow-2xs'
+              ? 'bg-amber-50 hover:bg-amber-100 text-amber-800 border border-amber-300 animate-pulse shadow-2xs'
               : 'bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white shadow-xs'
           }`}
         >

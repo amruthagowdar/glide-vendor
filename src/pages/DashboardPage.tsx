@@ -47,8 +47,19 @@ export const DashboardPage: React.FC = () => {
   } | null>(null)
 
   const handlePushToDriver = async (trip: Trip) => {
+    if (trip.tripStatus === 'SEARCHING_DRIVER') {
+      setSelectedTrip(trip)
+      return
+    }
     try {
-      await vendorApi.updateTrip(trip.id, { tripStatus: 'SEARCHING_DRIVER' })
+      const now = new Date().toISOString()
+      const existingNotes = trip.notes || ''
+      const updatedNotes = existingNotes.includes('[PushedAt:')
+        ? existingNotes.replace(/\[PushedAt:[^\]]+\]/, `[PushedAt: ${now}]`)
+        : `${existingNotes} [PushedAt: ${now}]`.trim()
+
+      await vendorApi.updateTrip(trip.id, { tripStatus: 'SEARCHING_DRIVER', notes: updatedNotes })
+      localStorage.setItem(`glide_pushed_${trip.id}`, Date.now().toString())
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['trips'] })
       toast.success(`Trip ${trip.tripNo} pushed to driver pool. Searching for nearby drivers...`, {

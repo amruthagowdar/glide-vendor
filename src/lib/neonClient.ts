@@ -250,10 +250,12 @@ export async function updateTripInNeon(id: string, payload: any): Promise<Trip |
   try {
     const status = payload.tripStatus || payload.status
     const notes = payload.notes
+    const tripAmount = payload.tripAmount !== undefined ? Number(payload.tripAmount) : null
     const rows = await sql`
       UPDATE trips
       SET trip_status = COALESCE(${status}, trip_status),
           notes = COALESCE(${notes}, notes),
+          trip_amount = COALESCE(${tripAmount}, trip_amount),
           updated_at = NOW()
       WHERE (id::text = ${id} OR trip_no = ${id}) AND company_id = ${ATHARVA_COMPANY_ID}
       RETURNING *
@@ -294,10 +296,25 @@ export async function updateTripInNeon(id: string, payload: any): Promise<Trip |
       localStorage.setItem('glide_mock_trips', JSON.stringify(updatedList))
       return updatedTrip
     }
+    return null
   } catch (err) {
     console.error('Update trip in Neon DB failed:', err)
+    const existing: Trip[] = JSON.parse(localStorage.getItem('glide_mock_trips') || '[]')
+    const updated = existing.map((t) => {
+      if (t.id === id || t.tripNo === id) {
+        return {
+          ...t,
+          ...(payload.tripStatus ? { tripStatus: payload.tripStatus } : {}),
+          ...(payload.notes ? { notes: payload.notes } : {}),
+          ...(payload.tripAmount !== undefined ? { tripAmount: Number(payload.tripAmount) } : {}),
+          updatedAt: new Date().toISOString(),
+        }
+      }
+      return t
+    })
+    localStorage.setItem('glide_mock_trips', JSON.stringify(updated))
+    return updated.find((t) => t.id === id || t.tripNo === id) || null
   }
-  return null
 }
 
 export async function deleteTripFromNeon(idOrTripNo: string): Promise<boolean> {

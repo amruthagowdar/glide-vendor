@@ -28,6 +28,9 @@ import {
   ShieldCheck,
   Trash2,
   Radio,
+  Zap,
+  AlertCircle,
+  TrendingUp,
 } from 'lucide-react'
 
 interface TripDetailDrawerProps {
@@ -50,6 +53,44 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
 
   const queryClient = useQueryClient()
   const [isPushing, setIsPushing] = useState(false)
+  const [searchSeconds, setSearchSeconds] = useState(0)
+  const [selectedBoost, setSelectedBoost] = useState<number | null>(null)
+  const [customBoost, setCustomBoost] = useState<string>('')
+  const [isUpdatingFare, setIsUpdatingFare] = useState(false)
+  const [showBoostPanel, setShowBoostPanel] = useState(false)
+
+  // Track elapsed search seconds when searching for driver
+  useEffect(() => {
+    if (!isOpen || !trip || trip.tripStatus !== 'SEARCHING_DRIVER') {
+      setSearchSeconds(0)
+      return
+    }
+
+    const localPushed = localStorage.getItem(`glide_pushed_${trip.id}`)
+    const notesMatch = trip.notes?.match(/\[PushedAt:\s*([^\]]+)\]/)
+    let startTime = Date.now()
+
+    if (localPushed) {
+      startTime = Number(localPushed)
+    } else if (notesMatch) {
+      const parsed = new Date(notesMatch[1]).getTime()
+      if (!isNaN(parsed)) startTime = parsed
+    } else if (trip.updatedAt) {
+      const parsed = new Date(trip.updatedAt).getTime()
+      if (!isNaN(parsed)) startTime = parsed
+    } else {
+      localStorage.setItem(`glide_pushed_${trip.id}`, Date.now().toString())
+    }
+
+    const calcElapsed = () => Math.max(0, Math.floor((Date.now() - startTime) / 1000))
+    setSearchSeconds(calcElapsed())
+
+    const interval = setInterval(() => {
+      setSearchSeconds(calcElapsed())
+    }, 1000)
+
+    return () => clearInterval(interval)
+  }, [isOpen, trip?.id, trip?.tripStatus, trip?.updatedAt, trip?.notes])
 
   const [routeStats, setRouteStats] = useState<{
     distanceKm: number
@@ -364,8 +405,17 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
     if (!trip) return
     setIsPushing(true)
     try {
-      await vendorApi.updateTrip(trip.id, { tripStatus: 'SEARCHING_DRIVER' })
+      const now = new Date().toISOString()
+      const existingNotes = trip.notes || ''
+      const updatedNotes = existingNotes.includes('[PushedAt:')
+        ? existingNotes.replace(/\[PushedAt:[^\]]+\]/, `[PushedAt: ${now}]`)
+        : `${existingNotes} [PushedAt: ${now}]`.trim()
+
+      await vendorApi.updateTrip(trip.id, { tripStatus: 'SEARCHING_DRIVER', notes: updatedNotes })
+      localStorage.setItem(`glide_pushed_${trip.id}`, Date.now().toString())
+      setSearchSeconds(0)
       trip.tripStatus = 'SEARCHING_DRIVER'
+      trip.notes = updatedNotes
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['trips'] })
       toast.success(`Trip ${trip.tripNo} pushed to driver pool. Searching for nearby available drivers...`, {
@@ -379,6 +429,66 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
       setIsPushing(false)
     }
   }
+
+  const handleApplyFareBoost = async (addedAmount: number) => {
+    if (!trip || addedAmount <= 0) return
+    setIsUpdatingFare(true)
+    try {
+      const current = getFinancialBreakdown(trip)
+      const newBaseFare = current.baseFare + addedAmount
+      const newConvFee = Math.round(newBaseFare * 0.06)
+      const platformFee = 5
+      const newTotalFare = newBaseFare + platformFee + newConvFee
+
+      let notes = trip.notes || ''
+      if (notes.includes('Agreed Base Fare:')) {
+        notes = notes
+          .replace(/\[Agreed Base Fare:\s*₹?\d+\]/gi, `[Agreed Base Fare: ₹${newBaseFare}]`)
+          .replace(/\[Convenience Fee[^:]*:\s*\+?₹?\d+\]/gi, `[Convenience Fee (6%): +₹${newConvFee}]`)
+          .replace(/\[Total Fare:\s*₹?\d+\]/gi, `[Total Fare: ₹${newTotalFare}]`)
+      } else {
+        notes = `${notes} [Agreed Base Fare: ₹${newBaseFare}] [Platform Fee: +₹5] [Convenience Fee (6%): +₹${newConvFee}] [Total Fare: ₹${newTotalFare}]`.trim()
+      }
+
+      const now = new Date().toISOString()
+      notes = notes.includes('[PushedAt:')
+        ? notes.replace(/\[PushedAt:[^\]]+\]/, `[PushedAt: ${now}]`)
+        : `${notes} [PushedAt: ${now}]`.trim()
+
+      await vendorApi.updateTrip(trip.id, {
+        tripAmount: newTotalFare,
+        notes,
+        tripStatus: 'SEARCHING_DRIVER',
+      })
+
+      localStorage.setItem(`glide_pushed_${trip.id}`, Date.now().toString())
+      setSearchSeconds(0)
+      setSelectedBoost(null)
+      setCustomBoost('')
+
+      trip.tripAmount = newTotalFare
+      trip.notes = notes
+
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['trips'] })
+
+      toast.success(
+        `Fare increased by +₹${addedAmount}! New Total: ₹${newTotalFare} (Agreed: ₹${newBaseFare}, Conv (6%): ₹${newConvFee}). Re-broadcasted to drivers.`,
+        { icon: '⚡', duration: 5000 }
+      )
+    } catch (err) {
+      console.error('Failed to update trip fare:', err)
+      toast.error('Could not update fare. Please try again.')
+    } finally {
+      setIsUpdatingFare(false)
+    }
+  }
+
+  const activeBoostAmount = customBoost ? Math.max(0, Number(customBoost) || 0) : (selectedBoost || 0)
+  const previewBaseFare = financials.baseFare + activeBoostAmount
+  const previewConvFee = Math.round(previewBaseFare * 0.06)
+  const previewPlatformFee = 5
+  const previewTotalFare = previewBaseFare + previewPlatformFee + previewConvFee
 
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title={`Trip ${trip.tripNo}`} width="w-[520px]">
@@ -424,19 +534,153 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
           </div>
         </div>
 
-        {/* Searching Driver Broadcast Banner */}
+        {/* Searching Driver Broadcast Banner & 2-Minute Fare Boost Panel */}
         {trip.tripStatus === 'SEARCHING_DRIVER' && (
-          <div className="p-3.5 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 rounded-2xl border border-amber-200 flex items-center justify-between text-xs text-amber-950 shadow-xs animate-in fade-in">
-            <div className="flex items-center gap-2.5 font-semibold">
-              <span className="relative flex h-3 w-3">
-                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
-                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
-              </span>
-              <span>Searching for nearby drivers... Live on Driver App</span>
+          <div className="p-4 bg-gradient-to-b from-amber-50/90 via-orange-50/50 to-white rounded-2xl border border-amber-300 shadow-xs space-y-3.5 animate-in fade-in">
+            {/* Header: Status + Elapsed Timer */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2.5 font-bold text-amber-950 text-xs sm:text-sm">
+                <span className="relative flex h-3 w-3">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+                </span>
+                <span>Searching for Nearby Drivers</span>
+              </div>
+              <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-100 text-amber-900 font-mono font-bold text-xs border border-amber-200">
+                <Clock className="w-3.5 h-3.5 text-amber-700" />
+                <span>
+                  {Math.floor(searchSeconds / 60)
+                    .toString()
+                    .padStart(2, '0')}
+                  :
+                  {(searchSeconds % 60).toString().padStart(2, '0')}
+                </span>
+              </div>
             </div>
-            <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider bg-white/80 px-2 py-0.5 rounded-full border border-amber-200">
-              Broadcasting
-            </span>
+
+            {/* 2-Minute Inactivity Notification / Early Boost Toggle */}
+            {searchSeconds >= 120 ? (
+              <div className="p-3 bg-amber-100/90 rounded-xl border border-amber-300/80 flex items-start gap-2.5 text-xs text-amber-950">
+                <AlertCircle className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
+                <div>
+                  <p className="font-bold">No driver accepted in 2 minutes!</p>
+                  <p className="text-amber-800 text-[11px] mt-0.5 leading-relaxed">
+                    Trip has been broadcasting for over 2 minutes without an acceptance. Increase the trip fare below to incentivize nearby drivers to accept immediately.
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex items-center justify-between text-[11px] text-amber-800 bg-amber-50/80 px-3 py-1.5 rounded-lg border border-amber-200/60">
+                <span>Broadcasting live on driver app ({Math.max(0, 120 - searchSeconds)}s until 2-min boost prompt)</span>
+                <button
+                  type="button"
+                  onClick={() => setShowBoostPanel((prev) => !prev)}
+                  className="font-bold text-amber-900 hover:text-amber-700 underline cursor-pointer ml-2"
+                >
+                  {showBoostPanel ? 'Hide Boost' : '+ Boost Fare Early'}
+                </button>
+              </div>
+            )}
+
+            {/* Fare Boost Options (Always visible when >= 2 mins, or when toggled early) */}
+            {(searchSeconds >= 120 || showBoostPanel) && (
+              <div className="pt-2 border-t border-amber-200/70 space-y-2.5">
+                <div className="flex items-center justify-between">
+                  <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-amber-600" />
+                    <span>Select Trip Fare Incentive:</span>
+                  </span>
+                  <span className="text-[10px] text-slate-500 font-medium">Adds to Agreed Base Fare</span>
+                </div>
+
+                {/* Preset Increments & Custom Fare Input */}
+                <div className="flex flex-wrap items-center gap-2">
+                  {[20, 30, 50, 100].map((amt) => {
+                    const isSelected = selectedBoost === amt && !customBoost
+                    return (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => {
+                          setSelectedBoost(amt)
+                          setCustomBoost('')
+                        }}
+                        className={`px-3 py-1.5 rounded-xl text-xs font-bold border transition-all cursor-pointer ${
+                          isSelected
+                            ? 'bg-amber-500 text-white border-amber-600 shadow-xs scale-105'
+                            : 'bg-white text-slate-700 border-slate-200 hover:border-amber-300 hover:bg-amber-50/50'
+                        }`}
+                      >
+                        + ₹{amt}
+                      </button>
+                    )
+                  })}
+
+                  {/* Custom Fare Input */}
+                  <div className="flex items-center gap-1 bg-white px-2.5 py-1 rounded-xl border border-slate-200 focus-within:border-amber-500 focus-within:ring-1 focus-within:ring-amber-500">
+                    <span className="text-xs font-bold text-slate-500">+ ₹</span>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="Custom"
+                      value={customBoost}
+                      onChange={(e) => {
+                        setCustomBoost(e.target.value)
+                        setSelectedBoost(null)
+                      }}
+                      className="w-16 text-xs font-bold text-slate-800 outline-none bg-transparent"
+                    />
+                  </div>
+                </div>
+
+                {/* Dynamic Fare Recalculation Preview Box */}
+                {activeBoostAmount > 0 && (
+                  <div className="p-3 bg-white/95 rounded-xl border border-amber-300 text-xs space-y-1.5 shadow-2xs animate-in fade-in">
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>New Agreed Base Fare:</span>
+                      <span className="font-bold text-slate-900">
+                        {formatCurrency(financials.baseFare)} →{' '}
+                        <span className="text-amber-700">{formatCurrency(previewBaseFare)}</span>{' '}
+                        <span className="text-[10px] text-emerald-600 font-semibold">(+₹{activeBoostAmount})</span>
+                      </span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-500 text-[11px]">
+                      <span>Platform Fee (fixed):</span>
+                      <span className="font-semibold text-slate-700">+ ₹5</span>
+                    </div>
+                    <div className="flex justify-between items-center text-slate-600">
+                      <span>Convenience Fee (6% of base):</span>
+                      <span className="font-bold text-slate-900">
+                        + {formatCurrency(previewConvFee)}{' '}
+                        <span className="text-[10px] text-slate-400 font-normal">
+                          (+₹{previewConvFee - financials.convenienceFee})
+                        </span>
+                      </span>
+                    </div>
+                    <div className="pt-2 border-t border-slate-200 flex justify-between items-center font-bold text-sm">
+                      <span className="text-slate-900">New Total Trip Fare:</span>
+                      <span className="text-emerald-700 text-base font-extrabold">
+                        {formatCurrency(previewTotalFare)}
+                      </span>
+                    </div>
+
+                    <button
+                      type="button"
+                      onClick={() => handleApplyFareBoost(activeBoostAmount)}
+                      disabled={isUpdatingFare}
+                      className="w-full mt-2.5 py-2 px-3 rounded-xl bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-xs transition-all cursor-pointer disabled:opacity-60"
+                    >
+                      <Zap className="w-3.5 h-3.5 fill-current" />
+                      <span>
+                        {isUpdatingFare
+                          ? 'Updating Fare & Re-broadcasting...'
+                          : `Update Fare to ${formatCurrency(previewTotalFare)} & Re-broadcast`}
+                      </span>
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
