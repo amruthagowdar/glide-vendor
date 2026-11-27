@@ -212,8 +212,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 
   const fareNum = parseFloat(tripAmount) || 0
   const walletBalance = wallet?.balance ?? 0
-  // Wallet option is frozen across portal - direct billing active without wallet requirement
-  const isBalanceSufficient = true
+  // Strict Prepaid Wallet: Wallet balance must be greater than or equal to trip fare
+  const isBalanceSufficient = fareNum <= 0 || walletBalance >= fareNum
 
   // Financial Breakdown calculations
   // Platform fee: ₹10 fixed on any trip
@@ -312,6 +312,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     }
     if (fareNum <= 0) {
       toast.error('Trip amount must be greater than ₹0')
+      return false
+    }
+    if (walletBalance < fareNum) {
+      toast.error(`Insufficient wallet balance (${formatCurrency(walletBalance)}). You need at least ${formatCurrency(fareNum)} to book this trip. Please add funds.`)
       return false
     }
     return true
@@ -453,9 +457,15 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
               ) : (
                 <button
                   type="button"
-                  disabled={createTripMutation.isPending}
-                  onClick={() => createTripMutation.mutate()}
-                  className="bg-slate-800 hover:bg-slate-900 text-white text-sm flex items-center gap-1.5 font-semibold py-2 px-4 rounded-xl shadow-sm border border-slate-700 disabled:opacity-50"
+                  disabled={createTripMutation.isPending || !isBalanceSufficient}
+                  onClick={() => {
+                    if (!isBalanceSufficient) {
+                      toast.error('Insufficient wallet balance. Please add funds to book this trip.')
+                      return
+                    }
+                    createTripMutation.mutate()
+                  }}
+                  className="bg-slate-800 hover:bg-slate-900 text-white text-sm flex items-center gap-1.5 font-semibold py-2 px-4 rounded-xl shadow-sm border border-slate-700 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {createTripMutation.isPending ? (
                     <span>Creating Trip...</span>
@@ -1112,22 +1122,45 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                 )}
               </div>
 
-              {/* Wallet Balance Status */}
-              <div className="p-3 rounded-xl bg-sky-50 border border-sky-100 text-sky-950 flex items-center justify-between text-xs">
+              {/* Wallet Balance Status Banner */}
+              <div
+                className={`p-3.5 rounded-xl border flex items-center justify-between ${
+                  isBalanceSufficient
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    : 'bg-red-50 border-red-200 text-red-900'
+                }`}
+              >
                 <div>
-                  <p className="font-semibold text-sky-950 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    Available Wallet Balance: {formatCurrency(wallet?.balance ?? 0)}
+                  <p className="font-semibold text-xs sm:text-sm flex items-center gap-1.5">
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        isBalanceSufficient ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'
+                      }`}
+                    />
+                    {isBalanceSufficient
+                      ? `Available Wallet Balance: ${formatCurrency(walletBalance)}`
+                      : 'Insufficient Wallet Balance'}
                   </p>
-                  <p className="text-[11px] text-sky-700 mt-0.5">
-                    Estimated trip fare will be atomically deducted and held in escrow.
+                  <p className={`text-[11px] mt-0.5 ${isBalanceSufficient ? 'text-emerald-700' : 'text-red-700'}`}>
+                    {isBalanceSufficient
+                      ? `${formatCurrency(fareNum)} will be debited and held in escrow upon booking confirmation.`
+                      : `Your wallet balance is ${formatCurrency(walletBalance)}. You need at least ${formatCurrency(fareNum)} to book this trip.`}
                   </p>
+                  {!isBalanceSufficient && (
+                    <p className="text-[11px] text-red-800 font-semibold mt-1">
+                      ⚠️ Please recharge with at least {formatCurrency(fareNum - walletBalance)} to continue.
+                    </p>
+                  )}
                 </div>
                 {onOpenRechargeModal && (
                   <button
                     type="button"
                     onClick={onOpenRechargeModal}
-                    className="text-xs text-blue-600 font-bold hover:underline ml-2 flex-shrink-0"
+                    className={`text-xs font-bold px-3 py-1.5 rounded-lg flex-shrink-0 ml-2 shadow-xs transition-all ${
+                      isBalanceSufficient
+                        ? 'bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100'
+                        : 'bg-red-600 text-white hover:bg-red-700'
+                    }`}
                   >
                     + Add Funds
                   </button>
@@ -1286,21 +1319,39 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
               </div>
 
               {/* Wallet Balance Status */}
-              <div className="p-3.5 rounded-xl bg-sky-50 border border-sky-100 text-sky-950 flex items-center justify-between text-xs">
+              <div
+                className={`p-3.5 rounded-xl border flex items-center justify-between ${
+                  isBalanceSufficient
+                    ? 'bg-emerald-50 border-emerald-200 text-emerald-900'
+                    : 'bg-red-50 border-red-200 text-red-900'
+                }`}
+              >
                 <div>
-                  <p className="font-semibold text-sky-950 flex items-center gap-1.5">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500" />
-                    Wallet Balance: {formatCurrency(wallet?.balance ?? 0)}
+                  <p className="font-semibold text-xs sm:text-sm flex items-center gap-1.5">
+                    <span
+                      className={`w-2 h-2 rounded-full ${
+                        isBalanceSufficient ? 'bg-emerald-500' : 'bg-red-500 animate-pulse'
+                      }`}
+                    />
+                    {isBalanceSufficient
+                      ? `Wallet Balance: ${formatCurrency(walletBalance)}`
+                      : 'Insufficient Wallet Balance'}
                   </p>
-                  <p className="text-[11px] text-sky-700 mt-0.5">
-                    Automated escrow deduction active on trip confirmation.
+                  <p className={`text-[11px] mt-0.5 ${isBalanceSufficient ? 'text-emerald-700' : 'text-red-700'}`}>
+                    {isBalanceSufficient
+                      ? `Available: ${formatCurrency(walletBalance)} · Fare: ${formatCurrency(fareNum)}`
+                      : `Available: ${formatCurrency(walletBalance)} · Required: ${formatCurrency(fareNum)}. Please recharge ${formatCurrency(fareNum - walletBalance)} to dispatch.`}
                   </p>
                 </div>
                 {onOpenRechargeModal && (
                   <button
                     type="button"
                     onClick={onOpenRechargeModal}
-                    className="text-xs text-blue-600 font-bold hover:underline ml-2 flex-shrink-0"
+                    className={`text-xs font-bold px-3 py-1.5 rounded-lg flex-shrink-0 ml-2 shadow-xs transition-all ${
+                      isBalanceSufficient
+                        ? 'bg-white border border-emerald-300 text-emerald-800 hover:bg-emerald-100'
+                        : 'bg-red-600 text-white hover:bg-red-700'
+                    }`}
                   >
                     + Add Funds
                   </button>

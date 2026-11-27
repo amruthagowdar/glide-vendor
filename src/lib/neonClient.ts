@@ -170,6 +170,39 @@ export async function createTripInNeon(payload: any): Promise<Trip> {
       updatedAt: inserted.updated_at ? new Date(inserted.updated_at).toISOString() : new Date().toISOString(),
     }
 
+    // Auto-debit prepaid wallet in Neon DB for strict wallet balance tracking
+    if (tripAmount > 0) {
+      try {
+        await sql`
+          UPDATE wallets
+          SET balance = GREATEST(0, balance - ${tripAmount}),
+              updated_at = NOW()
+          WHERE id = ${ATHARVA_WALLET_ID} OR entity_id = ${ATHARVA_VENDOR_ID}
+        `
+        await sql`
+          INSERT INTO wallet_transactions (
+            wallet_id,
+            amount,
+            type,
+            reference,
+            description,
+            created_at
+          ) VALUES (
+            ${ATHARVA_WALLET_ID},
+            ${tripAmount},
+            'DEBIT',
+            ${'TRIP-' + tripNo},
+            ${'Trip booking fare: ' + tripNo},
+            NOW()
+          )
+        `
+        const currLocal = parseFloat(localStorage.getItem('glide_mock_wallet_balance') || '0')
+        localStorage.setItem('glide_mock_wallet_balance', String(Math.max(0, currLocal - tripAmount)))
+      } catch (wErr) {
+        console.warn('Neon DB wallet balance debit warning:', wErr)
+      }
+    }
+
     const existing = JSON.parse(localStorage.getItem('glide_mock_trips') || '[]')
     localStorage.setItem('glide_mock_trips', JSON.stringify([newTrip, ...existing]))
 
