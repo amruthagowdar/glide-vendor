@@ -283,23 +283,24 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
     const targetCount = v === 'SEDAN' ? 3 : 6
     const defaultTimes = ['07:00', '07:15', '07:30', '07:45', '08:00', '08:15']
     setEmployees((prev) => {
-      if (prev.length === targetCount) return prev
-      if (prev.length < targetCount) {
-        const extra: EmployeeSlot[] = Array.from(
-          { length: targetCount - prev.length },
-          (_, idx) => ({
-            name: '',
-            phone: '',
-            address: '',
-            lat: '',
-            lng: '',
-            geoCode: '',
-            pickupTime: defaultTimes[prev.length + idx] || '08:00',
-          })
-        )
-        return [...prev, ...extra]
+      const copy = [...prev]
+      while (copy.length < targetCount) {
+        const idx = copy.length
+        copy.push({
+          name: '',
+          phone: '',
+          address: '',
+          lat: '',
+          lng: '',
+          geoCode: '',
+          pickupTime: defaultTimes[idx] || '08:00',
+          gender: 'MALE',
+        })
       }
-      return prev.slice(0, targetCount)
+      return copy.slice(0, targetCount).map((s) => ({
+        ...s,
+        gender: s.gender || 'MALE',
+      }))
     })
   }
 
@@ -685,17 +686,22 @@ const [showOptionalEscort, setShowOptionalEscort] = useState(false)
 // Active target slots (Sedan: 3 slots, SUV: 6 slots)
 const currentSlots = employees.slice(0, vehicleChoice === 'SEDAN' ? 3 : 6)
 
-// Active passenger slots that actually have employee data filled (Name or Phone or Address)
-const activePassengerSlots = currentSlots.filter(
-  (e) => e.name.trim().length > 0 || e.phone.trim().length > 0 || e.address.trim().length > 0
+// Active passenger slots that actually have employee data filled (Name or Address)
+const filledPassengerSlots = currentSlots.filter(
+  (e) => e.name.trim().length > 0 || e.address.trim().length > 0
 )
 
 // In Home Drop, determine drop sequence based on active filled passengers, or configured slots
-const targetSlots = activePassengerSlots.length > 0 ? activePassengerSlots : currentSlots
-const lastDropIndex = targetSlots.length - 1
-const lastDropSlot = targetSlots[lastDropIndex]
+const lastDropSlot =
+  filledPassengerSlots.length > 0
+    ? filledPassengerSlots[filledPassengerSlots.length - 1]
+    : currentSlots[currentSlots.length - 1]
+
 const isLastDropFemale = lastDropSlot?.gender === 'FEMALE'
 
+const activePassengerSlots = currentSlots.filter(
+  (e) => e.name.trim().length > 0 || e.phone.trim().length > 0 || e.address.trim().length > 0
+)
 const femaleSlots = activePassengerSlots.filter((e) => e.gender === 'FEMALE')
 const hasFemaleInVehicle = femaleSlots.length > 0
 const totalFemalesInVehicle = femaleSlots.length
@@ -1050,14 +1056,14 @@ return (
 
       {/* Dynamic Employee Slots */}
       <div className="space-y-4">
-        {employees.map((slot, idx) => {
+        {currentSlots.map((slot, idx) => {
           const isConfirmed = Boolean(slot.lat && slot.lng && slot.address.trim())
           const slotNumber = idx + 1
 
           // Escort trigger for this specific employee slot:
           // In Logout: The final drop employee if female triggers escort
           // In Login: first pickup or single female slot triggers escort
-          const isFinalDropSlot = idx === targetSlots.length - 1
+          const isFinalDropSlot = slot === lastDropSlot
           const isThisSlotTrigger =
             isNightWindow &&
             slot.gender === 'FEMALE' &&
@@ -1411,7 +1417,7 @@ return (
                   <>
                     <strong>Drop Trip Rule (Office → Home):</strong> The final employee to be dropped in this shift is female (
                     <span className="font-bold underline text-slate-900">
-                      {lastDropSlot?.name.trim() || `Employee #${targetSlots.length}`}
+                      {lastDropSlot?.name.trim() || (lastDropSlot ? `Employee #${currentSlots.indexOf(lastDropSlot) + 1}` : 'Employee')}
                     </span>
                     ). Under Karnataka corporate transport safety standards, a verified Security Escort Guard is required to accompany the vehicle until the final drop to ensure she is not left alone with the driver.
                   </>
