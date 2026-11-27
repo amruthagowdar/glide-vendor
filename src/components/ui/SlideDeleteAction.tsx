@@ -1,10 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react'
-import { MoreVertical, Edit3, Trash2, SlidersHorizontal } from 'lucide-react'
+import { MoreVertical, Edit3, Trash2, SlidersHorizontal, Radio } from 'lucide-react'
 
 interface SlideDeleteActionProps {
   onEdit: () => void
   onDelete: () => void
   onSlideDelete?: () => void
+  onPushToDriver?: () => void
+  isSearchingDriver?: boolean
   itemLabel?: string
 }
 
@@ -12,6 +14,8 @@ export const SlideDeleteAction: React.FC<SlideDeleteActionProps> = ({
   onEdit,
   onDelete,
   onSlideDelete,
+  onPushToDriver,
+  isSearchingDriver = false,
   itemLabel = 'item',
 }) => {
   const [isOpen, setIsOpen] = useState(false)
@@ -71,7 +75,25 @@ export const SlideDeleteAction: React.FC<SlideDeleteActionProps> = ({
 
       {/* Popover Dropdown Menu */}
       {isOpen && (
-        <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white border border-slate-200 shadow-xl z-50 py-1.5 divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100">
+        <div className="absolute right-0 top-full mt-1.5 w-48 rounded-xl bg-white border border-slate-200 shadow-xl z-50 py-1.5 divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100">
+          {onPushToDriver && (
+            <div className="py-1">
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  setIsOpen(false)
+                  onPushToDriver()
+                }}
+                disabled={isSearchingDriver}
+                className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-amber-700 hover:bg-amber-50 hover:text-amber-900 transition-colors text-left disabled:opacity-60 cursor-pointer"
+              >
+                <Radio className={`w-3.5 h-3.5 text-amber-600 ${isSearchingDriver ? 'animate-pulse' : ''}`} />
+                <span>{isSearchingDriver ? 'Searching Driver...' : 'Push to Driver'}</span>
+              </button>
+            </div>
+          )}
+
           <div className="py-1">
             <button
               type="button"

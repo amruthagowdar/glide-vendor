@@ -1,8 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import { Drawer } from '../ui/Modal'
 import { StatusBadge, PaymentBadge } from '../ui/StatusBadge'
 import { TripStatusTimeline } from '../ui/TripStatusTimeline'
 import { formatCurrency, formatDateTime } from '../../lib/utils'
+import { vendorApi } from '../../lib/api'
+import toast from 'react-hot-toast'
 import {
   fetchOSRMRoute,
   resolveBengaluruCoords,
@@ -24,6 +27,7 @@ import {
   RotateCcw,
   ShieldCheck,
   Trash2,
+  Radio,
 } from 'lucide-react'
 
 interface TripDetailDrawerProps {
@@ -43,6 +47,9 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
   const mapInstanceRef = useRef<any>(null)
   const routeLayerRef = useRef<any>(null)
   const polylineBoundsRef = useRef<any>(null)
+
+  const queryClient = useQueryClient()
+  const [isPushing, setIsPushing] = useState(false)
 
   const [routeStats, setRouteStats] = useState<{
     distanceKm: number
@@ -351,20 +358,87 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
   const vendorNotesClean = extractCleanVendorNotes(trip.notes)
   const modelYearMatch = trip.notes?.match(/\[Model Year:\s*([^\]]+)\]/i)
   const modelYear = modelYearMatch ? modelYearMatch[1].trim() : null
+  const isETS = trip.serviceType === 'ETS' || String(trip.tripNo || '').startsWith('ETS-')
+
+  const handlePushToDriver = async () => {
+    if (!trip) return
+    setIsPushing(true)
+    try {
+      await vendorApi.updateTrip(trip.id, { tripStatus: 'SEARCHING_DRIVER' })
+      trip.tripStatus = 'SEARCHING_DRIVER'
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['trips'] })
+      toast.success(`Trip ${trip.tripNo} pushed to driver pool. Searching for nearby available drivers...`, {
+        icon: '📡',
+        duration: 4000,
+      })
+    } catch (err) {
+      console.error('Failed to push to driver:', err)
+      toast.error('Could not push to driver. Please try again.')
+    } finally {
+      setIsPushing(false)
+    }
+  }
 
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title={`Trip ${trip.tripNo}`} width="w-[520px]">
       <div className="space-y-5">
-        {/* Header Badges */}
+        {/* Header Badges & Push to Driver Button */}
         <div className="flex items-center justify-between pb-3 border-b border-sky-100">
           <div className="flex items-center gap-2">
-            <span className="text-xs font-bold px-2.5 py-1 rounded-md bg-sky-100 text-sky-800">
-              {trip.serviceType}
+            <span
+              className={`text-xs font-bold px-2.5 py-1 rounded-md ${
+                isETS ? 'bg-indigo-100 text-indigo-800 border border-indigo-200' : 'bg-sky-100 text-sky-800'
+              }`}
+            >
+              {isETS ? 'ETS' : trip.serviceType}
             </span>
             <StatusBadge status={trip.tripStatus} />
           </div>
-          <PaymentBadge status={trip.paymentStatus} />
+          <div className="flex items-center gap-2">
+            <PaymentBadge status={trip.paymentStatus} />
+            {trip.tripStatus !== 'COMPLETED' && trip.tripStatus !== 'CANCELLED' && (
+              <button
+                type="button"
+                onClick={handlePushToDriver}
+                disabled={isPushing || trip.tripStatus === 'SEARCHING_DRIVER'}
+                className={`flex items-center gap-1.5 px-3 py-1 rounded-lg text-xs font-bold transition-all shadow-xs cursor-pointer ${
+                  trip.tripStatus === 'SEARCHING_DRIVER'
+                    ? 'bg-amber-100 text-amber-800 border border-amber-300'
+                    : 'bg-amber-500 hover:bg-amber-600 active:bg-amber-700 text-white shadow-amber-500/25'
+                }`}
+                title={
+                  trip.tripStatus === 'SEARCHING_DRIVER'
+                    ? 'Currently broadcasting to driver app'
+                    : 'Push trip to driver pool'
+                }
+              >
+                <Radio
+                  className={`w-3.5 h-3.5 ${
+                    trip.tripStatus === 'SEARCHING_DRIVER' ? 'animate-pulse text-amber-700' : 'text-white'
+                  }`}
+                />
+                <span>{trip.tripStatus === 'SEARCHING_DRIVER' ? 'Searching Driver...' : 'Push to Driver'}</span>
+              </button>
+            )}
+          </div>
         </div>
+
+        {/* Searching Driver Broadcast Banner */}
+        {trip.tripStatus === 'SEARCHING_DRIVER' && (
+          <div className="p-3.5 bg-gradient-to-r from-amber-50 via-orange-50 to-amber-50 rounded-2xl border border-amber-200 flex items-center justify-between text-xs text-amber-950 shadow-xs animate-in fade-in">
+            <div className="flex items-center gap-2.5 font-semibold">
+              <span className="relative flex h-3 w-3">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
+                <span className="relative inline-flex rounded-full h-3 w-3 bg-amber-500"></span>
+              </span>
+              <span>Searching for nearby drivers... Live on Driver App</span>
+            </div>
+            <span className="text-[10px] font-bold text-amber-800 uppercase tracking-wider bg-white/80 px-2 py-0.5 rounded-full border border-amber-200">
+              Broadcasting
+            </span>
+          </div>
+        )}
 
         {/* Live Road Route & GMaps Leaflet View */}
         <div className="card p-4 space-y-3 border-sky-200 shadow-sm bg-gradient-to-b from-white to-slate-50/50">
@@ -404,7 +478,7 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
               <button
                 onClick={handleCenterRoute}
                 title="Fit road route to screen"
-                className="p-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 backdrop-blur-md shadow-md transition-colors"
+                className="p-1.5 rounded-lg bg-slate-900/90 hover:bg-slate-800 text-slate-300 hover:text-white border border-slate-700 backdrop-blur-md shadow-md transition-colors cursor-pointer"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
               </button>
@@ -426,7 +500,9 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
             <div className="flex items-start gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full bg-emerald-500 mt-1 flex-shrink-0" />
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-emerald-800 text-[11px]">Pickup Location</p>
+                <p className="font-semibold text-emerald-800 text-[11px]">
+                  {isETS ? 'Employee Pickup Location' : 'Customer Pickup Location'}
+                </p>
                 <p className="text-slate-800 text-xs font-medium leading-relaxed">{trip.pickup}</p>
               </div>
             </div>
@@ -434,18 +510,20 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
             <div className="flex items-start gap-2.5">
               <span className="w-2.5 h-2.5 rounded-full bg-rose-500 mt-1 flex-shrink-0" />
               <div className="min-w-0 flex-1">
-                <p className="font-semibold text-rose-800 text-[11px]">Drop Destination</p>
+                <p className="font-semibold text-rose-800 text-[11px]">
+                  {isETS ? 'Employee Drop Destination' : 'Customer Drop Destination'}
+                </p>
                 <p className="text-slate-800 text-xs font-medium leading-relaxed">{trip.drop}</p>
               </div>
             </div>
           </div>
         </div>
 
-        {/* Passenger Information */}
+        {/* Passenger / Employee Information */}
         <div className="card p-4 space-y-2">
           <div className="flex items-center gap-2 text-xs font-semibold text-sky-900 uppercase tracking-wider">
             <User className="w-4 h-4 text-sky-700" />
-            <span>Passenger Details</span>
+            <span>{isETS ? 'Employee Details' : 'Customer Details'}</span>
           </div>
           <p className="font-semibold text-slate-800 text-base">{trip.passengerName}</p>
           <div className="flex items-center gap-2 text-xs text-slate-500">

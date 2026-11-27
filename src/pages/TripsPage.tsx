@@ -16,8 +16,10 @@ import { formatCurrency, formatDateTime } from '../lib/utils'
 import type { Trip, ServiceType, TripStatus, Driver } from '../types'
 import toast from 'react-hot-toast'
 
-const SERVICES: ServiceType[] = ['RAC', 'OUTSTATION', 'PACKAGE']
+const SERVICES: ServiceType[] = ['ETS', 'RAC', 'OUTSTATION', 'PACKAGE', 'EMERGENCY']
 const STATUSES: TripStatus[] = [
+  'TRIP_CREATED',
+  'SEARCHING_DRIVER',
   'PENDING',
   'CONFIRMED',
   'DRIVER_ASSIGNED',
@@ -58,6 +60,21 @@ export const TripsPage: React.FC = () => {
       toast.error(err?.message || 'Failed to delete trip.')
     } finally {
       setDeletingTrip(null)
+    }
+  }
+
+  const handlePushToDriver = async (trip: Trip) => {
+    try {
+      await vendorApi.updateTrip(trip.id, { tripStatus: 'SEARCHING_DRIVER' })
+      queryClient.invalidateQueries({ queryKey: ['trips'] })
+      queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      toast.success(`Trip ${trip.tripNo} pushed to driver pool. Searching for nearby drivers...`, {
+        icon: '📡',
+        duration: 4000,
+      })
+    } catch (err) {
+      console.error('Failed to push to driver:', err)
+      toast.error('Could not push to driver. Please try again.')
     }
   }
 
@@ -292,21 +309,35 @@ export const TripsPage: React.FC = () => {
             {
               key: 'serviceType',
               header: 'Service',
-              render: (row) => (
-                <span className="text-xs font-semibold px-2 py-0.5 rounded bg-sky-50 text-sky-800 border border-sky-200">
-                  {row.serviceType}
-                </span>
-              ),
+              render: (row) => {
+                const isETS = row.serviceType === 'ETS' || String(row.tripNo || '').startsWith('ETS-')
+                return (
+                  <span
+                    className={`text-xs font-semibold px-2 py-0.5 rounded ${
+                      isETS
+                        ? 'bg-indigo-50 text-indigo-800 border border-indigo-200'
+                        : 'bg-sky-50 text-sky-800 border border-sky-200'
+                    }`}
+                  >
+                    {isETS ? 'ETS' : row.serviceType}
+                  </span>
+                )
+              },
             },
             {
               key: 'passengerName',
-              header: 'Passenger',
-              render: (row) => (
-                <div>
-                  <p className="font-medium text-slate-800 text-xs">{row.passengerName}</p>
-                  <p className="text-[11px] text-slate-400">{row.passengerPhone}</p>
-                </div>
-              ),
+              header: 'Passenger / Employee',
+              render: (row) => {
+                const isETS = row.serviceType === 'ETS' || String(row.tripNo || '').startsWith('ETS-')
+                return (
+                  <div>
+                    <p className="font-medium text-slate-800 text-xs">{row.passengerName}</p>
+                    <p className="text-[11px] text-slate-400">
+                      {isETS ? 'Employee' : 'Customer'} • {row.passengerPhone}
+                    </p>
+                  </div>
+                )
+              },
             },
             {
               key: 'pickup',
@@ -370,6 +401,8 @@ export const TripsPage: React.FC = () => {
                 <SlideDeleteAction
                   itemLabel="trip"
                   onEdit={() => setEditingTrip(row)}
+                  onPushToDriver={() => handlePushToDriver(row)}
+                  isSearchingDriver={row.tripStatus === 'SEARCHING_DRIVER'}
                   onDelete={() => setDeletingTrip(row)}
                   onSlideDelete={() => setDeletingTrip(row)}
                 />

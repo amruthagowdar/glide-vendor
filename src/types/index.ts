@@ -1,7 +1,9 @@
-export type ServiceType = 'RAC' | 'EMERGENCY' | 'OUTSTATION' | 'PACKAGE';
+export type ServiceType = 'RAC' | 'EMERGENCY' | 'OUTSTATION' | 'PACKAGE' | 'ETS';
 export type TripStatus =
   | 'PENDING'
   | 'CONFIRMED'
+  | 'TRIP_CREATED'
+  | 'SEARCHING_DRIVER'
   | 'DRIVER_ASSIGNED'
   | 'EN_ROUTE'
   | 'ARRIVED'

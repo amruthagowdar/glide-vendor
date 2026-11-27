@@ -884,7 +884,8 @@ const handleSaveAndCreateTrip = async () => {
     // Sync to Neon DB in background so all devices see this trip
     createTripInNeon({
       tripNo: shiftCode,
-      serviceType: 'RAC',
+      serviceType: 'ETS',
+      tripStatus: 'TRIP_CREATED',
       passengerName: filledEmployees.map((e) => e.name).join(', ') || 'Corporate Employees',
       passengerPhone: filledEmployees[0]?.phone || '9999999999',
       pickup: tripType === 'Login' ? filledEmployees[0]?.address || 'Employee Home Pickup' : companyName,

@@ -47,6 +47,8 @@ export function formatTime(timeStr: string): string {
 export const tripStatusConfig: Record<TripStatus, { label: string; color: string }> = {
   PENDING: { label: 'Pending', color: 'bg-slate-100 text-slate-700' },
   CONFIRMED: { label: 'Confirmed', color: 'bg-blue-100 text-blue-700' },
+  TRIP_CREATED: { label: 'Trip Created', color: 'bg-sky-50 text-sky-700 border border-sky-200' },
+  SEARCHING_DRIVER: { label: 'Searching for Driver', color: 'bg-amber-100 text-amber-800 border border-amber-200' },
   DRIVER_ASSIGNED: { label: 'Driver Assigned', color: 'bg-indigo-100 text-indigo-700' },
   EN_ROUTE: { label: 'En Route', color: 'bg-cyan-100 text-cyan-700' },
   ARRIVED: { label: 'Arrived', color: 'bg-purple-100 text-purple-700' },
@@ -57,6 +59,7 @@ export const tripStatusConfig: Record<TripStatus, { label: string; color: string
 
 export const serviceTypeConfig: Record<ServiceType, { label: string; color: string; icon: string; bg: string }> = {
   RAC: { label: 'Airport Transfer', color: 'text-sky-700', bg: 'bg-sky-50 border-sky-200', icon: 'Plane' },
+  ETS: { label: 'Employee Transport', color: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-200', icon: 'Users' },
   EMERGENCY: { label: 'Emergency', color: 'text-red-700', bg: 'bg-red-50 border-red-200', icon: 'Siren' },
   OUTSTATION: { label: 'Outstation', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200', icon: 'MapPin' },
   PACKAGE: { label: 'Package', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200', icon: 'Package' },

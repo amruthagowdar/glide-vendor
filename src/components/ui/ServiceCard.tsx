@@ -45,6 +45,7 @@ export const ServiceCard: React.FC<ServiceCardProps> = ({ service, selected, onC
 function getServiceDescription(service: ServiceType): string {
   const descs: Record<ServiceType, string> = {
     RAC: 'BLR Airport Pickup & Drop',
+    ETS: 'Corporate employee shift transport',
     EMERGENCY: 'Urgent/priority transport',
     OUTSTATION: 'Inter-city travel',
     PACKAGE: 'Multi-stop package',

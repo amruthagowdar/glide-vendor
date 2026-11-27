@@ -1,5 +1,5 @@
 import { neon } from '@neondatabase/serverless'
-import type { Trip, Driver, Vehicle, DashboardData, Wallet, WalletTransaction } from '../types'
+import type { Trip, Driver, Vehicle, DashboardData, Wallet, WalletTransaction, ServiceType, TripStatus } from '../types'
 
 const NEON_CONNECTION_STRING =
   import.meta.env.VITE_DATABASE_URL ||
@@ -58,6 +58,16 @@ export async function fetchTripsFromNeon(): Promise<Trip[]> {
 
       let status = (r.trip_status || 'CONFIRMED').toUpperCase()
       if (status === 'SCHEDULED') status = 'CONFIRMED'
+      if (status === 'CONFIRMED' && r.trip_no && String(r.trip_no).startsWith('ETS-') && !r.driver_id) {
+        status = 'TRIP_CREATED'
+      }
+
+      let serviceType: ServiceType = 'RAC'
+      if (r.service_type === 'ETS' || (r.trip_no && String(r.trip_no).startsWith('ETS-'))) {
+        serviceType = 'ETS'
+      } else if (r.service_type) {
+        serviceType = r.service_type as ServiceType
+      }
 
       const amount = Number(r.trip_amount) || 1200
       const commissionRate = Number(r.commission_rate) || 0.15
@@ -67,7 +77,7 @@ export async function fetchTripsFromNeon(): Promise<Trip[]> {
       return {
         id: String(r.id),
         tripNo: String(r.trip_no || `TRP-${Math.floor(100000 + Math.random() * 900000)}`),
-        serviceType: r.service_type || 'RAC',
+        serviceType,
         passengerName: r.passenger_name || 'Passenger',
         passengerPhone: r.passenger_phone || '',
         pickup: r.pickup || '',
@@ -104,7 +114,8 @@ export async function fetchTripsFromNeon(): Promise<Trip[]> {
 export async function createTripInNeon(payload: any): Promise<Trip> {
   const tripNo = payload.tripNo || `TRP-${Math.floor(100000 + Math.random() * 900000)}`
   const tripAmount = Number(payload.tripAmount) || 1200
-  const serviceType = payload.serviceType || 'RAC'
+  const serviceType = payload.serviceType || (String(payload.tripNo || '').startsWith('ETS-') ? 'ETS' : 'RAC')
+  const tripStatus = payload.tripStatus || 'TRIP_CREATED'
   const scheduledDate = payload.scheduledDate || new Date().toISOString().split('T')[0]
   const scheduledTime = payload.scheduledTime || '10:00:00'
   const timeWithSec = scheduledTime.length === 5 ? `${scheduledTime}:00` : scheduledTime
@@ -140,7 +151,7 @@ export async function createTripInNeon(payload: any): Promise<Trip> {
         ${scheduledDate},
         ${timeWithSec},
         ${tripAmount},
-        'CONFIRMED',
+        ${tripStatus},
         'PAID',
         'VENDOR_WALLET',
         'VENDOR_WALLET',
@@ -152,7 +163,7 @@ export async function createTripInNeon(payload: any): Promise<Trip> {
     const newTrip: Trip = {
       id: String(inserted.id),
       tripNo: inserted.trip_no,
-      serviceType: inserted.service_type,
+      serviceType: (inserted.service_type || serviceType) as ServiceType,
       passengerName: inserted.passenger_name,
       passengerPhone: inserted.passenger_phone,
       pickup: inserted.pickup,
@@ -163,7 +174,7 @@ export async function createTripInNeon(payload: any): Promise<Trip> {
       commissionRate: 0.15,
       commissionAmount: Math.round(tripAmount * 0.15),
       driverPayable: tripAmount - Math.round(tripAmount * 0.15),
-      tripStatus: 'CONFIRMED',
+      tripStatus: (inserted.trip_status || tripStatus) as TripStatus,
       paymentStatus: 'PAID',
       notes: inserted.notes,
       createdAt: inserted.created_at ? new Date(inserted.created_at).toISOString() : new Date().toISOString(),
