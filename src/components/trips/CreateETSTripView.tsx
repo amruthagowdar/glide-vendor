@@ -18,6 +18,7 @@ import {
   ExternalLink,
   ChevronDown,
   ShieldCheck,
+  X,
 } from 'lucide-react'
 import { LocationMapModal } from './LocationMapModal'
 import { sortStopsFarthestFirst, type LiveShiftCab } from '../../lib/routing'
@@ -172,9 +173,8 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
     return initialEmployees?.[0]?.company || 'Atharva Tech Hub'
   })
 
-  // Security Escort Guard details
-  const [escortName, setEscortName] = useState('')
-  const [escortPhone, setEscortPhone] = useState('')
+  // Escort Required Toggle: after 8pm default to true; 6pm-8pm must be selected (Yes/No)
+  const [escortRequiredToggle, setEscortRequiredToggle] = useState<boolean | null>(null)
 
   // Employee Slots: 3 for Sedan, 6 for SUV (with pickup times and gender)
   const [employees, setEmployees] = useState<EmployeeSlot[]>(() => {
@@ -716,12 +716,38 @@ const isEscortMandatory = isEscortTriggered && isNightMandatory
 const isEscortOptional = isEscortTriggered && isEveningOptional
 const isEscortVisible = isEscortTriggered || showOptionalEscort
 
+// Active state of escort guard:
+// After 8:00 PM till 6:00 AM: Defaults to YES (true unless user toggles NO)
+// 6:00 PM to 8:00 PM: Requires explicit YES / NO selection
+const isEscortActive = isEscortVisible
+  ? isNightMandatory
+    ? escortRequiredToggle !== null
+      ? escortRequiredToggle
+      : true
+    : escortRequiredToggle === true
+  : false
+
+// Auto-default to YES after 8:00 PM; reset to null in evening window to require explicit selection
+useEffect(() => {
+  if (isNightMandatory) {
+    setEscortRequiredToggle(true)
+  } else {
+    setEscortRequiredToggle(null)
+  }
+}, [shiftTiming, isNightMandatory])
+
 // Form submission: Validate, Calculate Optimal Route, and Dispatch Shift
 const [isSubmitting, setIsSubmitting] = useState(false)
 
 const handleSaveAndCreateTrip = async () => {
   if (filledEmployees.length === 0) {
     toast.error('Please add at least 1 employee with a Name and Address')
+    return
+  }
+
+  // Evening window (6 PM – 8 PM) requires explicit YES or NO selection
+  if (isEveningOptional && isEscortTriggered && escortRequiredToggle === null) {
+    toast.error('Please select whether an Escort Guard is required (YES or NO) for this evening shift (6:00 PM – 8:00 PM).')
     return
   }
 
@@ -778,9 +804,9 @@ const handleSaveAndCreateTrip = async () => {
       hubCoords,
       currentStepIndex: 0,
       stops: sortedStops,
-      hasEscort: Boolean(escortName.trim()),
-      escortName: escortName.trim() || undefined,
-      escortPhone: escortPhone.trim() || undefined,
+      hasEscort: isEscortActive,
+      escortName: isEscortActive ? 'Security Escort Guard' : undefined,
+      escortPhone: undefined,
     }
 
     // Persist to localStorage
@@ -807,9 +833,7 @@ const handleSaveAndCreateTrip = async () => {
       scheduledTime: shiftTiming,
       tripAmount: filledEmployees.length * 600,
       notes: `ETS ${tripType.toUpperCase()} Shift [Vehicle: ${vehicleChoice === 'SEDAN' ? 'Sedan 4+1' : 'SUV 6+1'}] Hub: ${companyName}${
-        escortName.trim()
-          ? ` [Escort: ${escortName.trim()}${escortPhone.trim() ? ' Ph: ' + escortPhone.trim() : ''}]`
-          : ''
+        isEscortActive ? ' [Security Escort Guard: YES]' : ' [Escort Guard: NO]'
       }`,
     }).catch((err) => console.warn('ETS trip Neon sync notice:', err))
 
@@ -1059,15 +1083,31 @@ return (
                   </span>
                   <span className="font-bold text-sm text-slate-900">Employee {slotNumber}</span>
                   {isThisSlotTrigger && isEscortMandatory && (
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-red-100 text-red-900 border border-red-200 flex items-center gap-1">
+                    <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                      isEscortActive
+                        ? 'bg-red-100 text-red-900 border-red-200'
+                        : 'bg-slate-100 text-slate-700 border-slate-300'
+                    }`}>
                       <ShieldCheck className="w-3 h-3 text-red-600" />
-                      <span>Escort (Optional • 8PM–6AM)</span>
+                      <span>{isEscortActive ? 'Escort Guard (8PM–6AM)' : 'Escort Guard (NO)'}</span>
                     </span>
                   )}
                   {isThisSlotTrigger && isEscortOptional && (
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-sky-100 text-sky-900 border border-sky-200 flex items-center gap-1">
+                    <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
+                      escortRequiredToggle === true
+                        ? 'bg-emerald-100 text-emerald-900 border-emerald-200'
+                        : escortRequiredToggle === false
+                        ? 'bg-slate-100 text-slate-700 border-slate-300'
+                        : 'bg-sky-100 text-sky-900 border-sky-200'
+                    }`}>
                       <ShieldCheck className="w-3 h-3 text-sky-600" />
-                      <span>Escort Recommended (Optional • 6PM–8PM)</span>
+                      <span>
+                        {escortRequiredToggle === true
+                          ? 'Escort Guard (YES)'
+                          : escortRequiredToggle === false
+                          ? 'Escort Guard (NO)'
+                          : 'Escort Selection Required (6PM–8PM)'}
+                      </span>
                     </span>
                   )}
                 </div>
@@ -1406,34 +1446,42 @@ return (
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-3 border-t border-slate-200">
+          <div className="pt-3 border-t border-slate-200 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
             <div>
-              <label className="text-xs font-bold text-slate-900 block mb-1">
-                Escort Guard Name (Optional)
+              <label className="text-xs font-bold text-slate-900 block">
+                Escort Guard Required? <span className="text-red-500">*</span>
               </label>
-              <input
-                type="text"
-                placeholder="Full name of escort guard (optional)"
-                value={escortName}
-                onChange={(e) => setEscortName(e.target.value)}
-                className={`input text-xs sm:text-sm font-medium bg-white ${
-                  isEscortMandatory ? 'border-red-200 focus:border-red-500' : 'border-sky-300 focus:border-sky-500'
-                }`}
-              />
+              <p className="text-[11px] text-slate-600 mt-0.5">
+                {isNightMandatory
+                  ? 'Night Window (8:00 PM – 6:00 AM): Set to DEFAULT as YES for employee safety.'
+                  : 'Evening Window (6:00 PM – 8:00 PM): Select YES or NO to proceed with dispatch.'}
+              </p>
             </div>
-            <div>
-              <label className="text-xs font-bold text-slate-900 block mb-1">
-                Escort Contact Number (Optional)
-              </label>
-              <input
-                type="tel"
-                placeholder="e.g. +91 98450 99881"
-                value={escortPhone}
-                onChange={(e) => setEscortPhone(e.target.value)}
-                className={`input text-xs sm:text-sm font-medium bg-white ${
-                  isEscortMandatory ? 'border-red-200 focus:border-red-500' : 'border-sky-300 focus:border-sky-500'
+            <div className="flex items-center gap-1.5 p-1 bg-white/80 rounded-xl border border-slate-300 shrink-0 shadow-xs">
+              <button
+                type="button"
+                onClick={() => setEscortRequiredToggle(true)}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  isEscortActive
+                    ? 'bg-emerald-600 text-white shadow-sm ring-1 ring-emerald-600'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
-              />
+              >
+                <Check className="w-3.5 h-3.5" />
+                <span>YES</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setEscortRequiredToggle(false)}
+                className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
+                  escortRequiredToggle === false
+                    ? 'bg-slate-800 text-white shadow-sm ring-1 ring-slate-800'
+                    : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
+                }`}
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>NO</span>
+              </button>
             </div>
           </div>
         </div>
