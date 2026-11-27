@@ -1696,14 +1696,10 @@ return (
               <span>Total Trip Fare:</span>
               <span className="text-emerald-700 font-extrabold">{formatCurrency(totalAmount)}</span>
             </div>
-            <div className="flex justify-between items-center text-xs text-slate-500 pt-1.5 border-t border-dashed border-slate-200">
-              <span className="font-medium text-slate-600">Driver Net Payout:</span>
-              <span className="font-bold text-slate-900">{formatCurrency(fareNum)}</span>
-            </div>
           </div>
         </div>
 
-        {/* Car Model Selection (2015 to 2026 & Option 'Any') - Placed below Payment Breakdown & above Wallet */}
+        {/* Car Model Selection ('Any', '2015 - 2019', '2020 - 2023', '2024 and above') - Placed below Payment Breakdown & above Wallet */}
         <div className="p-4 sm:p-5 bg-slate-50/80 rounded-3xl border border-slate-200/90 space-y-2.5 shadow-xs">
           <div className="flex items-center justify-between">
             <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
@@ -1711,7 +1707,7 @@ return (
               <span>Car Model Selection (Manufacturing Year)</span>
             </label>
             <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
-              {carModelYear === 'Any' ? 'Any Model OK' : `${carModelYear} Model`}
+              {carModelYear}
             </span>
           </div>
 
@@ -1721,16 +1717,14 @@ return (
               onChange={(e) => setCarModelYear(e.target.value)}
               className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer shadow-xs"
             >
-              <option value="Any">Any (Any model of car is OK for customer)</option>
-              {['2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015'].map((year) => (
-                <option key={year} value={year}>
-                  {year} Model ({year} & Above)
-                </option>
-              ))}
+              <option value="Any">Any</option>
+              <option value="2015 - 2019">2015 - 2019</option>
+              <option value="2020 - 2023">2020 - 2023</option>
+              <option value="2024 and above">2024 and above</option>
             </select>
           </div>
           <p className="text-[11px] text-slate-500">
-            Select preferred vehicle manufacturing year or choose "Any" if any vehicle model year is acceptable for the customer.
+            Select preferred vehicle manufacturing year: Any, 2015 - 2019, 2020 - 2023, or 2024 and above.
           </p>
         </div>
 
@@ -1790,7 +1784,7 @@ return (
           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
             <Car className="w-4 h-4 text-indigo-600 mx-auto mb-1" />
             <p className="text-xs font-bold text-slate-900">{vehicleChoice === 'SEDAN' ? 'Sedan' : 'SUV'}</p>
-            <p className="text-[10px] text-slate-500 uppercase">{vehicleChoice === 'SEDAN' ? '3 Slots' : '6 Slots'} · {carModelYear === 'Any' ? 'Any Model' : `${carModelYear}`}</p>
+            <p className="text-[10px] text-slate-500 uppercase">{vehicleChoice === 'SEDAN' ? '3 Slots' : '6 Slots'} · {carModelYear}</p>
           </div>
           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
             <Clock className="w-4 h-4 text-amber-600 mx-auto mb-1" />
