@@ -207,21 +207,21 @@ export const DashboardPage: React.FC = () => {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => navigate('/ets')}
+            className="btn-accent text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm"
+          >
+            <Building2 className="w-4 h-4" />
+            <span>ETS Command</span>
+          </button>
+          <button
             onClick={() => {
               setTripServiceType(undefined)
               setCreateTripOpen(true)
             }}
-            className="btn-accent text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-sm"
-          >
-            <Car className="w-4 h-4" />
-            <span>Rent A Cab</span>
-          </button>
-          <button
-            onClick={() => navigate('/ets')}
             className="btn-secondary text-xs sm:text-sm font-semibold flex items-center gap-1.5 shadow-2xs"
           >
-            <Building2 className="w-4 h-4 text-slate-700" />
-            <span>ETS Command</span>
+            <Car className="w-4 h-4 text-slate-700" />
+            <span>Rent A Cab</span>
           </button>
         </div>
       </div>
