@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from 'react'
 import { MoreVertical, Edit3, Trash2, Radio } from 'lucide-react'
 
 interface SlideDeleteActionProps {
-  onEdit: () => void
+  onEdit?: () => void
   onDelete: () => void
   onSlideDelete?: () => void
   onPushToDriver?: () => void
@@ -68,19 +68,21 @@ export const SlideDeleteAction: React.FC<SlideDeleteActionProps> = ({
       {/* When three dots are tapped: Pen & Delete buttons appear on the SAME line */}
       {isOpen && (
         <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-right-2 duration-150">
-          {/* Pen (Edit) Button */}
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              setIsOpen(false)
-              onEdit()
-            }}
-            title={`Edit ${itemLabel}`}
-            className="p-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 shadow-2xs flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
-          >
-            <Edit3 className="w-3.5 h-3.5" />
-          </button>
+          {/* Pen (Edit) Button - Only displayed if onEdit is provided */}
+          {onEdit && (
+            <button
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation()
+                setIsOpen(false)
+                onEdit()
+              }}
+              title={`Edit ${itemLabel}`}
+              className="p-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 shadow-2xs flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
+            >
+              <Edit3 className="w-3.5 h-3.5" />
+            </button>
+          )}
 
           {/* Delete (Trash) Button */}
           <button

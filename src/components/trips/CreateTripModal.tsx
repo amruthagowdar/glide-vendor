@@ -212,17 +212,11 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
 
   const fareNum = parseFloat(tripAmount) || 0
   const walletBalance = wallet?.balance ?? 0
-  // Strict Prepaid Wallet: Wallet balance must be greater than or equal to trip fare
-  const isBalanceSufficient = fareNum <= 0 || walletBalance >= fareNum
-
-  // Financial Breakdown calculations
-  // Platform fee: ₹10 fixed on any trip
-  // Convenience fee: 15% on trip fare
-  // Driver payout: the rest (Trip Fare - Platform Fee - Convenience Fee)
-  // No net company margin
-  const platformFee = 10
-  const convenienceFee = Math.round(fareNum * 0.15)
-  const driverPayable = Math.max(0, fareNum - platformFee - convenienceFee)
+  // Strict Prepaid Wallet: Wallet balance must be greater than or equal to total trip fare
+  const platformFee = 5
+  const convenienceFee = Math.round(fareNum * 0.06)
+  const totalTripFare = fareNum + platformFee + convenienceFee
+  const isBalanceSufficient = totalTripFare <= 0 || walletBalance >= totalTripFare
 
   const createTripMutation = useMutation({
     mutationFn: async () => {
@@ -247,8 +241,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
         drop: finalDrop,
         scheduledDate: fromDate,
         scheduledTime: fromTime,
-        tripAmount: fareNum,
-        notes: scheduleNotes,
+        tripAmount: totalTripFare,
+        notes: `${scheduleNotes} [Agreed Base Fare: ₹${fareNum}] [Platform Fee: +₹${platformFee}] [Convenience Fee (6%): +₹${convenienceFee}] [Total Fare: ₹${totalTripFare}]`.trim(),
       }
       return (await vendorApi.createTrip(payload)).data
     },
@@ -256,6 +250,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       toast.success('Trip created and confirmed successfully!')
       queryClient.invalidateQueries({ queryKey: ['trips'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+      queryClient.invalidateQueries({ queryKey: ['wallet'] })
+      queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] })
       resetForm()
       onClose()
     },
@@ -314,8 +310,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
       toast.error('Trip amount must be greater than ₹0')
       return false
     }
-    if (walletBalance < fareNum) {
-      toast.error(`Insufficient wallet balance (${formatCurrency(walletBalance)}). You need at least ${formatCurrency(fareNum)} to book this trip. Please add funds.`)
+    if (walletBalance < totalTripFare) {
+      toast.error(`Insufficient wallet balance (${formatCurrency(walletBalance)}). You need at least ${formatCurrency(totalTripFare)} to book this trip. Please add funds.`)
       return false
     }
     return true
@@ -364,10 +360,10 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
           ? `*Date & Time:* ${fromDate} at ${fromTime}\n*Package Type:* ${packageType}\n`
           : `*Trip Type:* ${tripType}\n*From:* ${fromDate} at ${fromTime}\n*To:* ${toDate} at ${toTime}\n`) +
       (fareNum > 0
-        ? `*Trip Fare:* ₹${fareNum.toLocaleString('en-IN')}\n` +
-          `*Platform Fee:* ₹10\n` +
-          `*Convenience Fee (15%):* ₹${convenienceFee.toLocaleString('en-IN')}\n` +
-          `*Driver Payout:* ₹${driverPayable.toLocaleString('en-IN')}\n`
+        ? `*Agreed Base Fare:* ₹${fareNum.toLocaleString('en-IN')}\n` +
+          `*Platform Fee:* + ₹${platformFee}\n` +
+          `*Convenience Fee (6%):* + ₹${convenienceFee.toLocaleString('en-IN')}\n` +
+          `*Total Trip Fare:* ₹${totalTripFare.toLocaleString('en-IN')}\n`
         : '') +
       (notes ? `*Notes:* ${notes}\n` : '') +
       `--------------------------------\n` +
@@ -1143,12 +1139,12 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   </p>
                   <p className={`text-[11px] mt-0.5 ${isBalanceSufficient ? 'text-emerald-700' : 'text-red-700'}`}>
                     {isBalanceSufficient
-                      ? `${formatCurrency(fareNum)} will be debited and held in escrow upon booking confirmation.`
-                      : `Your wallet balance is ${formatCurrency(walletBalance)}. You need at least ${formatCurrency(fareNum)} to book this trip.`}
+                      ? `${formatCurrency(totalTripFare)} will be debited upon booking confirmation.`
+                      : `Your wallet balance is ${formatCurrency(walletBalance)}. You need at least ${formatCurrency(totalTripFare)} to book this trip.`}
                   </p>
                   {!isBalanceSufficient && (
                     <p className="text-[11px] text-red-800 font-semibold mt-1">
-                      ⚠️ Please recharge with at least {formatCurrency(fareNum - walletBalance)} to continue.
+                      ⚠️ Please recharge with at least {formatCurrency(totalTripFare - walletBalance)} to continue.
                     </p>
                   )}
                 </div>
@@ -1301,20 +1297,26 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
               <div className="card p-3 border-dashed text-xs space-y-1.5 bg-white">
                 <p className="font-semibold text-slate-700">Financial Breakdown Preview:</p>
                 <div className="flex justify-between text-slate-600">
-                  <span>Trip Fare:</span>
+                  <span>Agreed Base Fare:</span>
                   <span className="font-medium">{formatCurrency(fareNum)}</span>
                 </div>
-                <div className="flex justify-between text-slate-500">
-                  <span>Platform Fee:</span>
-                  <span>- {formatCurrency(platformFee)}</span>
+                <div className="flex justify-between text-slate-600">
+                  <span className="flex items-center gap-1">
+                    Platform Fee:
+                    <span className="text-[10px] text-slate-400 font-normal">(fixed)</span>
+                  </span>
+                  <span className="font-medium">+ {formatCurrency(platformFee)}</span>
                 </div>
-                <div className="flex justify-between text-slate-500">
-                  <span>Convenience Fee (15%):</span>
-                  <span>- {formatCurrency(convenienceFee)}</span>
+                <div className="flex justify-between text-slate-600">
+                  <span className="flex items-center gap-1">
+                    Convenience Fee (6%):
+                    <span className="text-[10px] text-slate-400 font-normal">(6% of base)</span>
+                  </span>
+                  <span className="font-medium">+ {formatCurrency(convenienceFee)}</span>
                 </div>
-                <div className="flex justify-between font-bold text-emerald-700 pt-1 border-t">
-                  <span>Driver Payout (Rest):</span>
-                  <span>{formatCurrency(driverPayable)}</span>
+                <div className="flex justify-between font-bold text-emerald-700 pt-1.5 border-t border-slate-200 text-sm">
+                  <span>Total Trip Fare:</span>
+                  <span className="text-emerald-700 font-extrabold">{formatCurrency(totalTripFare)}</span>
                 </div>
               </div>
 
@@ -1339,8 +1341,8 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                   </p>
                   <p className={`text-[11px] mt-0.5 ${isBalanceSufficient ? 'text-emerald-700' : 'text-red-700'}`}>
                     {isBalanceSufficient
-                      ? `Available: ${formatCurrency(walletBalance)} · Fare: ${formatCurrency(fareNum)}`
-                      : `Available: ${formatCurrency(walletBalance)} · Required: ${formatCurrency(fareNum)}. Please recharge ${formatCurrency(fareNum - walletBalance)} to dispatch.`}
+                      ? `Available: ${formatCurrency(walletBalance)} · Total Fare: ${formatCurrency(totalTripFare)}`
+                      : `Available: ${formatCurrency(walletBalance)} · Required: ${formatCurrency(totalTripFare)}. Please recharge ${formatCurrency(totalTripFare - walletBalance)} to dispatch.`}
                   </p>
                 </div>
                 {onOpenRechargeModal && (

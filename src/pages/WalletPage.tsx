@@ -7,7 +7,6 @@ import { DataTable, Pagination } from '../components/ui/DataTable'
 import { TransactionBadge } from '../components/ui/StatusBadge'
 import { RechargeModal } from '../components/wallet/RechargeModal'
 import { WithdrawModal } from '../components/wallet/WithdrawModal'
-import { EditTransactionModal } from '../components/wallet/EditTransactionModal'
 import { SlideDeleteAction } from '../components/ui/SlideDeleteAction'
 import { SlideDeleteModal } from '../components/ui/SlideDeleteModal'
 import { formatCurrency, formatDateTime } from '../lib/utils'
@@ -20,7 +19,6 @@ export const WalletPage: React.FC = () => {
   const [withdrawOpen, setWithdrawOpen] = useState(false)
   const [typeFilter, setTypeFilter] = useState<string>('')
   const [page, setPage] = useState<number>(1)
-  const [editingTx, setEditingTx] = useState<WalletTransaction | null>(null)
   const [deletingTx, setDeletingTx] = useState<WalletTransaction | null>(null)
 
   const handleConfirmDelete = async () => {
@@ -259,7 +257,6 @@ export const WalletPage: React.FC = () => {
                 render: (row) => (
                   <SlideDeleteAction
                     itemLabel="transaction"
-                    onEdit={() => setEditingTx(row)}
                     onDelete={() => setDeletingTx(row)}
                     onSlideDelete={() => setDeletingTx(row)}
                   />
@@ -284,18 +281,6 @@ export const WalletPage: React.FC = () => {
           )}
         </div>
       </div>
-
-      {/* Edit Transaction Modal */}
-      <EditTransactionModal
-        transaction={editingTx}
-        isOpen={!!editingTx}
-        onClose={() => setEditingTx(null)}
-        onSuccess={() => {
-          queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] })
-          queryClient.invalidateQueries({ queryKey: ['wallet'] })
-          queryClient.invalidateQueries({ queryKey: ['dashboard'] })
-        }}
-      />
 
       {/* Slide to Delete Modal */}
       <SlideDeleteModal

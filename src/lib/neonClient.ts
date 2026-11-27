@@ -184,31 +184,54 @@ export async function createTripInNeon(payload: any): Promise<Trip> {
     // Auto-debit prepaid wallet in Neon DB for strict wallet balance tracking
     if (tripAmount > 0) {
       try {
+        const currentWallet = await fetchWalletFromNeon()
+        const prevBalance = currentWallet.balance
+        const newBalance = Math.max(0, prevBalance - tripAmount)
+
         await sql`
           UPDATE wallets
-          SET balance = GREATEST(0, balance - ${tripAmount}),
+          SET balance = ${newBalance},
               updated_at = NOW()
           WHERE id = ${ATHARVA_WALLET_ID} OR entity_id = ${ATHARVA_VENDOR_ID}
         `
-        await sql`
+        const [txRow] = await sql`
           INSERT INTO wallet_transactions (
             wallet_id,
-            amount,
             type,
+            amount,
+            previous_balance,
+            new_balance,
             reference,
             description,
+            related_trip_id,
             created_at
           ) VALUES (
             ${ATHARVA_WALLET_ID},
-            ${tripAmount},
             'DEBIT',
+            ${tripAmount},
+            ${prevBalance},
+            ${newBalance},
             ${'TRIP-' + tripNo},
             ${'Trip booking fare: ' + tripNo},
+            ${inserted.id},
             NOW()
           )
+          RETURNING *
         `
-        const currLocal = parseFloat(localStorage.getItem('glide_mock_wallet_balance') || '0')
-        localStorage.setItem('glide_mock_wallet_balance', String(Math.max(0, currLocal - tripAmount)))
+        localStorage.setItem('glide_mock_wallet_balance', String(newBalance))
+        const existingTxs: WalletTransaction[] = JSON.parse(localStorage.getItem('glide_mock_txs') || '[]')
+        const newTx: WalletTransaction = {
+          id: String(txRow?.id || `tx_${Date.now()}`),
+          type: 'DEBIT',
+          amount: tripAmount,
+          previousBalance: prevBalance,
+          newBalance: newBalance,
+          reference: 'TRIP-' + tripNo,
+          description: 'Trip booking fare: ' + tripNo,
+          relatedTripId: String(inserted.id),
+          createdAt: new Date().toISOString(),
+        }
+        localStorage.setItem('glide_mock_txs', JSON.stringify([newTx, ...existingTxs]))
       } catch (wErr) {
         console.warn('Neon DB wallet balance debit warning:', wErr)
       }
@@ -240,6 +263,22 @@ export async function createTripInNeon(payload: any): Promise<Trip> {
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
+    const prevBalance = parseFloat(localStorage.getItem('glide_mock_wallet_balance') || '2500')
+    const newBalance = Math.max(0, prevBalance - tripAmount)
+    localStorage.setItem('glide_mock_wallet_balance', String(newBalance))
+    const fallbackTx: WalletTransaction = {
+      id: `tx_${Date.now()}`,
+      type: 'DEBIT',
+      amount: tripAmount,
+      previousBalance: prevBalance,
+      newBalance: newBalance,
+      reference: 'TRIP-' + tripNo,
+      description: 'Trip booking fare: ' + tripNo,
+      createdAt: new Date().toISOString(),
+    }
+    const existingTxs: WalletTransaction[] = JSON.parse(localStorage.getItem('glide_mock_txs') || '[]')
+    localStorage.setItem('glide_mock_txs', JSON.stringify([fallbackTx, ...existingTxs]))
+
     const existing = JSON.parse(localStorage.getItem('glide_mock_trips') || '[]')
     localStorage.setItem('glide_mock_trips', JSON.stringify([fallback, ...existing]))
     return fallback

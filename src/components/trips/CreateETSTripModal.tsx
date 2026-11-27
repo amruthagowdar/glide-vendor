@@ -500,9 +500,10 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
   // Sedan (3 Seats): ₹1,500
   // SUV (6 Seats): ₹2,400
   const tripFare = vehicleChoice === 'SUV' ? 2400 : 1500
-  const platformFee = 10
-  const convenienceFee = Math.round(tripFare * 0.15)
-  const driverPayable = Math.max(0, tripFare - platformFee - convenienceFee)
+  const platformFee = 5
+  const convenienceFee = Math.round(tripFare * 0.06)
+  const totalTripFare = tripFare + platformFee + convenienceFee
+  const driverPayable = tripFare
 
   const walletBalance = wallet?.balance ?? 0
   // Wallet option is frozen across portal - direct billing active without wallet requirement
@@ -1009,9 +1010,10 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
       `--------------------------------\n` +
       `*Employee Roster:*\n${empDetails}\n` +
       `--------------------------------\n` +
-      `*Trip Fare:* ₹${tripFare.toLocaleString('en-IN')}\n` +
-      `*Platform Fee:* ₹10\n` +
-      `*Driver Payout:* ₹${driverPayable.toLocaleString('en-IN')}\n` +
+      `*Shift Base Fare:* ₹${tripFare.toLocaleString('en-IN')}\n` +
+      `*Platform Fee:* + ₹${platformFee}\n` +
+      `*Convenience Fee (6%):* + ₹${convenienceFee.toLocaleString('en-IN')}\n` +
+      `*Total Shift Fare:* ₹${totalTripFare.toLocaleString('en-IN')}\n` +
       `Atharva Travels B2B Command`
     )
   }
@@ -2295,16 +2297,16 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                       <span className="font-semibold text-slate-800">{formatCurrency(tripFare)}</span>
                     </div>
                     <div className="flex justify-between text-slate-600">
-                      <span>Platform Fee</span>
-                      <span className="font-semibold text-slate-800">{formatCurrency(platformFee)}</span>
+                      <span>Platform Fee (fixed)</span>
+                      <span className="font-semibold text-slate-800">+ {formatCurrency(platformFee)}</span>
                     </div>
                     <div className="flex justify-between text-slate-600">
-                      <span>Convenience Fee (15%)</span>
-                      <span className="font-semibold text-slate-800">{formatCurrency(convenienceFee)}</span>
+                      <span>Convenience Fee (6%)</span>
+                      <span className="font-semibold text-slate-800">+ {formatCurrency(convenienceFee)}</span>
                     </div>
-                    <div className="flex justify-between text-slate-600 pt-1 border-t border-slate-200">
-                      <span>Driver Payout</span>
-                      <span className="font-semibold text-emerald-700">{formatCurrency(driverPayable)}</span>
+                    <div className="flex justify-between font-bold text-emerald-700 pt-1.5 border-t border-slate-200 text-sm">
+                      <span>Total Shift Fare</span>
+                      <span className="font-extrabold text-emerald-700">{formatCurrency(totalTripFare)}</span>
                     </div>
 
                     <div className="pt-2 border-t border-slate-200 flex items-center justify-between text-xs">
