@@ -1238,9 +1238,6 @@ return (
                           <Navigation className="w-3.5 h-3.5 text-blue-600" />
                           <span>Geo Code / GPS Link</span>
                         </label>
-                        <span className="text-[10px] font-semibold text-blue-600 bg-blue-50 px-2 py-0.5 rounded-full border border-blue-200">
-                          Auto-fills Address
-                        </span>
                       </div>
                       <div className="flex items-center gap-2">
                         <input
