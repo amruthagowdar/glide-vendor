@@ -684,25 +684,29 @@ const [showOptionalEscort, setShowOptionalEscort] = useState(false)
 
 // Active target slots (Sedan: 3 slots, SUV: 6 slots)
 const currentSlots = employees.slice(0, vehicleChoice === 'SEDAN' ? 3 : 6)
-const femaleSlots = currentSlots.filter((e) => e.gender === 'FEMALE')
+
+// Active passenger slots that actually have employee data filled (Name or Phone or Address)
+const activePassengerSlots = currentSlots.filter(
+  (e) => e.name.trim().length > 0 || e.phone.trim().length > 0 || e.address.trim().length > 0
+)
+
+const femaleSlots = activePassengerSlots.filter((e) => e.gender === 'FEMALE')
 const hasFemaleInVehicle = femaleSlots.length > 0
 const totalFemalesInVehicle = femaleSlots.length
 
-// In Login (Pickup), the first pickup employee is slot 0
-const firstPickupIndex = 0
-
 // Trigger conditions for Logout (Drop) during Night / Shift Window (6:00 PM to 6:00 AM):
-// Any female employee traveling in a Logout drop shift during 6 PM - 6 AM triggers escort
+// Only triggers when active female passengers exist in the vehicle
 const isDropEscortTriggered =
   tripType === 'Logout' &&
   isNightWindow &&
   hasFemaleInVehicle
 
-// In Login (Pickup), if first pickup is female or single female in vehicle:
+// In Login (Pickup), if first active pickup is female or single female in vehicle:
 const isPickupEscortTriggered =
   tripType === 'Login' &&
   isNightWindow &&
-  (currentSlots[0]?.gender === 'FEMALE' || totalFemalesInVehicle === 1)
+  activePassengerSlots.length > 0 &&
+  (activePassengerSlots[0]?.gender === 'FEMALE' || totalFemalesInVehicle === 1)
 
 // Universal Escort Triggered if either condition is met
 const isEscortTriggered = isDropEscortTriggered || isPickupEscortTriggered
@@ -718,36 +722,30 @@ const isEscortVisible = isEscortTriggered || showOptionalEscort
 
 // Active state of escort guard:
 // After 8:00 PM till 6:00 AM: Defaults to YES (true unless user toggles NO)
-// 6:00 PM to 8:00 PM: Requires explicit YES / NO selection
+// 6:00 PM to 8:00 PM: Optional toggle (defaults to false/OFF, vendor can toggle YES/NO)
 const isEscortActive = isEscortVisible
   ? isNightMandatory
-    ? escortRequiredToggle !== null
-      ? escortRequiredToggle
-      : true
+    ? escortRequiredToggle !== false
     : escortRequiredToggle === true
   : false
 
-// Auto-default to YES after 8:00 PM; reset to null in evening window to require explicit selection
+// Auto-default to YES after 8:00 PM; default to OFF/false in evening window (6 PM - 8 PM)
 useEffect(() => {
   if (isNightMandatory) {
     setEscortRequiredToggle(true)
+  } else if (isEveningOptional) {
+    setEscortRequiredToggle(false)
   } else {
     setEscortRequiredToggle(null)
   }
-}, [shiftTiming, isNightMandatory])
+}, [shiftTiming, isNightMandatory, isEveningOptional])
 
 // Form submission: Validate, Calculate Optimal Route, and Dispatch Shift
 const [isSubmitting, setIsSubmitting] = useState(false)
 
 const handleSaveAndCreateTrip = async () => {
   if (filledEmployees.length === 0) {
-    toast.error('Please add at least 1 employee with a Name and Address')
-    return
-  }
-
-  // Evening window (6 PM – 8 PM) requires explicit YES or NO selection
-  if (isEveningOptional && isEscortTriggered && escortRequiredToggle === null) {
-    toast.error('Please select whether an Escort Guard is required (YES or NO) for this evening shift (6:00 PM – 8:00 PM).')
+    toast.error('Please add at least 1 employee with a Name and Address to create a trip.')
     return
   }
 
@@ -1053,7 +1051,9 @@ return (
           // Escort trigger for this specific employee slot:
           // In Logout: ANY female slot during night window triggers escort
           // In Login: first pickup or single female slot triggers escort
+          const hasSlotData = Boolean(slot.name.trim() || slot.phone.trim() || slot.address.trim())
           const isThisSlotTrigger =
+            hasSlotData &&
             isNightWindow &&
             slot.gender === 'FEMALE' &&
             (
@@ -1085,29 +1085,21 @@ return (
                   {isThisSlotTrigger && isEscortMandatory && (
                     <span className={`text-[10px] font-extrabold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
                       isEscortActive
-                        ? 'bg-red-100 text-red-900 border-red-200'
-                        : 'bg-slate-100 text-slate-700 border-slate-300'
+                        ? 'bg-emerald-100 text-emerald-900 border-emerald-200'
+                        : 'bg-rose-100 text-rose-900 border-rose-200'
                     }`}>
-                      <ShieldCheck className="w-3 h-3 text-red-600" />
-                      <span>{isEscortActive ? 'Escort Guard (8PM–6AM)' : 'Escort Guard (NO)'}</span>
+                      <ShieldCheck className={`w-3 h-3 ${isEscortActive ? 'text-emerald-600' : 'text-rose-600'}`} />
+                      <span>{isEscortActive ? 'Escort Guard (YES • 8PM–6AM)' : 'Escort Guard (NO)'}</span>
                     </span>
                   )}
                   {isThisSlotTrigger && isEscortOptional && (
                     <span className={`text-[10px] font-bold px-2 py-0.5 rounded-full border flex items-center gap-1 ${
-                      escortRequiredToggle === true
+                      isEscortActive
                         ? 'bg-emerald-100 text-emerald-900 border-emerald-200'
-                        : escortRequiredToggle === false
-                        ? 'bg-slate-100 text-slate-700 border-slate-300'
-                        : 'bg-sky-100 text-sky-900 border-sky-200'
+                        : 'bg-rose-100 text-rose-900 border-rose-200'
                     }`}>
-                      <ShieldCheck className="w-3 h-3 text-sky-600" />
-                      <span>
-                        {escortRequiredToggle === true
-                          ? 'Escort Guard (YES)'
-                          : escortRequiredToggle === false
-                          ? 'Escort Guard (NO)'
-                          : 'Escort Selection Required (6PM–8PM)'}
-                      </span>
+                      <ShieldCheck className={`w-3 h-3 ${isEscortActive ? 'text-emerald-600' : 'text-rose-600'}`} />
+                      <span>{isEscortActive ? 'Escort Guard (YES)' : 'Escort Guard (NO)'}</span>
                     </span>
                   )}
                 </div>
@@ -1454,7 +1446,7 @@ return (
               <p className="text-[11px] text-slate-600 mt-0.5">
                 {isNightMandatory
                   ? 'Night Window (8:00 PM – 6:00 AM): Set to DEFAULT as YES for employee safety.'
-                  : 'Evening Window (6:00 PM – 8:00 PM): Select YES or NO to proceed with dispatch.'}
+                  : 'Evening Window (6:00 PM – 8:00 PM): Optional escort toggle (ON / OFF).'}
               </p>
             </div>
             <div className="flex items-center gap-1.5 p-1 bg-white/80 rounded-xl border border-slate-300 shrink-0 shadow-xs">
@@ -1474,8 +1466,8 @@ return (
                 type="button"
                 onClick={() => setEscortRequiredToggle(false)}
                 className={`px-4 py-1.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer ${
-                  escortRequiredToggle === false
-                    ? 'bg-slate-800 text-white shadow-sm ring-1 ring-slate-800'
+                  !isEscortActive
+                    ? 'bg-red-600 text-white shadow-sm ring-1 ring-red-600'
                     : 'text-slate-600 hover:text-slate-900 hover:bg-slate-100'
                 }`}
               >
@@ -1486,7 +1478,7 @@ return (
           </div>
         </div>
       ) : (
-        isNightWindow && (
+        isNightWindow && activePassengerSlots.length > 0 && (
           <div className="p-3.5 rounded-2xl bg-slate-50 border border-slate-200 text-slate-600 text-xs flex items-center justify-between">
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
@@ -1545,8 +1537,8 @@ return (
         <button
           type="button"
           onClick={handleSaveAndCreateTrip}
-          disabled={isSubmitting}
-          className="w-full sm:w-auto px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50"
+          disabled={isSubmitting || filledEmployees.length === 0}
+          className="w-full sm:w-auto px-6 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <Check className="w-4 h-4" />
           <span>Save & Create Trip</span>
