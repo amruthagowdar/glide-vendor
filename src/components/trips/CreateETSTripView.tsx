@@ -22,7 +22,11 @@ import {
 import { LocationMapModal } from './LocationMapModal'
 import { sortStopsFarthestFirst, type LiveShiftCab } from '../../lib/routing'
 import { formatCurrency } from '../../lib/utils'
-import { createTripInNeon } from '../../lib/neonClient'
+import {
+  createTripInNeon,
+  fetchCorporateEmployeesFromNeon,
+  bulkInsertCorporateEmployeesInNeon,
+} from '../../lib/neonClient'
 import toast from 'react-hot-toast'
 
 export interface CorporateOffice {
@@ -254,7 +258,7 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
   const [activeSearchSlot, setActiveSearchSlot] = useState<number | null>(null)
   const [searchQueries, setSearchQueries] = useState<Record<number, string>>({})
 
-  // Saved corporate employee directory
+  // Saved corporate employee directory directly from DB / cache with zero mock data
   const [directory, setDirectory] = useState<CorporateEmployee[]>(() => {
     try {
       const saved = localStorage.getItem('ETS_SAVED_EMPLOYEES')
@@ -263,69 +267,15 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
         if (Array.isArray(parsed)) return parsed
       }
     } catch { }
-    return [
-      {
-        id: 'emp-1',
-        name: 'Ramesh Rao',
-        phone: '+91 98450 12345',
-        company: 'Atharva Tech Hub',
-        address: 'Outer Ring Rd, Mahadevapura, Bengaluru',
-        lat: 12.99,
-        lng: 77.7,
-        department: 'Operations',
-      },
-      {
-        id: 'emp-2',
-        name: 'Sneha Hegde',
-        phone: '+91 98451 23456',
-        company: 'Atharva Tech Hub',
-        address: 'Bellandur / Sarjapur Rd, Bengaluru',
-        lat: 12.925,
-        lng: 77.675,
-        department: 'Engineering',
-      },
-      {
-        id: 'emp-3',
-        name: 'Arjun Mehta',
-        phone: '+91 98452 34567',
-        company: 'Atharva Tech Hub',
-        address: 'Kudlu Gate, Hosur Rd, Bengaluru',
-        lat: 12.875,
-        lng: 77.65,
-        department: 'Finance',
-      },
-      {
-        id: 'emp-4',
-        name: 'Priya Sharma',
-        phone: '+91 98453 45678',
-        company: 'Atharva Tech Hub',
-        address: 'HSR Layout Sector 1, Bengaluru',
-        lat: 12.915,
-        lng: 77.645,
-        department: 'HR',
-      },
-      {
-        id: 'emp-5',
-        name: 'Vikram Singh',
-        phone: '+91 98454 56789',
-        company: 'Atharva Tech Hub',
-        address: 'Koramangala 4th Block, Bengaluru',
-        lat: 12.934,
-        lng: 77.625,
-        department: 'IT Support',
-      },
-      {
-        id: 'emp-6',
-        name: 'Ananya Deshmukh',
-        phone: '+91 98455 67890',
-        company: 'Atharva Tech Hub',
-        address: 'Electronic City Phase 2, Bengaluru',
-        lat: 12.845,
-        lng: 77.685,
-        department: 'QA',
-      },
-    ]
+    return []
   })
+
+  // Synchronize corporate directory from Neon DB
+  useEffect(() => {
+    fetchCorporateEmployeesFromNeon()
+      .then((data) => setDirectory(data))
+      .catch((err) => console.warn('Failed to load corporate employees:', err))
+  }, [])
 
   // Synchronize slot count when vehicle category changes (3 for Sedan, 6 for SUV)
   const handleSelectVehicle = (v: 'SEDAN' | 'SUV') => {
@@ -732,31 +682,71 @@ const isNightWindow = isNightShift(shiftTiming) // 6:00 PM to 6:00 AM combined
 // Optional escort manual toggle state
 const [showOptionalEscort, setShowOptionalEscort] = useState(false)
 
-// Active target slots:
-// In Logout (Drop), the last drop employee is the last slot with a name (or the last slot in the vehicle by default)
-const lastDropIndex = (() => {
-  for (let i = employees.length - 1; i >= 0; i--) {
-    if (employees[i].name.trim() !== '') return i
-  }
-  return employees.length - 1 // Default to last slot (e.g. Employee 3 in Sedan, Employee 6 in SUV)
-})()
+// Active target slots (Sedan: 3 slots, SUV: 6 slots)
+const currentSlots = employees.slice(0, vehicleChoice === 'SEDAN' ? 3 : 6)
+const filledSlots = currentSlots.filter((e) => e.name.trim() !== '' || e.address.trim() !== '')
+const activeEvaluatedSlots =
+  filledSlots.length > 0 ? filledSlots : currentSlots.filter((e) => e.gender === 'FEMALE')
+
+// Identify last drop passenger among active slots
+const lastActiveSlot =
+  filledSlots.length > 0
+    ? filledSlots[filledSlots.length - 1]
+    : currentSlots[currentSlots.length - 1]
+
+const lastDropIndex =
+  filledSlots.length > 0
+    ? employees.indexOf(filledSlots[filledSlots.length - 1])
+    : currentSlots.length - 1
+
+// Count female employees in vehicle
+const femaleSlots = activeEvaluatedSlots.filter((e) => e.gender === 'FEMALE')
+const totalFemalesInVehicle = femaleSlots.length
 
 // In Login (Pickup), the first pickup employee is slot 0
 const firstPickupIndex = 0
 
-// Trigger conditions:
+// Trigger conditions for Logout (Drop) during Night / Shift Window (6:00 PM to 6:00 AM):
+// 1. Single female employee in the vehicle (alone or accompanied by males)
+const isSingleFemaleInVehicle =
+  tripType === 'Logout' &&
+  isNightWindow &&
+  totalFemalesInVehicle === 1
+
+// 2. Male employee dropped before female employee (e.g. 1st is Male, 2nd is Female),
+// leaving the female alone in the vehicle with the driver for the remainder of the trip
+const isMaleThenFemaleDrop =
+  tripType === 'Logout' &&
+  isNightWindow &&
+  (() => {
+    const slotsToCheck = filledSlots.length >= 2 ? filledSlots : currentSlots
+    const firstMaleIdx = slotsToCheck.findIndex((e) => e.gender === 'MALE')
+    if (firstMaleIdx === -1) return false
+    return slotsToCheck.slice(firstMaleIdx + 1).some((e) => e.gender === 'FEMALE')
+  })()
+
+// 3. Last employee to be dropped off is female
 const isLastFemaleDrop =
   tripType === 'Logout' &&
   isNightWindow &&
-  employees[lastDropIndex]?.gender === 'FEMALE'
+  lastActiveSlot?.gender === 'FEMALE'
 
+// Trigger for Login (Pickup)
 const isFirstFemalePickup =
   tripType === 'Login' &&
   isNightWindow &&
-  employees[firstPickupIndex]?.gender === 'FEMALE'
+  (employees[firstPickupIndex]?.gender === 'FEMALE' || totalFemalesInVehicle === 1)
 
-// Escort triggered if either condition is met
-const isEscortTriggered = isLastFemaleDrop || isFirstFemalePickup
+// Escort triggered if any condition is met
+const isEscortTriggered =
+  isLastFemaleDrop ||
+  isSingleFemaleInVehicle ||
+  isMaleThenFemaleDrop ||
+  isFirstFemalePickup
+
+// Helper variables for explanatory UI banner
+const singleFemaleEmployee = femaleSlots[0]
+const singleFemaleIndex = singleFemaleEmployee ? employees.indexOf(singleFemaleEmployee) : -1
 
 // Mandatory (8 PM - 6 AM) vs Optional (6 PM - 8 PM):
 const isEscortMandatory = isEscortTriggered && isNightMandatory
@@ -887,6 +877,7 @@ const handleSaveAndCreateTrip = async () => {
       if (newEntries.length > 0) {
         const updated = [...newEntries, ...existingDirectory]
         localStorage.setItem('ETS_SAVED_EMPLOYEES', JSON.stringify(updated))
+        bulkInsertCorporateEmployeesInNeon(newEntries)
       }
     } catch { }
 
@@ -1414,16 +1405,36 @@ return (
                 </span>
               </div>
               <p className="text-xs text-slate-700 mt-1 leading-relaxed">
-                {isLastFemaleDrop && (
+                {tripType === 'Logout' && isEscortTriggered && (
                   <>
-                    <strong>Drop Trip Rule (Office → Home):</strong> The last employee to be dropped off in this shift is female (
-                    <span className="font-bold underline text-slate-900">
-                      {employees[lastDropIndex]?.name.trim() || `Employee #${lastDropIndex + 1}`}
-                    </span>
-                    ). Under Karnataka corporate transport safety standards, a verified Security Escort Guard is recommended to accompany the vehicle until the final drop. Providing an escort is optional.
+                    <strong>Drop Trip Compliance (Office → Home):</strong>{' '}
+                    {isSingleFemaleInVehicle && (
+                      <span>
+                        Detected only 1 female employee in this shift (
+                        <span className="font-bold underline text-slate-900">
+                          {singleFemaleEmployee?.name.trim() || (singleFemaleIndex >= 0 ? `Employee #${singleFemaleIndex + 1}` : 'Female Employee')}
+                        </span>
+                        ) during the 6:00 PM – 6:00 AM night window.{' '}
+                      </span>
+                    )}
+                    {isMaleThenFemaleDrop && !isSingleFemaleInVehicle && (
+                      <span>
+                        A male employee is dropped off before a female employee, leaving female passenger(s) in the cab with the driver.{' '}
+                      </span>
+                    )}
+                    {isLastFemaleDrop && !isSingleFemaleInVehicle && !isMaleThenFemaleDrop && (
+                      <span>
+                        The last employee to be dropped off in this shift is female (
+                        <span className="font-bold underline text-slate-900">
+                          {lastActiveSlot?.name.trim() || `Employee #${lastDropIndex + 1}`}
+                        </span>
+                        ).{' '}
+                      </span>
+                    )}
+                    Under Karnataka corporate transport safety standards, a verified Security Escort Guard is automatically recommended to accompany the vehicle until the final drop. Providing an escort is optional.
                   </>
                 )}
-                {isFirstFemalePickup && (
+                {tripType === 'Login' && isFirstFemalePickup && (
                   <>
                     <strong>Pickup Trip Rule (Home → Office):</strong> The first employee to be picked up in this shift is female (
                     <span className="font-bold underline text-slate-900">
@@ -1474,7 +1485,7 @@ return (
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>
                 <strong>{isNightMandatory ? 'Night Window (8 PM – 6 AM)' : 'Evening Window (6 PM – 8 PM)'}:</strong> No escort trigger active (
-                {tripType === 'Logout' ? 'last drop is male' : 'first pickup is male'}).
+                {tripType === 'Logout' ? 'all male passengers or multiple females without solo drop' : 'first pickup is male'}).
               </span>
             </div>
             <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">

@@ -23,6 +23,13 @@ import {
 } from 'lucide-react'
 import { CORPORATE_OFFICES, type CorporateEmployee } from './CreateETSTripView'
 import { sortStopsFarthestFirst } from '../../lib/routing'
+import {
+  fetchCorporateEmployeesFromNeon,
+  insertCorporateEmployeeInNeon,
+  bulkInsertCorporateEmployeesInNeon,
+  deleteCorporateEmployeeInNeon,
+  bulkDeleteCorporateEmployeesInNeon,
+} from '../../lib/neonClient'
 
 interface ETSEmployeeLogViewProps {
   onBack: () => void
@@ -35,86 +42,42 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
 }) => {
   const logFileInputRef = useRef<HTMLInputElement>(null)
 
-  // Load and persist corporate employee directory
+  // Load and persist corporate employee directory directly from DB / cache with zero mock data
   const [directory, setDirectory] = useState<CorporateEmployee[]>(() => {
     try {
       const saved = localStorage.getItem('ETS_SAVED_EMPLOYEES')
-      if (saved) {
+      if (saved !== null) {
         const parsed = JSON.parse(saved)
-        if (Array.isArray(parsed) && parsed.length > 0) {
+        if (Array.isArray(parsed)) {
           return parsed.filter((e) => e && e.id && !e.id.startsWith('emp-10'))
         }
       }
     } catch {}
-    return [
-      {
-        id: 'emp-1',
-        name: 'Ramesh Rao',
-        phone: '+91 98450 12345',
-        company: 'Atharva Tech Hub',
-        address: 'Outer Ring Rd, Mahadevapura, Bengaluru',
-        lat: 12.99,
-        lng: 77.7,
-        department: 'Operations',
-        gender: 'MALE',
-      },
-      {
-        id: 'emp-2',
-        name: 'Sneha Hegde',
-        phone: '+91 98451 23456',
-        company: 'Atharva Tech Hub',
-        address: 'Bellandur / Sarjapur Rd, Bengaluru',
-        lat: 12.925,
-        lng: 77.675,
-        department: 'Engineering',
-        gender: 'FEMALE',
-      },
-      {
-        id: 'emp-3',
-        name: 'Arjun Mehta',
-        phone: '+91 98452 34567',
-        company: 'Atharva Tech Hub',
-        address: 'Kudlu Gate, Hosur Rd, Bengaluru',
-        lat: 12.875,
-        lng: 77.65,
-        department: 'Finance',
-        gender: 'MALE',
-      },
-      {
-        id: 'emp-4',
-        name: 'Priya Sharma',
-        phone: '+91 98453 45678',
-        company: 'Atharva Tech Hub',
-        address: 'HSR Layout Sector 1, Bengaluru',
-        lat: 12.915,
-        lng: 77.645,
-        department: 'HR',
-        gender: 'FEMALE',
-      },
-      {
-        id: 'emp-5',
-        name: 'Vikram Singh',
-        phone: '+91 98454 56789',
-        company: 'Atharva Tech Hub',
-        address: 'Koramangala 4th Block, Bengaluru',
-        lat: 12.934,
-        lng: 77.625,
-        department: 'IT Support',
-        gender: 'MALE',
-      },
-      {
-        id: 'emp-6',
-        name: 'Ananya Deshmukh',
-        phone: '+91 98455 67890',
-        company: 'Atharva Tech Hub',
-        address: 'Electronic City Phase 2, Bengaluru',
-        lat: 12.845,
-        lng: 77.685,
-        department: 'QA',
-        gender: 'FEMALE',
-      },
-    ]
+    return []
   })
+
+  const [isLoading, setIsLoading] = useState(false)
+
+  // Fetch real-time employee roster directly from Neon DB on mount
+  useEffect(() => {
+    let isMounted = true
+    setIsLoading(true)
+    fetchCorporateEmployeesFromNeon()
+      .then((data) => {
+        if (isMounted) {
+          setDirectory(data)
+        }
+      })
+      .catch((err) => {
+        console.warn('Neon DB fetchCorporateEmployees failed:', err)
+      })
+      .finally(() => {
+        if (isMounted) setIsLoading(false)
+      })
+    return () => {
+      isMounted = false
+    }
+  }, [])
 
   // Search & Filter Query
   const [searchQuery, setSearchQuery] = useState('')
@@ -184,7 +147,7 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
   }
 
   // Handle Add New Employee
-  const handleAddNewEmployee = (e: React.FormEvent) => {
+  const handleAddNewEmployee = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!newEmpName.trim() || !newEmpPhone.trim() || !newEmpAddress.trim()) {
       toast.error('Please enter Name, Phone, and Address')
@@ -205,7 +168,10 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
 
     const updated = [newRecord, ...directory]
     persistDirectory(updated)
-    toast.success(`Employee ${newRecord.name} (${newEmpGender === 'FEMALE' ? 'Female' : 'Male'}) added to Corporate Directory!`)
+    toast.success(`Employee ${newRecord.name} added to Corporate Directory!`)
+
+    // Sync to Neon DB directly
+    await insertCorporateEmployeeInNeon(newRecord)
 
     setIsAddingNewEmp(false)
     setNewEmpName('')
@@ -216,25 +182,28 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
     setNewEmpGender('FEMALE')
   }
 
-  // Delete single employee
-  const handleDeleteEmployee = (id: string, e: React.MouseEvent) => {
+  // Delete single employee permanently from DB
+  const handleDeleteEmployee = async (id: string, e: React.MouseEvent) => {
     e.stopPropagation()
     const target = directory.find((emp) => emp.id === id)
     const updated = directory.filter((emp) => emp.id !== id)
     setSelectedEmpIds((prev) => prev.filter((item) => item !== id))
     persistDirectory(updated)
-    toast.success(`Deleted ${target?.name || 'employee'} from roster`)
+    toast.success(`Deleted ${target?.name || 'employee'} permanently from roster`)
+    await deleteCorporateEmployeeInNeon(id)
   }
 
-  // Bulk Delete selected employees
-  const handleBulkDelete = () => {
+  // Bulk Delete selected employees permanently from DB
+  const handleBulkDelete = async () => {
     if (selectedEmpIds.length === 0) return
-    const count = selectedEmpIds.length
-    const idSet = new Set(selectedEmpIds)
+    const idsToDelete = [...selectedEmpIds]
+    const count = idsToDelete.length
+    const idSet = new Set(idsToDelete)
     const updated = directory.filter((emp) => !idSet.has(emp.id))
     setSelectedEmpIds([])
     persistDirectory(updated)
-    toast.success(`Deleted ${count} employees from roster`)
+    toast.success(`Deleted ${count} employees permanently from roster`)
+    await bulkDeleteCorporateEmployeesInNeon(idsToDelete)
   }
 
   // Excel / CSV file upload
@@ -243,7 +212,7 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
     if (!file) return
 
     const reader = new FileReader()
-    reader.onload = (evt) => {
+    reader.onload = async (evt) => {
       try {
         const bstr = evt.target?.result
         const wb = XLSX.read(bstr, { type: 'binary' })
@@ -302,6 +271,8 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
         const updated = [...toAdd, ...directory]
         persistDirectory(updated)
         toast.success(`Imported ${toAdd.length} employees directly into Employee Log!`)
+        // Synchronize to Neon DB
+        await bulkInsertCorporateEmployeesInNeon(toAdd)
       } catch (err) {
         console.error(err)
         toast.error('Failed to parse Excel file. Please use a valid .xlsx, .xls, or .csv file.')

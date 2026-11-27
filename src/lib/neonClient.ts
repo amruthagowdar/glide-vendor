@@ -682,3 +682,129 @@ export async function fetchDashboardFromNeon(): Promise<DashboardData> {
     recentTransactions: txs.slice(0, 5),
   }
 }
+
+// =========================================================================
+// 5. CORPORATE EMPLOYEES ROSTER (NEON DB)
+// =========================================================================
+
+export interface CorporateEmployee {
+  id: string
+  name: string
+  phone: string
+  company: string
+  address: string
+  lat: number
+  lng: number
+  department?: string
+  gender?: 'MALE' | 'FEMALE'
+}
+
+export async function fetchCorporateEmployeesFromNeon(): Promise<CorporateEmployee[]> {
+  try {
+    const rows = await sql`
+      SELECT id, name, phone, address, lat, lng, department, gender, company_id
+      FROM corporate_employees
+      WHERE company_id = ${ATHARVA_COMPANY_ID}
+      ORDER BY created_at DESC
+    `
+    const list: CorporateEmployee[] = rows.map((r: any) => ({
+      id: String(r.id),
+      name: String(r.name || ''),
+      phone: String(r.phone || ''),
+      company: 'Atharva Tech Hub',
+      address: String(r.address || ''),
+      lat: Number(r.lat) || 12.9298,
+      lng: Number(r.lng) || 77.6743,
+      department: r.department || 'General',
+      gender: (r.gender || 'FEMALE') as 'MALE' | 'FEMALE',
+    }))
+    // Store in localStorage as sync cache
+    localStorage.setItem('ETS_SAVED_EMPLOYEES', JSON.stringify(list))
+    return list
+  } catch (err) {
+    console.warn('Neon DB fetchCorporateEmployees failed:', err)
+    const cached = localStorage.getItem('ETS_SAVED_EMPLOYEES')
+    return cached ? JSON.parse(cached) : []
+  }
+}
+
+export async function insertCorporateEmployeeInNeon(emp: CorporateEmployee): Promise<CorporateEmployee> {
+  try {
+    await sql`
+      INSERT INTO corporate_employees (
+        id, company_id, vendor_id, name, phone, address, lat, lng, department, gender, created_at, updated_at
+      ) VALUES (
+        ${emp.id},
+        ${ATHARVA_COMPANY_ID},
+        ${ATHARVA_VENDOR_ID},
+        ${emp.name},
+        ${emp.phone},
+        ${emp.address},
+        ${emp.lat || 12.9298},
+        ${emp.lng || 77.6743},
+        ${emp.department || 'General'},
+        ${emp.gender || 'FEMALE'},
+        NOW(),
+        NOW()
+      )
+      ON CONFLICT (id) DO UPDATE SET
+        name = EXCLUDED.name,
+        phone = EXCLUDED.phone,
+        address = EXCLUDED.address,
+        lat = EXCLUDED.lat,
+        lng = EXCLUDED.lng,
+        department = EXCLUDED.department,
+        gender = EXCLUDED.gender,
+        updated_at = NOW()
+    `
+  } catch (err) {
+    console.warn('Neon DB insertCorporateEmployee failed:', err)
+  }
+  return emp
+}
+
+export async function bulkInsertCorporateEmployeesInNeon(employees: CorporateEmployee[]): Promise<void> {
+  for (const emp of employees) {
+    await insertCorporateEmployeeInNeon(emp)
+  }
+}
+
+export async function deleteCorporateEmployeeInNeon(id: string): Promise<boolean> {
+  try {
+    await sql`
+      DELETE FROM corporate_employees
+      WHERE id = ${id} AND company_id = ${ATHARVA_COMPANY_ID}
+    `
+    const cached = localStorage.getItem('ETS_SAVED_EMPLOYEES')
+    if (cached) {
+      const list: CorporateEmployee[] = JSON.parse(cached)
+      const updated = list.filter((e) => e.id !== id)
+      localStorage.setItem('ETS_SAVED_EMPLOYEES', JSON.stringify(updated))
+    }
+    return true
+  } catch (err) {
+    console.warn('Neon DB deleteCorporateEmployee failed:', err)
+    return false
+  }
+}
+
+export async function bulkDeleteCorporateEmployeesInNeon(ids: string[]): Promise<boolean> {
+  try {
+    await sql`
+      DELETE FROM corporate_employees
+      WHERE id = ANY(${ids}) AND company_id = ${ATHARVA_COMPANY_ID}
+    `
+    const cached = localStorage.getItem('ETS_SAVED_EMPLOYEES')
+    if (cached) {
+      const list: CorporateEmployee[] = JSON.parse(cached)
+      const idSet = new Set(ids)
+      const updated = list.filter((e) => !idSet.has(e.id))
+      localStorage.setItem('ETS_SAVED_EMPLOYEES', JSON.stringify(updated))
+    }
+    return true
+  } catch (err) {
+    console.warn('Neon DB bulkDeleteCorporateEmployees failed:', err)
+    return false
+  }
+}
+
