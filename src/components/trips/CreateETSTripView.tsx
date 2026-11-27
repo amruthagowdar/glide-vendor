@@ -21,6 +21,7 @@ import {
   X,
   ArrowRight,
   Wallet as WalletIcon,
+  FileText,
 } from 'lucide-react'
 import { LocationMapModal } from './LocationMapModal'
 import { Modal } from '../ui/Modal'
@@ -188,6 +189,9 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
 
   // Car Model Year Selection (2015 to 2026, or 'Any' model)
   const [carModelYear, setCarModelYear] = useState<string>('Any')
+
+  // Vendor Notes / Special Instructions
+  const [vendorNotes, setVendorNotes] = useState<string>('')
 
   // Wallet and Financial Calculations (Option A: Platform Fee ₹5 & Convenience Fee 6% added on top)
   const { data: walletData } = useWallet()
@@ -888,9 +892,7 @@ const handleSaveAndCreateTrip = async () => {
       scheduledDate: tripDate,
       scheduledTime: shiftTiming,
       tripAmount: totalAmount,
-      notes: `ETS ${tripType.toUpperCase()} Shift [Vehicle: ${vehicleChoice === 'SEDAN' ? 'Sedan 4+1' : 'SUV 6+1'}] [Model Year: ${carModelYear}] Hub: ${companyName}${
-        isEscortActive ? ' [Security Escort Guard: YES]' : ' [Escort Guard: NO]'
-      } [Agreed Base Fare: ₹${fareNum} | Platform Fee: +₹${platformFee} | Convenience Fee (6%): +₹${convenienceFee} | Total Fare: ₹${totalAmount}]`,
+      notes: vendorNotes.trim(),
     }).catch((err) => console.warn('ETS trip Neon sync notice:', err))
 
     // Save filled employees to Permanent Directory
@@ -1724,6 +1726,22 @@ return (
               <option value="Other models">Other models</option>
             </select>
           </div>
+        </div>
+
+        {/* Vendor Notes / Special Instructions */}
+        <div className="p-4 sm:p-5 bg-slate-50/80 rounded-3xl border border-slate-200/90 space-y-2 shadow-xs">
+          <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+            <FileText className="w-4 h-4 text-blue-600" />
+            <span>Vendor Notes / Special Instructions</span>
+            <span className="text-[10px] font-normal text-slate-400">(Optional)</span>
+          </label>
+          <textarea
+            value={vendorNotes}
+            onChange={(e) => setVendorNotes(e.target.value)}
+            placeholder="Enter any custom notes for this shift (e.g. driver instructions, route remarks, special requests)..."
+            rows={2}
+            className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs sm:text-sm font-medium text-slate-800 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all shadow-xs resize-none"
+          />
         </div>
 
         {/* Wallet Balance Status Banner - Curvy 3xl border */}

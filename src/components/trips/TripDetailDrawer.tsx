@@ -297,6 +297,61 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
     trip.pickup
   )}&destination=${encodeURIComponent(trip.drop)}`
 
+  // Parse financial breakdown (Option A: Platform Fee fixed ₹5, Convenience Fee 6% added on top)
+  const getFinancialBreakdown = (currentTrip: Trip) => {
+    const rawNotes = currentTrip.notes || ''
+    const total = Number(currentTrip.tripAmount) || 0
+
+    const baseMatch = rawNotes.match(/Agreed Base Fare:\s*₹?(\d+)/i) || rawNotes.match(/Agreed Fare:\s*₹?(\d+)/i)
+    const platformMatch = rawNotes.match(/Platform Fee:\s*\+?₹?(\d+)/i)
+    const convMatch = rawNotes.match(/Convenience Fee[^:]*:\s*\+?₹?(\d+)/i)
+    const totalMatch = rawNotes.match(/Total Fare:\s*₹?(\d+)/i)
+
+    if (baseMatch && platformMatch && convMatch) {
+      const baseFare = Number(baseMatch[1])
+      const platformFee = Number(platformMatch[1])
+      const convenienceFee = Number(convMatch[1])
+      const totalAmount = totalMatch ? Number(totalMatch[1]) : (baseFare + platformFee + convenienceFee)
+      return { baseFare, platformFee, convenienceFee, totalAmount }
+    }
+
+    if (total > 0) {
+      const platformFee = 5
+      const baseFare = Math.max(0, Math.round((total - platformFee) / 1.06))
+      const convenienceFee = Math.round(baseFare * 0.06)
+      const totalAmount = total
+      return { baseFare, platformFee, convenienceFee, totalAmount }
+    }
+
+    return { baseFare: 0, platformFee: 5, convenienceFee: 0, totalAmount: 0 }
+  }
+
+  // Extract clean vendor notes (removing system tags and internal bracketed metadata)
+  const extractCleanVendorNotes = (rawNotes?: string) => {
+    if (!rawNotes) return ''
+    const cleaned = rawNotes
+      .replace(/ETS\s+(LOGIN|LOGOUT)\s+Shift/gi, '')
+      .replace(/\[Vehicle:[^\]]+\]/gi, '')
+      .replace(/\[Model Year:[^\]]+\]/gi, '')
+      .replace(/Hub:[^\[]+/gi, '')
+      .replace(/\[Escort Guard:[^\]]+\]/gi, '')
+      .replace(/\[Security Escort Guard:[^\]]+\]/gi, '')
+      .replace(/\[Agreed Base Fare:[^\]]+\]/gi, '')
+      .replace(/\[Agreed Fare:[^\]]+\]/gi, '')
+      .replace(/\[Platform Fee:[^\]]+\]/gi, '')
+      .replace(/\[Convenience Fee[^\]]+\]/gi, '')
+      .replace(/\[Total Fare:[^\]]+\]/gi, '')
+      .replace(/Created via Atharva Travels Vendor Portal/gi, '')
+      .replace(/\|/g, '')
+      .trim()
+    return cleaned
+  }
+
+  const financials = getFinancialBreakdown(trip)
+  const vendorNotesClean = extractCleanVendorNotes(trip.notes)
+  const modelYearMatch = trip.notes?.match(/\[Model Year:\s*([^\]]+)\]/i)
+  const modelYear = modelYearMatch ? modelYearMatch[1].trim() : null
+
   return (
     <Drawer isOpen={isOpen} onClose={onClose} title={`Trip ${trip.tripNo}`} width="w-[520px]">
       <div className="space-y-5">
@@ -438,35 +493,70 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
                 {trip.vehicleRegNo || 'Not Assigned'}
               </p>
             </div>
+            {modelYear && (
+              <div className="col-span-2 pt-1 border-t border-slate-100 flex items-center justify-between">
+                <span className="text-slate-500">Vehicle Model Year:</span>
+                <span className="font-semibold text-slate-800 bg-slate-100 px-2 py-0.5 rounded text-[11px] border border-slate-200">
+                  {modelYear}
+                </span>
+              </div>
+            )}
           </div>
         </div>
 
-        {/* Financial Breakdown: Frozen */}
-        <div className="card p-4 bg-slate-100 border border-slate-300 text-slate-700 space-y-2 text-xs">
-          <div className="flex items-center justify-between">
-            <div className="flex items-center gap-2 font-bold text-slate-900">
-              <span className="w-2 h-2 rounded-full bg-slate-400" />
+        {/* Financial & Payment Breakdown - Unfrozen */}
+        <div className="card p-4 sm:p-5 bg-slate-50/80 rounded-2xl border border-sky-200/90 space-y-3 text-xs shadow-xs">
+          <div className="flex items-center justify-between pb-2 border-b border-slate-200">
+            <div className="flex items-center gap-2 font-bold text-slate-900 text-sm">
+              <Receipt className="w-4 h-4 text-emerald-600" />
               <span>Financial & Payment Breakdown</span>
             </div>
-            <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-slate-200 text-slate-600 border border-slate-300">
-              Frozen
+            <span className="px-2.5 py-0.5 rounded-full text-[10px] font-bold bg-emerald-100 text-emerald-800 border border-emerald-200">
+              Active • Escrow Secured
             </span>
           </div>
-          <p className="text-[11px] text-slate-500 leading-relaxed">
-            Wallet escrow debits and fee breakdowns are frozen until the admin portal connects. Trip operates under direct corporate invoicing.
+
+          <div className="space-y-2 text-slate-600 pt-1">
+            <div className="flex justify-between items-center text-slate-700">
+              <span>Agreed Trip Fare:</span>
+              <span className="font-bold text-slate-900 text-xs sm:text-sm">{formatCurrency(financials.baseFare)}</span>
+            </div>
+            <div className="flex justify-between items-center text-slate-600">
+              <span className="flex items-center gap-1">
+                Platform Fee:
+                <span className="text-[10px] text-slate-400 font-normal">(fixed)</span>
+              </span>
+              <span className="font-semibold text-slate-800">+ {formatCurrency(financials.platformFee)}</span>
+            </div>
+            <div className="flex justify-between items-center text-slate-600">
+              <span className="flex items-center gap-1">
+                Convenience Fee (6%):
+                <span className="text-[10px] text-slate-400 font-normal">(6% of agreed fare)</span>
+              </span>
+              <span className="font-semibold text-slate-800">+ {formatCurrency(financials.convenienceFee)}</span>
+            </div>
+            <div className="flex justify-between items-center font-bold text-emerald-700 pt-2.5 border-t border-slate-200 text-sm sm:text-base">
+              <span>Total Trip Fare:</span>
+              <span className="text-emerald-700 font-extrabold">{formatCurrency(financials.totalAmount)}</span>
+            </div>
+          </div>
+          <p className="text-[11px] text-slate-500 pt-0.5">
+            Wallet escrow debited and held in secure settlement for driver payout upon trip completion.
           </p>
         </div>
 
-        {/* Notes */}
-        {trip.notes && (
-          <div className="card p-4 space-y-1 text-xs">
-            <div className="flex items-center gap-1.5 font-semibold text-slate-600">
-              <FileText className="w-3.5 h-3.5" />
-              <span>Notes</span>
-            </div>
-            <p className="text-slate-600 italic">{trip.notes}</p>
+        {/* Vendor Notes */}
+        <div className="card p-4 space-y-1.5 text-xs">
+          <div className="flex items-center gap-1.5 font-semibold text-slate-700">
+            <FileText className="w-3.5 h-3.5 text-slate-500" />
+            <span>Notes / Instructions</span>
           </div>
-        )}
+          {vendorNotesClean ? (
+            <p className="text-slate-800 font-medium whitespace-pre-wrap">{vendorNotesClean}</p>
+          ) : (
+            <p className="text-slate-400 italic text-[11px]">No additional notes or instructions provided by vendor.</p>
+          )}
+        </div>
 
         {/* Status Timeline */}
         <div className="card p-4 space-y-3">
