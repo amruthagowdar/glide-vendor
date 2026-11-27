@@ -186,14 +186,17 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
   // Trip Fare State (defaults: 1800 for Sedan, 3600 for SUV)
   const [tripAmount, setTripAmount] = useState<string>(() => (initialChoice === 'SUV' ? '3600' : '1800'))
 
-  // Wallet and Financial Calculations
+  // Car Model Year Selection (2015 to 2026, or 'Any' model)
+  const [carModelYear, setCarModelYear] = useState<string>('Any')
+
+  // Wallet and Financial Calculations (Option A: Platform Fee ₹5 & Convenience Fee 6% added on top)
   const { data: walletData } = useWallet()
   const walletBalance = walletData?.balance ?? 0
   const fareNum = parseFloat(tripAmount) || 0
-  const platformFee = 10 // Fixed ₹10 platform fee
+  const platformFee = 5 // Fixed ₹5 platform fee
   const convenienceFee = Math.round(fareNum * 0.06) // Exactly 6% convenience fee
-  const driverPayable = Math.max(0, fareNum - platformFee - convenienceFee) // Driver net payout
-  const isBalanceSufficient = fareNum <= 0 || walletBalance >= fareNum
+  const totalAmount = fareNum + platformFee + convenienceFee // Total trip fare with fees added
+  const isBalanceSufficient = totalAmount <= 0 || walletBalance >= totalAmount
 
   // Employee Slots: 3 for Sedan, 6 for SUV (with pickup times and gender)
   const [employees, setEmployees] = useState<EmployeeSlot[]>(() => {
@@ -800,7 +803,7 @@ const handleSaveAndCreateTrip = async () => {
   }
 
   if (!isBalanceSufficient) {
-    toast.error(`Insufficient wallet balance. You need at least ${formatCurrency(fareNum)} to dispatch this shift.`)
+    toast.error(`Insufficient wallet balance. You need at least ${formatCurrency(totalAmount)} to dispatch this shift.`)
     return
   }
 
@@ -884,10 +887,10 @@ const handleSaveAndCreateTrip = async () => {
       drop: tripType === 'Login' ? companyName : (filledEmployees[0]?.address || 'Employee Home Drop'),
       scheduledDate: tripDate,
       scheduledTime: shiftTiming,
-      tripAmount: fareNum,
-      notes: `ETS ${tripType.toUpperCase()} Shift [Vehicle: ${vehicleChoice === 'SEDAN' ? 'Sedan 4+1' : 'SUV 6+1'}] Hub: ${companyName}${
+      tripAmount: totalAmount,
+      notes: `ETS ${tripType.toUpperCase()} Shift [Vehicle: ${vehicleChoice === 'SEDAN' ? 'Sedan 4+1' : 'SUV 6+1'}] [Model Year: ${carModelYear}] Hub: ${companyName}${
         isEscortActive ? ' [Security Escort Guard: YES]' : ' [Escort Guard: NO]'
-      } [Agreed Fare: ₹${fareNum} | Platform Fee: ₹${platformFee} | Convenience Fee (6%): ₹${convenienceFee} | Driver Net Payout: ₹${driverPayable}]`,
+      } [Agreed Base Fare: ₹${fareNum} | Platform Fee: +₹${platformFee} | Convenience Fee (6%): +₹${convenienceFee} | Total Fare: ₹${totalAmount}]`,
     }).catch((err) => console.warn('ETS trip Neon sync notice:', err))
 
     // Save filled employees to Permanent Directory
@@ -1604,7 +1607,7 @@ return (
           type="button"
           onClick={handleContinueToStep2}
           disabled={filledEmployees.length === 0}
-          className="w-full sm:w-auto px-7 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full sm:w-auto px-7 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span>Continue</span>
           <ArrowRight className="w-4 h-4" />
@@ -1661,42 +1664,79 @@ return (
           </p>
         </div>
 
-        {/* Payment Breakdown Box */}
-        <div className="p-4 sm:p-5 bg-slate-50/70 rounded-xl border border-dashed border-slate-300 space-y-2.5 text-xs sm:text-sm">
+        {/* Payment Breakdown Box - Curvy 3xl border (Reference Image 2) */}
+        <div className="p-5 sm:p-6 bg-slate-50/80 rounded-3xl border-2 border-dashed border-sky-300 space-y-3 text-xs sm:text-sm shadow-xs transition-all">
           <p className="font-bold text-slate-800 flex items-center justify-between text-xs">
-            <span className="text-slate-900 font-bold">Payment Breakdown:</span>
-            <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">PREPAID CALCULATION</span>
+            <span className="text-slate-900 font-bold uppercase tracking-wide">Payment Breakdown:</span>
+            <span className="text-[10px] font-bold text-sky-700 bg-sky-100/80 px-2.5 py-0.5 rounded-full uppercase tracking-wider border border-sky-200">
+              PREPAID CALCULATION
+            </span>
           </p>
 
-          <div className="space-y-2 text-slate-600 pt-1">
-            <div className="flex justify-between items-center">
+          <div className="space-y-2.5 text-slate-600 pt-1">
+            <div className="flex justify-between items-center text-slate-700">
               <span>Agreed Trip Fare:</span>
-              <span className="font-bold text-slate-900">{formatCurrency(fareNum)}</span>
+              <span className="font-bold text-slate-900 text-sm sm:text-base">{formatCurrency(fareNum)}</span>
             </div>
-            <div className="flex justify-between items-center text-slate-500">
+            <div className="flex justify-between items-center text-slate-600">
               <span className="flex items-center gap-1.5">
                 Platform Fee:
                 <span className="text-[11px] text-slate-400 font-normal">(fixed)</span>
               </span>
-              <span>- {formatCurrency(platformFee)}</span>
+              <span className="font-semibold text-slate-800">+ {formatCurrency(platformFee)}</span>
             </div>
-            <div className="flex justify-between items-center text-slate-500">
+            <div className="flex justify-between items-center text-slate-600">
               <span className="flex items-center gap-1.5">
                 Convenience Fee (6%):
                 <span className="text-[11px] text-slate-400 font-normal">(6% of agreed fare)</span>
               </span>
-              <span>- {formatCurrency(convenienceFee)}</span>
+              <span className="font-semibold text-slate-800">+ {formatCurrency(convenienceFee)}</span>
             </div>
-            <div className="flex justify-between items-center font-bold text-emerald-700 pt-2.5 border-t border-slate-200 text-base">
-              <span>Driver Net Payout:</span>
-              <span>{formatCurrency(driverPayable)}</span>
+            <div className="flex justify-between items-center font-bold text-emerald-700 pt-3 border-t border-slate-200 text-base sm:text-lg">
+              <span>Total Trip Fare:</span>
+              <span className="text-emerald-700 font-extrabold">{formatCurrency(totalAmount)}</span>
+            </div>
+            <div className="flex justify-between items-center text-xs text-slate-500 pt-1.5 border-t border-dashed border-slate-200">
+              <span className="font-medium text-slate-600">Driver Net Payout:</span>
+              <span className="font-bold text-slate-900">{formatCurrency(fareNum)}</span>
             </div>
           </div>
         </div>
 
-        {/* Wallet Balance Status Banner */}
+        {/* Car Model Selection (2015 to 2026 & Option 'Any') - Placed below Payment Breakdown & above Wallet */}
+        <div className="p-4 sm:p-5 bg-slate-50/80 rounded-3xl border border-slate-200/90 space-y-2.5 shadow-xs">
+          <div className="flex items-center justify-between">
+            <label className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
+              <Car className="w-4 h-4 text-blue-600" />
+              <span>Car Model Selection (Manufacturing Year)</span>
+            </label>
+            <span className="text-[11px] font-semibold text-blue-700 bg-blue-50 px-2.5 py-0.5 rounded-full border border-blue-200">
+              {carModelYear === 'Any' ? 'Any Model OK' : `${carModelYear} Model`}
+            </span>
+          </div>
+
+          <div className="relative">
+            <select
+              value={carModelYear}
+              onChange={(e) => setCarModelYear(e.target.value)}
+              className="w-full px-4 py-2.5 bg-white border border-slate-300 rounded-2xl text-xs sm:text-sm font-semibold text-slate-800 focus:outline-none focus:ring-2 focus:ring-blue-500/20 focus:border-blue-500 transition-all cursor-pointer shadow-xs"
+            >
+              <option value="Any">Any (Any model of car is OK for customer)</option>
+              {['2026', '2025', '2024', '2023', '2022', '2021', '2020', '2019', '2018', '2017', '2016', '2015'].map((year) => (
+                <option key={year} value={year}>
+                  {year} Model ({year} & Above)
+                </option>
+              ))}
+            </select>
+          </div>
+          <p className="text-[11px] text-slate-500">
+            Select preferred vehicle manufacturing year or choose "Any" if any vehicle model year is acceptable for the customer.
+          </p>
+        </div>
+
+        {/* Wallet Balance Status Banner - Curvy 3xl border */}
         <div
-          className={`p-4 rounded-xl border flex items-center justify-between transition-all ${
+          className={`p-4 sm:p-5 rounded-3xl border flex items-center justify-between transition-all shadow-xs ${
             isBalanceSufficient
               ? 'bg-emerald-50/90 border-emerald-200 text-emerald-950'
               : 'bg-red-50/90 border-red-200 text-red-950'
@@ -1718,13 +1758,13 @@ return (
             </p>
             <p className={`text-xs mt-1 ${isBalanceSufficient ? 'text-emerald-800' : 'text-red-800'}`}>
               {isBalanceSufficient
-                ? `${formatCurrency(fareNum)} will be debited and held in escrow upon shift dispatch.`
-                : `Your wallet balance is ${formatCurrency(walletBalance)}. You need at least ${formatCurrency(fareNum)} to dispatch this shift.`}
+                ? `${formatCurrency(totalAmount)} will be debited and held in escrow upon shift dispatch.`
+                : `Your wallet balance is ${formatCurrency(walletBalance)}. You need at least ${formatCurrency(totalAmount)} to dispatch this shift.`}
             </p>
             {!isBalanceSufficient && (
               <p className="text-xs text-red-900 font-semibold mt-1 flex items-center gap-1">
                 <span>⚠️</span>
-                <span>Please recharge with at least {formatCurrency(fareNum - walletBalance)} to continue.</span>
+                <span>Please recharge with at least {formatCurrency(totalAmount - walletBalance)} to continue.</span>
               </p>
             )}
           </div>
@@ -1750,7 +1790,7 @@ return (
           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
             <Car className="w-4 h-4 text-indigo-600 mx-auto mb-1" />
             <p className="text-xs font-bold text-slate-900">{vehicleChoice === 'SEDAN' ? 'Sedan' : 'SUV'}</p>
-            <p className="text-[10px] text-slate-500 uppercase">{vehicleChoice === 'SEDAN' ? '3 Slots' : '6 Slots'}</p>
+            <p className="text-[10px] text-slate-500 uppercase">{vehicleChoice === 'SEDAN' ? '3 Slots' : '6 Slots'} · {carModelYear === 'Any' ? 'Any Model' : `${carModelYear}`}</p>
           </div>
           <div className="bg-slate-50 p-3 rounded-xl border border-slate-200/80">
             <Clock className="w-4 h-4 text-amber-600 mx-auto mb-1" />
@@ -1846,7 +1886,7 @@ return (
             setCurrentStep(1)
             window.scrollTo({ top: 0, behavior: 'smooth' })
           }}
-          className="w-full sm:w-auto px-6 py-3 rounded-xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
+          className="w-full sm:w-auto px-6 py-3 rounded-2xl border border-slate-300 text-slate-700 hover:bg-slate-50 font-bold text-sm flex items-center justify-center gap-2 transition-all cursor-pointer"
         >
           <ArrowLeft className="w-4 h-4" />
           <span>Back to Vehicle & Passengers</span>
@@ -1856,7 +1896,7 @@ return (
           type="button"
           onClick={handleSaveAndCreateTrip}
           disabled={isSubmitting || !isBalanceSufficient}
-          className="w-full sm:w-auto px-8 py-3 rounded-xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full sm:w-auto px-8 py-3 rounded-2xl bg-blue-600 hover:bg-blue-700 active:bg-blue-800 text-white font-bold text-sm shadow-md shadow-blue-500/25 flex items-center justify-center gap-2 transition-all cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed"
         >
           {isSubmitting ? (
             <span>Dispatching Shift...</span>
