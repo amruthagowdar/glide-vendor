@@ -20,6 +20,8 @@ import {
   ChevronDown,
   Navigation,
   Building2,
+  Mail,
+  MessageCircle,
 } from 'lucide-react'
 
 interface CreateTripModalProps {
@@ -395,6 +397,66 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
     toast.success('Trip summary downloaded!')
   }
 
+  const getStrictMobileNumber = (phoneStr: string): string | null => {
+    const digits = phoneStr.replace(/\D/g, '')
+    if (digits.length === 10) return digits
+    if (digits.length > 10 && digits.startsWith('91')) return digits.slice(2, 12)
+    if (digits.length > 10 && digits.startsWith('0')) return digits.slice(1, 11)
+    return null
+  }
+
+  const handleWhatsAppLocationRequest = () => {
+    const validDigits = getStrictMobileNumber(passengerPhone)
+    if (!validDigits) {
+      toast.error('Please enter a valid 10-digit mobile number for the passenger first.')
+      return
+    }
+
+    const name = passengerName.trim() || 'Passenger'
+    const serviceTitle =
+      serviceType === 'RAC'
+        ? `Airport Transfer (${airportDirection === 'PICKUP' ? 'Pickup' : 'Drop'})`
+        : serviceType === 'OUTSTATION'
+          ? `Outstation (${tripType})`
+          : 'Hourly Rental Package'
+
+    const shareLink = `${window.location.origin}/share-location?name=${encodeURIComponent(name)}&tripDate=${encodeURIComponent(fromDate)}&pickup=${encodeURIComponent(fromTime)}&type=${encodeURIComponent(serviceTitle)}`
+
+    const msg = encodeURIComponent(
+      `Hi ${name}, please share your live pickup location with Atharva Travels for your upcoming ${serviceTitle} booking on ${fromDate} at ${fromTime}.\n\nReply with your Google Maps location or tap here to auto-detect and share in 1-click:\n${shareLink}`
+    )
+    window.open(`https://wa.me/91${validDigits}?text=${msg}`, '_blank')
+    toast.success(`WhatsApp location request opened for +91 ${validDigits}`)
+  }
+
+  const handleSMSLocationRequest = () => {
+    const validDigits = getStrictMobileNumber(passengerPhone)
+    if (!validDigits) {
+      toast.error('Please enter a valid 10-digit mobile number for the passenger first.')
+      return
+    }
+
+    const name = passengerName.trim() || 'Passenger'
+    const serviceTitle =
+      serviceType === 'RAC'
+        ? 'Airport Transfer'
+        : serviceType === 'OUTSTATION'
+          ? 'Outstation'
+          : 'Package'
+
+    const shareLink = `${window.location.origin}/share-location?name=${encodeURIComponent(name)}&tripDate=${encodeURIComponent(fromDate)}&pickup=${encodeURIComponent(fromTime)}`
+
+    const msg = `Hi ${name}, please share your pickup location with Atharva Travels for your upcoming ${serviceTitle} booking on ${fromDate} at ${fromTime}.\n\nTap here to share in 1-click: ${shareLink}`
+
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent)
+    const smsUrl = isIOS
+      ? `sms:+91${validDigits}&body=${encodeURIComponent(msg)}`
+      : `sms:+91${validDigits}?body=${encodeURIComponent(msg)}`
+
+    window.open(smsUrl, '_blank')
+    toast.success(`SMS location request opened for +91 ${validDigits}`)
+  }
+
   return (
     <>
       <Modal
@@ -684,6 +746,36 @@ export const CreateTripModal: React.FC<CreateTripModalProps> = ({
                     className="input"
                     required
                   />
+                  {/* WhatsApp & SMS Location Request Buttons */}
+                  <div className="flex items-center gap-2 mt-2">
+                    <button
+                      type="button"
+                      onClick={handleWhatsAppLocationRequest}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-emerald-50 text-emerald-700 hover:bg-emerald-100 border border-emerald-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title={
+                        passengerPhone.trim()
+                          ? `Send WhatsApp location request to ${passengerPhone}`
+                          : 'Enter passenger mobile number above to send WhatsApp request'
+                      }
+                    >
+                      <MessageCircle className="w-3 h-3 text-emerald-600" />
+                      <span>WhatsApp Request</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      onClick={handleSMSLocationRequest}
+                      className="px-2.5 py-1 rounded-lg text-[11px] font-bold bg-blue-50 text-blue-700 hover:bg-blue-100 border border-blue-200 flex items-center gap-1.5 transition-colors cursor-pointer"
+                      title={
+                        passengerPhone.trim()
+                          ? `Send SMS location request to ${passengerPhone}`
+                          : 'Enter passenger mobile number above to send SMS request'
+                      }
+                    >
+                      <Mail className="w-3 h-3 text-blue-600" />
+                      <span>SMS Request</span>
+                    </button>
+                  </div>
                 </div>
               </div>
 
