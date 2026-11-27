@@ -42,7 +42,7 @@ export async function fetchTripsFromNeon(): Promise<Trip[]> {
       FROM trips t
       LEFT JOIN drivers d ON t.driver_id = d.id
       LEFT JOIN vehicles v ON t.vehicle_id = v.id
-      WHERE t.company_id = ${ATHARVA_COMPANY_ID}
+      WHERE t.company_id = ${ATHARVA_COMPANY_ID} OR t.company_id IS NULL OR t.company_id = ${ATHARVA_VENDOR_ID}
       ORDER BY t.created_at DESC
     `
 
@@ -99,11 +99,22 @@ export async function fetchTripsFromNeon(): Promise<Trip[]> {
       }
     })
 
-    if (formatted.length > 0) {
-      localStorage.setItem('glide_mock_trips', JSON.stringify(formatted))
+    // Seamless sync: merge any locally stored trips so no trip is ever missed or dropped before sync
+    const localTrips: Trip[] = JSON.parse(localStorage.getItem('glide_mock_trips') || '[]')
+    const remoteTripNos = new Set(formatted.map((t) => t.tripNo))
+    const unsynced = localTrips.filter((lt) => !remoteTripNos.has(lt.tripNo))
+
+    // Background sync unsynced trips to Neon DB
+    if (unsynced.length > 0) {
+      unsynced.forEach((t) => {
+        createTripInNeon(t).catch((e) => console.warn('Background sync trip:', e))
+      })
     }
 
-    return formatted
+    const merged = [...formatted, ...unsynced]
+    localStorage.setItem('glide_mock_trips', JSON.stringify(merged))
+
+    return merged
   } catch (err) {
     console.warn('Neon DB fetch failed, falling back to local cache:', err)
     const cached = localStorage.getItem('glide_mock_trips')
@@ -290,6 +301,27 @@ export async function updateTripInNeon(id: string, payload: any): Promise<Trip |
     const status = payload.tripStatus || payload.status || null
     const notes = payload.notes !== undefined ? payload.notes : null
     const tripAmount = payload.tripAmount !== undefined ? Number(payload.tripAmount) : null
+
+    // Check if fare increased (e.g. Fare Boost) so wallet debit is synced
+    let fareDiff = 0
+    let tripNo = id
+    if (tripAmount !== null) {
+      try {
+        const prevRows = await sql`
+          SELECT trip_no, trip_amount FROM trips WHERE (id::text = ${id} OR trip_no = ${id}) LIMIT 1
+        `
+        if (prevRows.length > 0) {
+          tripNo = prevRows[0].trip_no
+          const oldFare = Number(prevRows[0].trip_amount) || 0
+          if (tripAmount > oldFare) {
+            fareDiff = tripAmount - oldFare
+          }
+        }
+      } catch (e) {
+        console.warn('Fare check warning:', e)
+      }
+    }
+
     const rows = await sql`
       UPDATE trips
       SET trip_status = COALESCE(${status}::trip_status, trip_status),
@@ -305,6 +337,44 @@ export async function updateTripInNeon(id: string, payload: any): Promise<Trip |
       const commissionRate = 0.15
       const commissionAmount = Math.round(amount * commissionRate)
       const driverPayable = amount - commissionAmount
+
+      // If fare was boosted, auto-debit the fare increase from wallet so balance remains synced
+      if (fareDiff > 0) {
+        try {
+          const currentWallet = await fetchWalletFromNeon()
+          const prevBalance = currentWallet.balance
+          const newBalance = Math.max(0, prevBalance - fareDiff)
+          await sql`
+            UPDATE wallets
+            SET balance = ${newBalance}, updated_at = NOW()
+            WHERE id = ${ATHARVA_WALLET_ID} OR entity_id = ${ATHARVA_VENDOR_ID}
+          `
+          const [txRow] = await sql`
+            INSERT INTO wallet_transactions (
+              wallet_id, type, amount, previous_balance, new_balance, reference, description, related_trip_id, created_at
+            ) VALUES (
+              ${ATHARVA_WALLET_ID}, 'DEBIT', ${fareDiff}, ${prevBalance}, ${newBalance}, ${'BOOST-' + tripNo}, ${'Trip fare boost: ' + tripNo + ' (+₹' + fareDiff + ')'}, ${r.id}, NOW()
+            )
+            RETURNING *
+          `
+          localStorage.setItem('glide_mock_wallet_balance', String(newBalance))
+          const existingTxs: WalletTransaction[] = JSON.parse(localStorage.getItem('glide_mock_txs') || '[]')
+          const boostTx: WalletTransaction = {
+            id: String(txRow?.id || `tx_${Date.now()}`),
+            type: 'DEBIT',
+            amount: fareDiff,
+            previousBalance: prevBalance,
+            newBalance,
+            reference: 'BOOST-' + tripNo,
+            description: 'Trip fare boost: ' + tripNo + ' (+₹' + fareDiff + ')',
+            relatedTripId: String(r.id),
+            createdAt: new Date().toISOString(),
+          }
+          localStorage.setItem('glide_mock_txs', JSON.stringify([boostTx, ...existingTxs]))
+        } catch (bErr) {
+          console.warn('Fare boost wallet debit warning:', bErr)
+        }
+      }
 
       const updatedTrip: Trip = {
         id: String(r.id),
@@ -360,8 +430,7 @@ export async function deleteTripFromNeon(idOrTripNo: string): Promise<boolean> {
   try {
     await sql`
       DELETE FROM trips 
-      WHERE (id::text = ${idOrTripNo} OR trip_no = ${idOrTripNo}) 
-        AND company_id = ${ATHARVA_COMPANY_ID}
+      WHERE (id::text = ${idOrTripNo} OR trip_no = ${idOrTripNo})
     `
     const existing: Trip[] = JSON.parse(localStorage.getItem('glide_mock_trips') || '[]')
     const updated = existing.filter((t) => t.id !== idOrTripNo && t.tripNo !== idOrTripNo)
@@ -440,8 +509,13 @@ export async function fetchTransactionsFromNeon(
       relatedTripId: r.related_trip_id ? String(r.related_trip_id) : undefined,
       createdAt: r.created_at ? new Date(r.created_at).toISOString() : new Date().toISOString(),
     }))
-    localStorage.setItem('glide_mock_txs', JSON.stringify(formatted))
-    return formatted
+    // Seamless sync: merge any locally stored transactions so nothing is dropped
+    const localTxs: WalletTransaction[] = JSON.parse(localStorage.getItem('glide_mock_txs') || '[]')
+    const remoteRefs = new Set(formatted.map((t) => t.reference || t.id))
+    const unsyncedTxs = localTxs.filter((lt) => !remoteRefs.has(lt.reference || lt.id))
+    const mergedTxs = [...formatted, ...unsyncedTxs]
+    localStorage.setItem('glide_mock_txs', JSON.stringify(mergedTxs))
+    return mergedTxs
   } catch (err) {
     console.warn('Neon DB fetchTransactions failed, falling back to local cache:', err)
     const cached = localStorage.getItem('glide_mock_txs')

@@ -21,16 +21,9 @@ const BASE_URL = import.meta.env.VITE_API_URL || '/api'
 
 const isStaticOrUnreachableHost = (): boolean => {
   if (typeof window === 'undefined') return false
-  const host = window.location.hostname
-  const isLocal =
-    host === 'localhost' ||
-    host === '127.0.0.1' ||
-    host.startsWith('192.168.') ||
-    host.startsWith('10.') ||
-    host.startsWith('172.')
   const hasCustomApi =
     Boolean(import.meta.env.VITE_API_URL) && import.meta.env.VITE_API_URL !== '/api'
-  return !isLocal && !hasCustomApi
+  return !hasCustomApi
 }
 
 const api = axios.create({
@@ -55,6 +48,12 @@ async function handleNeonOrMockApi(url: string = '', method: string = 'get', req
   if (cleanUrl.endsWith('/vendor/trips') && m === 'get') {
     const trips = await fetchTripsFromNeon()
     return { status: 'success', data: trips, total: trips.length, page: 1, totalPages: 1 }
+  }
+  if (cleanUrl.includes('/vendor/trips/') && m === 'get') {
+    const id = cleanUrl.split('/vendor/trips/')[1]?.split('/')[0]
+    const trips = await fetchTripsFromNeon()
+    const trip = trips.find((t) => t.id === id || t.tripNo === id)
+    return { status: 'success', data: trip || null }
   }
   if (cleanUrl.endsWith('/vendor/trips/create') && m === 'post') {
     const newTrip = await createTripInNeon(payload)
@@ -125,7 +124,24 @@ async function handleNeonOrMockApi(url: string = '', method: string = 'get', req
     return { status: 'success', data: vehicles, total: vehicles.length, totalPages: 1 }
   }
 
-  // 5. Fallback to mockData
+  // 5. Reports (100% Synced from Neon DB)
+  if (cleanUrl.endsWith('/vendor/reports/trips') && m === 'get') {
+    const trips = await fetchTripsFromNeon()
+    const totalTrips = trips.length
+    const completedTrips = trips.filter((t) => t.tripStatus === 'COMPLETED').length
+    const cancelledTrips = trips.filter((t) => t.tripStatus === 'CANCELLED').length
+    return {
+      status: 'success',
+      data: {
+        totalTrips,
+        completedTrips,
+        cancelledTrips,
+        trips,
+      },
+    }
+  }
+
+  // 6. Fallback to mockData
   return getMockResponse(url, method, requestData)
 }
 

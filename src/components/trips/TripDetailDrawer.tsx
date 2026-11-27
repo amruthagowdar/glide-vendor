@@ -420,6 +420,8 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
       trip.notes = updatedNotes
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['trips'] })
+      queryClient.invalidateQueries({ queryKey: ['wallet'] })
+      queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] })
       toast.success(`Trip ${trip.tripNo} pushed to driver pool. Searching for nearby available drivers...`, {
         icon: '📡',
         duration: 4000,
@@ -473,6 +475,8 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
 
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       queryClient.invalidateQueries({ queryKey: ['trips'] })
+      queryClient.invalidateQueries({ queryKey: ['wallet'] })
+      queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] })
 
       toast.success(
         `Fare increased by +₹${addedAmount}! New Total: ₹${newTotalFare} (Agreed: ₹${newBaseFare}, Conv (6%): ₹${newConvFee}). Re-broadcasted to drivers.`,
