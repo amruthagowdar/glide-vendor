@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Car,
   Users,
@@ -162,6 +163,8 @@ export const CreateETSTripView: React.FC<CreateETSTripViewProps> = ({
   onTripCreated,
   initialEmployees,
 }) => {
+  const queryClient = useQueryClient()
+
   // Vehicle Selection: SEDAN (3 employees) or SUV (6 employees)
   const initialCount = initialEmployees?.length || 0
   const initialChoice: 'SEDAN' | 'SUV' = initialCount > 3 ? 'SUV' : 'SEDAN'
@@ -881,20 +884,30 @@ const handleSaveAndCreateTrip = async () => {
       console.error('Failed to save to localStorage:', err)
     }
 
-    // Sync to Neon DB in background so all devices see this trip
-    createTripInNeon({
-      tripNo: shiftCode,
-      serviceType: 'ETS',
-      tripStatus: 'TRIP_CREATED',
-      passengerName: filledEmployees.map((e) => e.name).join(', ') || 'Corporate Employees',
-      passengerPhone: filledEmployees[0]?.phone || '9999999999',
-      pickup: tripType === 'Login' ? filledEmployees[0]?.address || 'Employee Home Pickup' : companyName,
-      drop: tripType === 'Login' ? companyName : (filledEmployees[0]?.address || 'Employee Home Drop'),
-      scheduledDate: tripDate,
-      scheduledTime: shiftTiming,
-      tripAmount: totalAmount,
-      notes: vendorNotes.trim(),
-    }).catch((err) => console.warn('ETS trip Neon sync notice:', err))
+    // Sync to Neon DB and wait for it
+    try {
+      await createTripInNeon({
+        tripNo: shiftCode,
+        serviceType: 'ETS',
+        tripStatus: 'TRIP_CREATED',
+        passengerName: filledEmployees.map((e) => e.name).join(', ') || 'Corporate Employees',
+        passengerPhone: filledEmployees[0]?.phone || '9999999999',
+        pickup: tripType === 'Login' ? filledEmployees[0]?.address || 'Employee Home Pickup' : companyName,
+        drop: tripType === 'Login' ? companyName : (filledEmployees[0]?.address || 'Employee Home Drop'),
+        scheduledDate: tripDate,
+        scheduledTime: shiftTiming,
+        tripAmount: totalAmount,
+        notes: vendorNotes.trim(),
+      })
+    } catch (err) {
+      console.warn('ETS trip Neon sync notice:', err)
+    }
+
+    // Immediately invalidate React Query caches so Dashboard & Trips page refresh with the new trip
+    queryClient.invalidateQueries({ queryKey: ['dashboard'] })
+    queryClient.invalidateQueries({ queryKey: ['trips'] })
+    queryClient.invalidateQueries({ queryKey: ['wallet'] })
+    queryClient.invalidateQueries({ queryKey: ['wallet-transactions'] })
 
     // Save filled employees to Permanent Directory
     try {

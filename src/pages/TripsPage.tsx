@@ -16,7 +16,7 @@ import { formatCurrency, formatDateTime } from '../lib/utils'
 import type { Trip, ServiceType, TripStatus, Driver } from '../types'
 import toast from 'react-hot-toast'
 
-const SERVICES: ServiceType[] = ['ETS', 'RAC', 'OUTSTATION', 'PACKAGE', 'EMERGENCY']
+const SERVICES: ServiceType[] = ['ETS', 'RAC', 'OUTSTATION', 'PACKAGE']
 const STATUSES: TripStatus[] = [
   'TRIP_CREATED',
   'SEARCHING_DRIVER',

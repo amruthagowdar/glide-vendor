@@ -389,6 +389,8 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
       .replace(/\[Platform Fee:[^\]]+\]/gi, '')
       .replace(/\[Convenience Fee[^\]]+\]/gi, '')
       .replace(/\[Total Fare:[^\]]+\]/gi, '')
+      .replace(/\[PushedAt:[^\]]+\]/gi, '')
+      .replace(/\[Status:[^\]]+\]/gi, '')
       .replace(/Created via Atharva Travels Vendor Portal/gi, '')
       .replace(/\|/g, '')
       .trim()
@@ -878,6 +880,7 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
             Status History Timeline
           </h4>
           <TripStatusTimeline
+            trip={trip}
             history={trip.statusHistory || []}
             currentStatus={trip.tripStatus}
           />

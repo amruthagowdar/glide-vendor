@@ -1,4 +1,4 @@
-export type ServiceType = 'RAC' | 'EMERGENCY' | 'OUTSTATION' | 'PACKAGE' | 'ETS';
+export type ServiceType = 'RAC' | 'OUTSTATION' | 'PACKAGE' | 'ETS';
 export type TripStatus =
   | 'PENDING'
   | 'CONFIRMED'

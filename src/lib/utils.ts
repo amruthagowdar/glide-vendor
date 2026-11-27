@@ -60,7 +60,6 @@ export const tripStatusConfig: Record<TripStatus, { label: string; color: string
 export const serviceTypeConfig: Record<ServiceType, { label: string; color: string; icon: string; bg: string }> = {
   RAC: { label: 'Airport Transfer', color: 'text-sky-700', bg: 'bg-sky-50 border-sky-200', icon: 'Plane' },
   ETS: { label: 'Employee Transport', color: 'text-indigo-700', bg: 'bg-indigo-50 border-indigo-200', icon: 'Users' },
-  EMERGENCY: { label: 'Emergency', color: 'text-red-700', bg: 'bg-red-50 border-red-200', icon: 'Siren' },
   OUTSTATION: { label: 'Outstation', color: 'text-emerald-700', bg: 'bg-emerald-50 border-emerald-200', icon: 'MapPin' },
   PACKAGE: { label: 'Package', color: 'text-amber-700', bg: 'bg-amber-50 border-amber-200', icon: 'Package' },
 }
