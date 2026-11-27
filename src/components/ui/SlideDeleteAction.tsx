@@ -38,10 +38,10 @@ export const SlideDeleteAction: React.FC<SlideDeleteActionProps> = ({
   return (
     <div
       ref={menuRef}
-      className="relative flex items-center justify-end gap-2"
+      className="flex items-center justify-end gap-1.5 whitespace-nowrap"
       onClick={(e) => e.stopPropagation()}
     >
-      {/* Visible Push to Driver Button directly on row */}
+      {/* Direct Push to Driver Action Button on the row */}
       {onPushToDriver && (
         <button
           type="button"
@@ -68,7 +68,41 @@ export const SlideDeleteAction: React.FC<SlideDeleteActionProps> = ({
         </button>
       )}
 
-      {/* Three-Dot Menu Button */}
+      {/* When three dots are tapped: Pen & Delete buttons appear on the SAME line */}
+      {isOpen && (
+        <div className="flex items-center gap-1.5 animate-in fade-in slide-in-from-right-2 duration-150">
+          {/* Pen (Edit) Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              onEdit()
+            }}
+            title={`Edit ${itemLabel}`}
+            className="p-1.5 rounded-lg bg-sky-50 hover:bg-sky-100 text-sky-700 border border-sky-200 shadow-2xs flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            <Edit3 className="w-3.5 h-3.5" />
+          </button>
+
+          {/* Delete (Trash) Button */}
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              setIsOpen(false)
+              if (onSlideDelete) onSlideDelete()
+              else onDelete()
+            }}
+            title={`Delete ${itemLabel}`}
+            className="p-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-700 border border-red-200 shadow-2xs flex items-center justify-center transition-all hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            <Trash2 className="w-3.5 h-3.5" />
+          </button>
+        </div>
+      )}
+
+      {/* Three-Dot Menu Button to toggle Pen and Delete on the same line */}
       <button
         type="button"
         onClick={(e) => {
@@ -80,46 +114,10 @@ export const SlideDeleteAction: React.FC<SlideDeleteActionProps> = ({
             ? 'bg-slate-200 text-slate-900 border-slate-300'
             : 'hover:bg-slate-100 text-slate-500 hover:text-slate-800 border-transparent hover:border-slate-200'
         }`}
-        title={`More actions for this ${itemLabel}`}
+        title={isOpen ? 'Hide actions' : `Show actions for this ${itemLabel}`}
       >
         <MoreVertical className="w-4 h-4" />
       </button>
-
-      {/* Popover Dropdown Menu */}
-      {isOpen && (
-        <div className="absolute right-0 top-full mt-1.5 w-44 rounded-xl bg-white border border-slate-200 shadow-xl z-50 py-1 divide-y divide-slate-100 animate-in fade-in zoom-in-95 duration-100">
-          <div className="py-1">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                setIsOpen(false)
-                onEdit()
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-slate-700 hover:bg-sky-50 hover:text-sky-900 transition-colors text-left cursor-pointer"
-            >
-              <Edit3 className="w-3.5 h-3.5 text-sky-600" />
-              <span>Edit Details</span>
-            </button>
-          </div>
-
-          <div className="py-1">
-            <button
-              type="button"
-              onClick={(e) => {
-                e.stopPropagation()
-                setIsOpen(false)
-                if (onSlideDelete) onSlideDelete()
-                else onDelete()
-              }}
-              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-red-600 hover:bg-red-50 hover:text-red-700 transition-colors text-left cursor-pointer"
-            >
-              <Trash2 className="w-3.5 h-3.5 text-red-600" />
-              <span>Delete</span>
-            </button>
-          </div>
-        </div>
-      )}
     </div>
   )
 }
