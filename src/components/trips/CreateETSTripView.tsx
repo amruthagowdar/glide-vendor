@@ -684,69 +684,32 @@ const [showOptionalEscort, setShowOptionalEscort] = useState(false)
 
 // Active target slots (Sedan: 3 slots, SUV: 6 slots)
 const currentSlots = employees.slice(0, vehicleChoice === 'SEDAN' ? 3 : 6)
-const filledSlots = currentSlots.filter((e) => e.name.trim() !== '' || e.address.trim() !== '')
-const activeEvaluatedSlots =
-  filledSlots.length > 0 ? filledSlots : currentSlots.filter((e) => e.gender === 'FEMALE')
-
-// Identify last drop passenger among active slots
-const lastActiveSlot =
-  filledSlots.length > 0
-    ? filledSlots[filledSlots.length - 1]
-    : currentSlots[currentSlots.length - 1]
-
-const lastDropIndex =
-  filledSlots.length > 0
-    ? employees.indexOf(filledSlots[filledSlots.length - 1])
-    : currentSlots.length - 1
-
-// Count female employees in vehicle
-const femaleSlots = activeEvaluatedSlots.filter((e) => e.gender === 'FEMALE')
+const femaleSlots = currentSlots.filter((e) => e.gender === 'FEMALE')
+const hasFemaleInVehicle = femaleSlots.length > 0
 const totalFemalesInVehicle = femaleSlots.length
 
 // In Login (Pickup), the first pickup employee is slot 0
 const firstPickupIndex = 0
 
 // Trigger conditions for Logout (Drop) during Night / Shift Window (6:00 PM to 6:00 AM):
-// 1. Single female employee in the vehicle (alone or accompanied by males)
-const isSingleFemaleInVehicle =
+// Any female employee traveling in a Logout drop shift during 6 PM - 6 AM triggers escort
+const isDropEscortTriggered =
   tripType === 'Logout' &&
   isNightWindow &&
-  totalFemalesInVehicle === 1
+  hasFemaleInVehicle
 
-// 2. Male employee dropped before female employee (e.g. 1st is Male, 2nd is Female),
-// leaving the female alone in the vehicle with the driver for the remainder of the trip
-const isMaleThenFemaleDrop =
-  tripType === 'Logout' &&
-  isNightWindow &&
-  (() => {
-    const slotsToCheck = filledSlots.length >= 2 ? filledSlots : currentSlots
-    const firstMaleIdx = slotsToCheck.findIndex((e) => e.gender === 'MALE')
-    if (firstMaleIdx === -1) return false
-    return slotsToCheck.slice(firstMaleIdx + 1).some((e) => e.gender === 'FEMALE')
-  })()
-
-// 3. Last employee to be dropped off is female
-const isLastFemaleDrop =
-  tripType === 'Logout' &&
-  isNightWindow &&
-  lastActiveSlot?.gender === 'FEMALE'
-
-// Trigger for Login (Pickup)
-const isFirstFemalePickup =
+// In Login (Pickup), if first pickup is female or single female in vehicle:
+const isPickupEscortTriggered =
   tripType === 'Login' &&
   isNightWindow &&
-  (employees[firstPickupIndex]?.gender === 'FEMALE' || totalFemalesInVehicle === 1)
+  (currentSlots[0]?.gender === 'FEMALE' || totalFemalesInVehicle === 1)
 
-// Escort triggered if any condition is met
-const isEscortTriggered =
-  isLastFemaleDrop ||
-  isSingleFemaleInVehicle ||
-  isMaleThenFemaleDrop ||
-  isFirstFemalePickup
+// Universal Escort Triggered if either condition is met
+const isEscortTriggered = isDropEscortTriggered || isPickupEscortTriggered
 
 // Helper variables for explanatory UI banner
 const singleFemaleEmployee = femaleSlots[0]
-const singleFemaleIndex = singleFemaleEmployee ? employees.indexOf(singleFemaleEmployee) : -1
+const singleFemaleIndex = singleFemaleEmployee ? currentSlots.indexOf(singleFemaleEmployee) : -1
 
 // Mandatory (8 PM - 6 AM) vs Optional (6 PM - 8 PM):
 const isEscortMandatory = isEscortTriggered && isNightMandatory
@@ -1063,10 +1026,16 @@ return (
           const isConfirmed = Boolean(slot.lat && slot.lng && slot.address.trim())
           const slotNumber = idx + 1
 
-          // Escort trigger for this specific employee slot
+          // Escort trigger for this specific employee slot:
+          // In Logout: ANY female slot during night window triggers escort
+          // In Login: first pickup or single female slot triggers escort
           const isThisSlotTrigger =
-            (tripType === 'Logout' && idx === lastDropIndex && slot.gender === 'FEMALE') ||
-            (tripType === 'Login' && idx === firstPickupIndex && slot.gender === 'FEMALE')
+            isNightWindow &&
+            slot.gender === 'FEMALE' &&
+            (
+              tripType === 'Logout' ||
+              (tripType === 'Login' && (idx === 0 || totalFemalesInVehicle === 1))
+            )
 
           // Directory search filtered list
           const currentSearch = searchQueries[idx] || ''
@@ -1408,37 +1377,27 @@ return (
                 {tripType === 'Logout' && isEscortTriggered && (
                   <>
                     <strong>Drop Trip Compliance (Office → Home):</strong>{' '}
-                    {isSingleFemaleInVehicle && (
+                    {totalFemalesInVehicle === 1 ? (
                       <span>
-                        Detected only 1 female employee in this shift (
+                        Detected female employee (
                         <span className="font-bold underline text-slate-900">
                           {singleFemaleEmployee?.name.trim() || (singleFemaleIndex >= 0 ? `Employee #${singleFemaleIndex + 1}` : 'Female Employee')}
                         </span>
-                        ) during the 6:00 PM – 6:00 AM night window.{' '}
+                        ) in this shift during the 6:00 PM – 6:00 AM night window.{' '}
                       </span>
-                    )}
-                    {isMaleThenFemaleDrop && !isSingleFemaleInVehicle && (
+                    ) : (
                       <span>
-                        A male employee is dropped off before a female employee, leaving female passenger(s) in the cab with the driver.{' '}
-                      </span>
-                    )}
-                    {isLastFemaleDrop && !isSingleFemaleInVehicle && !isMaleThenFemaleDrop && (
-                      <span>
-                        The last employee to be dropped off in this shift is female (
-                        <span className="font-bold underline text-slate-900">
-                          {lastActiveSlot?.name.trim() || `Employee #${lastDropIndex + 1}`}
-                        </span>
-                        ).{' '}
+                        Detected {totalFemalesInVehicle} female passengers in this shift during the 6:00 PM – 6:00 AM night window.{' '}
                       </span>
                     )}
                     Under Karnataka corporate transport safety standards, a verified Security Escort Guard is automatically recommended to accompany the vehicle until the final drop. Providing an escort is optional.
                   </>
                 )}
-                {tripType === 'Login' && isFirstFemalePickup && (
+                {tripType === 'Login' && isEscortTriggered && (
                   <>
                     <strong>Pickup Trip Rule (Home → Office):</strong> The first employee to be picked up in this shift is female (
                     <span className="font-bold underline text-slate-900">
-                      {employees[firstPickupIndex]?.name.trim() || `Employee #${firstPickupIndex + 1}`}
+                      {currentSlots[0]?.name.trim() || 'Employee #1'}
                     </span>
                     ). Under Karnataka corporate transport safety standards, a verified Security Escort Guard is recommended from the initial pickup. Providing an escort is optional.
                   </>
@@ -1484,8 +1443,7 @@ return (
             <div className="flex items-center gap-2">
               <ShieldCheck className="w-4 h-4 text-emerald-600" />
               <span>
-                <strong>{isNightMandatory ? 'Night Window (8 PM – 6 AM)' : 'Evening Window (6 PM – 8 PM)'}:</strong> No escort trigger active (
-                {tripType === 'Logout' ? 'all male passengers or multiple females without solo drop' : 'first pickup is male'}).
+                <strong>{isNightMandatory ? 'Night Window (8 PM – 6 AM)' : 'Evening Window (6 PM – 8 PM)'}:</strong> No escort trigger active (all registered passengers are male).
               </span>
             </div>
             <span className="text-[10px] font-bold text-emerald-700 bg-emerald-50 px-2 py-0.5 rounded border border-emerald-200">
