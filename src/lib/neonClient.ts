@@ -248,16 +248,16 @@ export async function createTripInNeon(payload: any): Promise<Trip> {
 
 export async function updateTripInNeon(id: string, payload: any): Promise<Trip | null> {
   try {
-    const status = payload.tripStatus || payload.status
-    const notes = payload.notes
+    const status = payload.tripStatus || payload.status || null
+    const notes = payload.notes !== undefined ? payload.notes : null
     const tripAmount = payload.tripAmount !== undefined ? Number(payload.tripAmount) : null
     const rows = await sql`
       UPDATE trips
-      SET trip_status = COALESCE(${status}, trip_status),
+      SET trip_status = COALESCE(${status}::trip_status, trip_status),
           notes = COALESCE(${notes}, notes),
           trip_amount = COALESCE(${tripAmount}, trip_amount),
           updated_at = NOW()
-      WHERE (id::text = ${id} OR trip_no = ${id}) AND company_id = ${ATHARVA_COMPANY_ID}
+      WHERE (id::text = ${id} OR trip_no = ${id})
       RETURNING *
     `
     if (rows.length > 0) {

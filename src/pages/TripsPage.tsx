@@ -64,19 +64,25 @@ export const TripsPage: React.FC = () => {
   }
 
   const handlePushToDriver = async (trip: Trip) => {
-    if (trip.tripStatus === 'SEARCHING_DRIVER') {
-      setSelectedTrip(trip)
-      return
-    }
-    try {
-      const now = new Date().toISOString()
-      const existingNotes = trip.notes || ''
-      const updatedNotes = existingNotes.includes('[PushedAt:')
-        ? existingNotes.replace(/\[PushedAt:[^\]]+\]/, `[PushedAt: ${now}]`)
-        : `${existingNotes} [PushedAt: ${now}]`.trim()
+    const now = new Date().toISOString()
+    const existingNotes = trip.notes || ''
+    const updatedNotes = existingNotes.includes('[PushedAt:')
+      ? existingNotes.replace(/\[PushedAt:[^\]]+\]/, `[PushedAt: ${now}]`)
+      : `${existingNotes} [PushedAt: ${now}]`.trim()
 
+    localStorage.setItem(`glide_pushed_${trip.id}`, Date.now().toString())
+    localStorage.setItem(`glide_pushed_${trip.tripNo}`, Date.now().toString())
+
+    // Immediately open drawer and update UI state so user sees live timer & fare boost right away
+    const updatedTrip: Trip = {
+      ...trip,
+      tripStatus: 'SEARCHING_DRIVER',
+      notes: updatedNotes,
+    }
+    setSelectedTrip(updatedTrip)
+
+    try {
       await vendorApi.updateTrip(trip.id, { tripStatus: 'SEARCHING_DRIVER', notes: updatedNotes })
-      localStorage.setItem(`glide_pushed_${trip.id}`, Date.now().toString())
       queryClient.invalidateQueries({ queryKey: ['trips'] })
       queryClient.invalidateQueries({ queryKey: ['dashboard'] })
       toast.success(`Trip ${trip.tripNo} pushed to driver pool. Searching for nearby drivers...`, {

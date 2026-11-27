@@ -558,7 +558,7 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
               </div>
             </div>
 
-            {/* 2-Minute Inactivity Notification / Early Boost Toggle */}
+            {/* 2-Minute Inactivity Notification */}
             {searchSeconds >= 120 ? (
               <div className="p-3 bg-amber-100/90 rounded-xl border border-amber-300/80 flex items-start gap-2.5 text-xs text-amber-950">
                 <AlertCircle className="w-4 h-4 text-amber-700 flex-shrink-0 mt-0.5" />
@@ -571,20 +571,13 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
               </div>
             ) : (
               <div className="flex items-center justify-between text-[11px] text-amber-800 bg-amber-50/80 px-3 py-1.5 rounded-lg border border-amber-200/60">
-                <span>Broadcasting live on driver app ({Math.max(0, 120 - searchSeconds)}s until 2-min boost prompt)</span>
-                <button
-                  type="button"
-                  onClick={() => setShowBoostPanel((prev) => !prev)}
-                  className="font-bold text-amber-900 hover:text-amber-700 underline cursor-pointer ml-2"
-                >
-                  {showBoostPanel ? 'Hide Boost' : '+ Boost Fare Early'}
-                </button>
+                <span>Broadcasting live on driver app ({Math.max(0, 120 - searchSeconds)}s until 2-min prompt)</span>
+                <span className="font-bold text-amber-900">Incentive Boost Available</span>
               </div>
             )}
 
-            {/* Fare Boost Options (Always visible when >= 2 mins, or when toggled early) */}
-            {(searchSeconds >= 120 || showBoostPanel) && (
-              <div className="pt-2 border-t border-amber-200/70 space-y-2.5">
+            {/* Fare Boost Options (Always visible when searching) */}
+            <div className="pt-2 border-t border-amber-200/70 space-y-2.5">
                 <div className="flex items-center justify-between">
                   <span className="text-xs font-bold text-slate-800 flex items-center gap-1.5">
                     <Zap className="w-3.5 h-3.5 text-amber-600" />
@@ -680,7 +673,6 @@ export const TripDetailDrawer: React.FC<TripDetailDrawerProps> = ({
                   </div>
                 )}
               </div>
-            )}
           </div>
         )}
 
