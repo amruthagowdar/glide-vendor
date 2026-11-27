@@ -397,16 +397,21 @@ export const TripsPage: React.FC = () => {
               key: 'actions',
               header: 'Actions',
               className: 'text-right',
-              render: (row) => (
-                <SlideDeleteAction
-                  itemLabel="trip"
-                  onEdit={() => setEditingTrip(row)}
-                  onPushToDriver={() => handlePushToDriver(row)}
-                  isSearchingDriver={row.tripStatus === 'SEARCHING_DRIVER'}
-                  onDelete={() => setDeletingTrip(row)}
-                  onSlideDelete={() => setDeletingTrip(row)}
-                />
-              ),
+              render: (row) => {
+                const canPush =
+                  ['TRIP_CREATED', 'CONFIRMED', 'PENDING', 'SEARCHING_DRIVER'].includes(row.tripStatus) &&
+                  (!row.driverName || row.driverName.toLowerCase().includes('unassigned') || row.driverName === '')
+                return (
+                  <SlideDeleteAction
+                    itemLabel="trip"
+                    onEdit={() => setEditingTrip(row)}
+                    onPushToDriver={canPush ? () => handlePushToDriver(row) : undefined}
+                    isSearchingDriver={row.tripStatus === 'SEARCHING_DRIVER'}
+                    onDelete={() => setDeletingTrip(row)}
+                    onSlideDelete={() => setDeletingTrip(row)}
+                  />
+                )
+              },
             },
           ]}
           data={trips}

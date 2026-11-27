@@ -337,30 +337,35 @@ export const DashboardPage: React.FC = () => {
               key: 'actions',
               header: 'Actions',
               className: 'text-right',
-              render: (row) => (
-                <SlideDeleteAction
-                  itemLabel="trip"
-                  onEdit={() => setEditingTrip(row)}
-                  onPushToDriver={() => handlePushToDriver(row)}
-                  isSearchingDriver={row.tripStatus === 'SEARCHING_DRIVER'}
-                  onDelete={() =>
-                    setDeletingItem({
-                      type: 'TRIP',
-                      id: row.id,
-                      title: `Trip ${row.tripNo}`,
-                      details: `${row.passengerName} (${row.serviceType}) • ${row.pickup} → ${row.drop}`,
-                    })
-                  }
-                  onSlideDelete={() =>
-                    setDeletingItem({
-                      type: 'TRIP',
-                      id: row.id,
-                      title: `Trip ${row.tripNo}`,
-                      details: `${row.passengerName} (${row.serviceType}) • ${row.pickup} → ${row.drop}`,
-                    })
-                  }
-                />
-              ),
+              render: (row) => {
+                const canPush =
+                  ['TRIP_CREATED', 'CONFIRMED', 'PENDING', 'SEARCHING_DRIVER'].includes(row.tripStatus) &&
+                  (!row.driverName || row.driverName.toLowerCase().includes('unassigned') || row.driverName === '')
+                return (
+                  <SlideDeleteAction
+                    itemLabel="trip"
+                    onEdit={() => setEditingTrip(row)}
+                    onPushToDriver={canPush ? () => handlePushToDriver(row) : undefined}
+                    isSearchingDriver={row.tripStatus === 'SEARCHING_DRIVER'}
+                    onDelete={() =>
+                      setDeletingItem({
+                        type: 'TRIP',
+                        id: row.id,
+                        title: `Trip ${row.tripNo}`,
+                        details: `${row.passengerName} (${row.serviceType}) • ${row.pickup} → ${row.drop}`,
+                      })
+                    }
+                    onSlideDelete={() =>
+                      setDeletingItem({
+                        type: 'TRIP',
+                        id: row.id,
+                        title: `Trip ${row.tripNo}`,
+                        details: `${row.passengerName} (${row.serviceType}) • ${row.pickup} → ${row.drop}`,
+                      })
+                    }
+                  />
+                )
+              },
             },
           ]}
           data={data?.recentTrips || []}
