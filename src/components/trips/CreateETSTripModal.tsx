@@ -1543,9 +1543,9 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
                           )}
                         </button>
 
-                        {/* Avatar */}
-                        <div className="w-8 h-8 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center flex-shrink-0">
-                          {emp.name.charAt(0)}
+                        {/* User Icon */}
+                        <div className="w-8 h-8 rounded-xl bg-slate-100 text-slate-600 flex items-center justify-center flex-shrink-0">
+                          <User className="w-4 h-4" />
                         </div>
 
                         {/* Details */}
@@ -2395,8 +2395,8 @@ export const CreateETSTripModal: React.FC<CreateETSTripModalProps> = ({
             {/* Drawer Header */}
             <div className="p-4 sm:p-5 border-b border-slate-200 flex items-center justify-between bg-slate-50/80">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-sm flex items-center justify-center">
-                  {inspectedEmp.name.charAt(0)}
+                <div className="w-10 h-10 rounded-xl bg-slate-100 text-slate-700 font-bold text-sm flex items-center justify-center">
+                  <User className="w-5 h-5 text-slate-600" />
                 </div>
                 <div>
                   <div className="flex items-center gap-2">

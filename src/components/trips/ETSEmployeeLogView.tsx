@@ -20,6 +20,9 @@ import {
   ShieldCheck,
   X,
   FileSpreadsheet,
+  GripVertical,
+  ChevronUp,
+  ChevronDown,
 } from 'lucide-react'
 import { CORPORATE_OFFICES, type CorporateEmployee } from './CreateETSTripView'
 import { sortStopsFarthestFirst } from '../../lib/routing'
@@ -105,6 +108,70 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
     } catch (err) {
       console.error('Failed to save employees to localStorage', err)
     }
+  }
+
+  // Drag and drop reordering states and handlers
+  const [draggedId, setDraggedId] = useState<string | null>(null)
+  const [dragOverId, setDragOverId] = useState<string | null>(null)
+
+  const handleReorder = (sourceId: string, targetId: string) => {
+    if (sourceId === targetId) return
+    const fromIndex = directory.findIndex((e) => e.id === sourceId)
+    const toIndex = directory.findIndex((e) => e.id === targetId)
+    if (fromIndex === -1 || toIndex === -1) return
+    const updated = [...directory]
+    const [moved] = updated.splice(fromIndex, 1)
+    updated.splice(toIndex, 0, moved)
+    persistDirectory(updated)
+  }
+
+  const handleDragStart = (id: string, e: React.DragEvent) => {
+    setDraggedId(id)
+    e.dataTransfer.setData('text/plain', id)
+    e.dataTransfer.effectAllowed = 'move'
+  }
+
+  const handleDragOver = (id: string, e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = 'move'
+    if (dragOverId !== id) {
+      setDragOverId(id)
+    }
+  }
+
+  const handleDrop = (targetId: string, e: React.DragEvent) => {
+    e.preventDefault()
+    const sourceId = e.dataTransfer.getData('text/plain') || draggedId
+    if (sourceId && sourceId !== targetId) {
+      handleReorder(sourceId, targetId)
+    }
+    setDraggedId(null)
+    setDragOverId(null)
+  }
+
+  const handleDragEnd = () => {
+    setDraggedId(null)
+    setDragOverId(null)
+  }
+
+  const handleMoveUp = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const idx = directory.findIndex((e) => e.id === id)
+    if (idx <= 0) return
+    const copy = [...directory]
+    const [moved] = copy.splice(idx, 1)
+    copy.splice(idx - 1, 0, moved)
+    persistDirectory(copy)
+  }
+
+  const handleMoveDown = (id: string, e: React.MouseEvent) => {
+    e.stopPropagation()
+    const idx = directory.findIndex((e) => e.id === id)
+    if (idx === -1 || idx >= directory.length - 1) return
+    const copy = [...directory]
+    const [moved] = copy.splice(idx, 1)
+    copy.splice(idx + 1, 0, moved)
+    persistDirectory(copy)
   }
 
   // Filtered employees
@@ -636,22 +703,34 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
           ) : (
             filteredEmployees.map((emp) => {
               const isSelected = selectedEmpIds.includes(emp.id)
+              const isBeingDragged = draggedId === emp.id
+              const isDragTarget = dragOverId === emp.id
+
               return (
                 <div
                   key={emp.id}
+                  draggable
+                  onDragStart={(e) => handleDragStart(emp.id, e)}
+                  onDragOver={(e) => handleDragOver(emp.id, e)}
+                  onDrop={(e) => handleDrop(emp.id, e)}
+                  onDragEnd={handleDragEnd}
                   onClick={(e) => toggleSelectEmp(emp.id, e)}
                   className={`p-4 rounded-2xl border transition-all cursor-pointer flex flex-col md:flex-row md:items-center justify-between gap-3 group ${
-                    isSelected
+                    isBeingDragged
+                      ? 'opacity-40 border-dashed border-emerald-400 bg-emerald-50/20'
+                      : isDragTarget
+                      ? 'border-emerald-500 ring-2 ring-emerald-500/30 bg-emerald-50/50 shadow-md'
+                      : isSelected
                       ? 'border-emerald-500 bg-emerald-50/40 shadow-sm'
                       : 'border-slate-200 bg-white hover:border-emerald-300 hover:shadow-xs'
                   }`}
                 >
-                  <div className="flex items-center gap-3.5 min-w-0">
+                  <div className="flex items-center gap-2.5 min-w-0">
                     {/* Checkbox */}
                     <button
                       type="button"
                       onClick={(e) => toggleSelectEmp(emp.id, e)}
-                      className="p-1 cursor-pointer text-slate-400 hover:text-emerald-600 transition-colors"
+                      className="p-1 cursor-pointer text-slate-400 hover:text-emerald-600 transition-colors shrink-0"
                       title={isSelected ? 'Deselect employee' : 'Select employee'}
                     >
                       {isSelected ? (
@@ -661,9 +740,35 @@ export const ETSEmployeeLogView: React.FC<ETSEmployeeLogViewProps> = ({
                       )}
                     </button>
 
-                    {/* Avatar Initial */}
-                    <div className="w-9 h-9 rounded-xl bg-emerald-100 text-emerald-800 font-bold text-xs flex items-center justify-center flex-shrink-0">
-                      {emp.name.charAt(0)}
+                    {/* Drag Handle & Up/Down Controls before Employee Name */}
+                    <div
+                      className="flex items-center gap-0.5 shrink-0 text-slate-400 hover:text-slate-700"
+                      onClick={(e) => e.stopPropagation()}
+                    >
+                      <div
+                        title="Drag up or down to reorder employee"
+                        className="p-1 rounded cursor-grab active:cursor-grabbing hover:bg-slate-100 hover:text-slate-800 transition-colors flex items-center justify-center"
+                      >
+                        <GripVertical className="w-4 h-4 text-slate-400 hover:text-slate-700" />
+                      </div>
+                      <div className="flex flex-col -space-y-1">
+                        <button
+                          type="button"
+                          onClick={(e) => handleMoveUp(emp.id, e)}
+                          title="Move employee up"
+                          className="p-0.5 text-slate-300 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                        >
+                          <ChevronUp className="w-3 h-3" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => handleMoveDown(emp.id, e)}
+                          title="Move employee down"
+                          className="p-0.5 text-slate-300 hover:text-slate-700 hover:bg-slate-100 rounded transition-colors cursor-pointer"
+                        >
+                          <ChevronDown className="w-3 h-3" />
+                        </button>
+                      </div>
                     </div>
 
                     {/* Details */}
